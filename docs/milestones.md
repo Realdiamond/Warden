@@ -3,7 +3,7 @@
 The full plan lives in the [Warden 2.0 Requirements Set](https://claude.ai/code/artifact/9e32d210-e4da-4bad-b899-a11b5ba06bcf).
 This file tracks the build, one milestone at a time. Tick items as they land.
 
-## M1 — Report to map (in progress)
+## M1 — Report to map (built; testing on real phones next)
 
 - [x] Monorepo, tooling, decision records
 - [x] Shared rules: categories, payload schemas, publication rules, H3 privacy levels
@@ -11,7 +11,13 @@ This file tracks the build, one milestone at a time. Tick items as they land.
 - [x] API: staff login, moderation actions, hash-chained audit log, expiry job
 - [x] Moderator console: queue, incident detail, verify / hold / remove / resolve
 - [x] Android app: map, incident card, quick report, offline outbox, my reports, demo mode
-- [ ] CI: tests on every push; APK published as a GitHub pre-release
+- [x] CI: tests on every push; APK published as a GitHub pre-release
+
+Known follow-ups from M1:
+
+- [ ] The test APK is about 57 MB because it carries two phone architectures; split it per
+      architecture (Play Store bundles do this automatically).
+- [ ] First tests on real low-end Android phones on MTN, Airtel and Glo.
 
 ## M2 — Alerts
 
