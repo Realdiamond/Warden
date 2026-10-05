@@ -1,0 +1,31 @@
+{
+  "name": "@warden/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch src/main.ts",
+    "start": "node src/main.ts",
+    "migrate": "node --env-file-if-exists=.env src/cli/migrate.ts",
+    "create-staff": "node --env-file-if-exists=.env src/cli/create-staff.ts",
+    "seed-demo": "node --env-file-if-exists=.env src/cli/seed-demo.ts",
+    "gen-keys": "node src/cli/gen-keys.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.2",
+    "@fastify/helmet": "13.1.1",
+    "@fastify/static": "10.1.5",
+    "@node-rs/argon2": "2.2.1",
+    "@warden/shared": "workspace:*",
+    "fastify": "5.12.5",
+    "pg": "8.23.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "@types/pg": "8.23.1",
+    "vitest": "5.0.3"
+  }
+}

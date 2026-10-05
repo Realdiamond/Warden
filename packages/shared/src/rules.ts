@@ -46,6 +46,9 @@ export const ACTIVE_TTL_MS: Record<Severity, number> = {
   critical: 24 * 3_600_000,
 };
 
+/** Reports of the same category in the same or a neighbouring cell within this time merge. */
+export const MERGE_WINDOW_MS = 60 * 60_000;
+
 /** Moderator review targets from the Trust and Safety section. */
 export const REVIEW_SLA_MS: Record<Severity, number> = {
   critical: 5 * 60_000,
