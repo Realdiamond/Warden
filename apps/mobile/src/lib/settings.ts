@@ -8,14 +8,14 @@ export interface Settings {
 const SETTINGS_KEY = "warden.settings.v1";
 const INSTALL_KEY = "warden.install.v1";
 
+/**
+ * HTTPS only: Android release builds refuse plain HTTP, and reports must travel encrypted.
+ * A pattern rather than `new URL()`, whose React Native implementation is incomplete.
+ */
+const SERVER_URL = /^https:\/\/[a-z0-9.-]+(:\d{1,5})?(\/[^\s]*)?$/i;
+
 export function isValidServerUrl(value: string): boolean {
-  if (value === "") return true;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
-  } catch {
-    return false;
-  }
+  return value === "" || SERVER_URL.test(value);
 }
 
 export async function loadSettings(store: KeyValueStore, builtInApiUrl: string): Promise<Settings> {

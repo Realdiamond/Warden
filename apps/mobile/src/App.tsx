@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { IncidentCard } from "./components/IncidentCard.tsx";
-import { IncidentMap } from "./components/IncidentMap.tsx";
+import { DEFAULT_CENTER, IncidentMap } from "./components/IncidentMap.tsx";
 import { Button, Icon } from "./components/ui.tsx";
 import { boundsToBBox } from "./lib/geo.ts";
 import { currentPosition } from "./lib/location.ts";
@@ -51,7 +51,15 @@ function Root() {
   const [online, setOnline] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [showUser, setShowUser] = useState(false);
-  const bboxRef = useRef<BBox | null>(null);
+  // Start with the area around the default map centre so incidents load before the first pan.
+  const bboxRef = useRef<BBox>(
+    boundsToBBox([
+      DEFAULT_CENTER[0] - 0.2,
+      DEFAULT_CENTER[1] - 0.15,
+      DEFAULT_CENTER[0] + 0.2,
+      DEFAULT_CENTER[1] + 0.15,
+    ]),
+  );
   const cameraRef = useRef<CameraRef>(null);
   const outbox = useMemo(() => new Outbox(AsyncStorage), []);
 
@@ -69,7 +77,7 @@ function Root() {
 
   const refresh = useCallback(async () => {
     const bbox = bboxRef.current;
-    if (!source || !bbox) return;
+    if (!source) return;
     try {
       setIncidents(await source.incidents(bbox, window));
       setLoadError(false);
@@ -238,6 +246,10 @@ function Root() {
             {sheet === "report" && (
               <ReportFlow
                 styleUrl={MAP_STYLE_URL}
+                mapCenter={{
+                  lat: (bboxRef.current.minLat + bboxRef.current.maxLat) / 2,
+                  lng: (bboxRef.current.minLng + bboxRef.current.maxLng) / 2,
+                }}
                 onClose={() => setSheet(null)}
                 onSubmit={submit}
               />

@@ -164,8 +164,9 @@ describe("settings", () => {
     });
   });
 
-  it("accepts only http(s) server addresses", () => {
+  it("accepts only https server addresses", () => {
     expect(isValidServerUrl("https://api.warden.ng")).toBe(true);
+    expect(isValidServerUrl("http://192.168.1.10:8080")).toBe(false);
     expect(isValidServerUrl("ftp://x")).toBe(false);
     expect(isValidServerUrl("not a url")).toBe(false);
   });

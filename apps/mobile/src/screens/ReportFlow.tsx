@@ -37,11 +37,13 @@ export interface SendOutcome {
 
 interface Props {
   styleUrl: string;
+  /** Where the main map was looking; the starting point when the phone's location is unknown. */
+  mapCenter: { lat: number; lng: number };
   onClose: () => void;
   onSubmit: (body: ReportSubmission) => Promise<SendOutcome>;
 }
 
-export function ReportFlow({ styleUrl, onClose, onSubmit }: Props) {
+export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit }: Props) {
   const [step, setStep] = useState<Step>("group");
   const [group, setGroup] = useState<CategoryGroup | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
@@ -109,7 +111,7 @@ export function ReportFlow({ styleUrl, onClose, onSubmit }: Props) {
       {step === "pick" ? (
         <PickLocation
           styleUrl={styleUrl}
-          start={devicePosition}
+          start={devicePosition ?? mapCenter}
           onPick={(point) => {
             setPlace(point);
             setProximity(proximityBand(devicePosition, point));
