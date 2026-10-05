@@ -69,6 +69,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         fontSrc: ["'self'", "data:"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
+        // Only force HTTPS in production, so the console can be tested over plain HTTP locally.
+        upgradeInsecureRequests: config.env === "production" ? [] : null,
       },
     },
   });
@@ -101,7 +103,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   const consoleDist = config.consoleDist ? resolve(config.consoleDist) : undefined;
   if (consoleDist && existsSync(consoleDist)) {
-    await app.register(fastifyStatic, { root: consoleDist, wildcard: false });
+    await app.register(fastifyStatic, { root: consoleDist });
     app.setNotFoundHandler((request, reply) => {
       if (request.method === "GET" && !request.url.startsWith("/v1/")) {
         return reply.sendFile("index.html");

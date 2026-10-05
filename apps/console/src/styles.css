@@ -1,0 +1,402 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #16181d;
+  --muted: #5b616e;
+  --border: #d9dde4;
+  --accent: #0f5c4d;
+  --accent-text: #ffffff;
+  --danger: #b42318;
+  --critical-bg: #fde7e5;
+  --critical-text: #8f1d14;
+  --high-bg: #fff0dc;
+  --high-text: #8a4200;
+  --standard-bg: #e8eef8;
+  --standard-text: #24427a;
+  --restricted-bg: #fff8e6;
+  --restricted-border: #e9c46a;
+  --focus: #2563eb;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115;
+    --surface: #181b21;
+    --text: #e8eaee;
+    --muted: #a0a7b4;
+    --border: #2c313b;
+    --accent: #3fb59b;
+    --accent-text: #0b1512;
+    --danger: #f97066;
+    --critical-bg: #4a1714;
+    --critical-text: #ffc9c4;
+    --high-bg: #47290a;
+    --high-text: #ffd7a8;
+    --standard-bg: #1c2a44;
+    --standard-text: #c6d6f4;
+    --restricted-bg: #3a2f12;
+    --restricted-border: #8a6d1f;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 0.5rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+button {
+  font: inherit;
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.link-button {
+  border: none;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  padding: 0;
+}
+
+input,
+textarea {
+  font: inherit;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+label {
+  display: block;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.error {
+  color: var(--danger);
+}
+
+.page-message {
+  padding: 2rem 0;
+  color: var(--muted);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+}
+
+/* Layout */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.brand span {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.topbar-right {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.who {
+  color: var(--muted);
+}
+
+.content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 3rem;
+}
+
+/* Sign-in */
+
+.login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  padding: 2rem;
+}
+
+.login-card button {
+  width: 100%;
+}
+
+/* Queue */
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.tab {
+  padding: 0.5rem 0.85rem;
+  text-decoration: none;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+}
+
+.tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+table.queue {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.queue th,
+.queue td {
+  text-align: left;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.queue th {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.overdue {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.badge,
+.tag {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--standard-bg);
+  color: var(--standard-text);
+}
+
+.tag {
+  margin-left: 0.5rem;
+  background: var(--border);
+  color: var(--text);
+}
+
+.severity-critical {
+  background: var(--critical-bg);
+  color: var(--critical-text);
+}
+
+.severity-high {
+  background: var(--high-bg);
+  color: var(--high-text);
+}
+
+/* Incident */
+
+.incident-header .badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.restricted {
+  background: var(--restricted-bg);
+  border: 1px solid var(--restricted-border);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.incident-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 860px) {
+  .incident-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reports {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.reports p {
+  margin: 0.2rem 0;
+}
+
+.report-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.map-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.map {
+  height: 360px;
+}
+
+.map-note,
+.map-legend {
+  margin: 0;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 2px;
+  vertical-align: -1px;
+  margin: 0 0.25rem 0 0.75rem;
+}
+
+.swatch.area {
+  background: #c2410c;
+  opacity: 0.6;
+}
+
+.swatch.point {
+  background: #1d4ed8;
+  border-radius: 50%;
+}
+
+.audit {
+  padding-left: 1.2rem;
+  color: var(--muted);
+}
+
+.dialog {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  width: min(480px, 92vw);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.dialog h2 {
+  margin-top: 0;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

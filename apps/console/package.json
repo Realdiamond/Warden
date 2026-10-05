@@ -1,0 +1,28 @@
+{
+  "name": "@warden/console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@warden/shared": "workspace:*",
+    "maplibre-gl": "6.12.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.3",
+    "@types/react": "~19.2.18",
+    "@types/react-dom": "~19.2.7",
+    "@vitejs/plugin-react": "6.1.2",
+    "jsdom": "30.1.2",
+    "vite": "8.3.2",
+    "vitest": "5.0.3"
+  }
+}
