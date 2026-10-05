@@ -16,7 +16,9 @@ Technical tab of the requirements).
 3. Create the settings file and fill it in:
    ```bash
    cp .env.example .env
-   openssl rand -base64 32   # run three times: POSTGRES_PASSWORD, WARDEN_FIELD_KEY, WARDEN_HMAC_KEY
+   openssl rand -hex 24      # POSTGRES_PASSWORD (hex, so it is safe inside the database address)
+   openssl rand -base64 32   # WARDEN_FIELD_KEY
+   openssl rand -base64 32   # WARDEN_HMAC_KEY
    ```
    Put the three values and your `DOMAIN` into `.env`.
 4. Start everything: `docker compose up -d --build`
