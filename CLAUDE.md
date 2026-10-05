@@ -12,6 +12,11 @@ The founder does not write code. Claude writes all of it; the founder tests on a
 and handles accounts, partners and legal work. Explain changes in plain language, and never ask
 for passwords or API keys in chat — they go in environment secrets.
 
+## Branches
+
+`main` is the default branch. Work happens on descriptive branches named after the milestone,
+for example `feature/m1-report-to-map` or `feature/m2-alerts`, never on auto-generated names.
+
 ## Layout
 
 - `packages/shared` — category taxonomy, payload schemas, publication rules, H3 helpers. Used by
