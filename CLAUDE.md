@@ -24,7 +24,8 @@ for passwords or API keys in chat — they go in environment secrets.
 
 - `pnpm install` — install everything (flat `node_modules`, see `.npmrc`).
 - `pnpm typecheck`, `pnpm test`, `pnpm lint` — run across all packages.
-- API tests need PostgreSQL with PostGIS; see `apps/api/README.md`.
+- API tests need PostgreSQL with PostGIS. In cloud sessions `.claude/hooks/session-start.sh`
+  installs and starts it and creates the `warden_dev` and `warden_test` databases.
 
 ## Rules that must not be broken
 
