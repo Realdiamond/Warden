@@ -45,3 +45,11 @@ jobs:
       - run: pnpm test
       - name: Build the moderator console
         run: pnpm --filter @warden/console build
+
+  docker:
+    name: Build the server image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t warden-api .
