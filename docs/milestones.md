@@ -6,11 +6,11 @@ This file tracks the build, one milestone at a time. Tick items as they land.
 ## M1 — Report to map (in progress)
 
 - [x] Monorepo, tooling, decision records
-- [ ] Shared rules: categories, payload schemas, publication rules, H3 privacy levels
-- [ ] API: anonymous reports, merging, publication rules, map endpoint
-- [ ] API: staff login, moderation actions, hash-chained audit log, expiry job
-- [ ] Moderator console: queue, incident detail, verify / hold / remove / resolve
-- [ ] Android app: map, incident card, quick report, offline outbox, my reports, demo mode
+- [x] Shared rules: categories, payload schemas, publication rules, H3 privacy levels
+- [x] API: anonymous reports, merging, publication rules, map endpoint
+- [x] API: staff login, moderation actions, hash-chained audit log, expiry job
+- [x] Moderator console: queue, incident detail, verify / hold / remove / resolve
+- [x] Android app: map, incident card, quick report, offline outbox, my reports, demo mode
 - [ ] CI: tests on every push; APK published as a GitHub pre-release
 
 ## M2 — Alerts
