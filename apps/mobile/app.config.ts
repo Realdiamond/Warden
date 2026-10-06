@@ -30,6 +30,10 @@ const config: ExpoConfig = {
         locationWhenInUsePermission:
           "Warden uses your location to show nearby safety information and to place your reports.",
         isAndroidBackgroundLocationEnabled: false,
+        // Trips and SOS share location through a visible foreground service, which needs only
+        // "while using the app" permission.
+        isAndroidForegroundServiceEnabled: true,
+        androidForegroundServiceIcon: "./assets/notification-icon.png",
       },
     ],
     ["expo-notifications", { icon: "./assets/notification-icon.png", color: "#0F5C4D" }],

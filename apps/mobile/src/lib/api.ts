@@ -10,8 +10,15 @@ import type {
   ReportReceipt,
   ReportStatus,
   ReportSubmission,
+  SessionPoint,
+  SessionReceipt,
+  SessionStart,
   TimeWindow,
 } from "@warden/shared";
+
+export type SessionStartResult =
+  | { ok: true; receipt: SessionReceipt }
+  | { ok: false; message: string };
 
 export type SendResult =
   | { ok: true; receipt: ReportReceipt }
@@ -108,5 +115,71 @@ export class WardenApi {
     if (response.status === 404 || response.status === 409) return null;
     if (!response.ok) throw new Error(`Reaction failed (${response.status})`);
     return (await response.json()) as ReactionResult;
+  }
+
+  async startSession(body: SessionStart): Promise<SessionStartResult> {
+    try {
+      const response = await this.#request("/v1/sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-warden-install": this.#installId },
+        body: JSON.stringify(body),
+      });
+      if (response.ok) return { ok: true, receipt: (await response.json()) as SessionReceipt };
+      const problem = (await response.json().catch(() => null)) as { title?: string } | null;
+      return { ok: false, message: problem?.title ?? `The server refused (${response.status}).` };
+    } catch {
+      return { ok: false, message: "No connection." };
+    }
+  }
+
+  async #control(sessionId: string, controlToken: string, action: string, body: unknown) {
+    return this.#request(`/v1/sessions/${encodeURIComponent(sessionId)}/${action}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-warden-session-control": controlToken },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async sessionPoints(
+    sessionId: string,
+    controlToken: string,
+    points: SessionPoint[],
+  ): Promise<{ ok: true } | { ok: false; ended: boolean }> {
+    try {
+      const response = await this.#control(sessionId, controlToken, "points", { points });
+      if (response.ok) return { ok: true };
+      return { ok: false, ended: response.status === 404 || response.status === 409 };
+    } catch {
+      return { ok: false, ended: false };
+    }
+  }
+
+  async extendSession(
+    sessionId: string,
+    controlToken: string,
+    minutes: number,
+  ): Promise<string | null> {
+    try {
+      const response = await this.#control(sessionId, controlToken, "extend", { minutes });
+      if (!response.ok) return null;
+      return ((await response.json()) as { expectedArrivalAt: string }).expectedArrivalAt;
+    } catch {
+      return null;
+    }
+  }
+
+  async endSession(
+    sessionId: string,
+    controlToken: string,
+    outcome: "arrived" | "safe" | "cancelled",
+    duress: boolean,
+  ): Promise<boolean> {
+    try {
+      const response = await this.#control(sessionId, controlToken, "end", { outcome, duress });
+      // 404 and 409 mean it is already over, which is what was asked for.
+      return response.ok || response.status === 404 || response.status === 409;
+    } catch {
+      return false;
+    }
   }
 }

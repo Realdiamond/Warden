@@ -60,7 +60,7 @@ async function runCheck(deps: AlertCheckDeps): Promise<AlertCheckResult> {
   if (state.feedId !== deps.feedId) state = { ...state, feedId: deps.feedId, cursor: null };
 
   const places = await alertPlaces(deps.store, prefs);
-  if (places.length === 0) return { state, prefs, notifications: [] };
+  if (!prefs.enabled || places.length === 0) return { state, prefs, notifications: [] };
   const tiles = tilesForPlaces(places);
 
   const fetched: AlertsResponse["alerts"] = [];

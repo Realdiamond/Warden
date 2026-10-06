@@ -31,11 +31,17 @@ Known follow-ups from M1:
 - [x] Background checks about every 15 minutes when the phone allows it
 - [ ] Push delivery for faster alerts once a Firebase project exists (founder)
 
-## M3 — Trips and SOS (contacts only)
+## M3 — Trips and SOS (built; see [ADR 0003](adr/0003-trips-and-sos.md))
 
-- [ ] Trusted contacts with consent
-- [ ] Trip sharing link, deviation and arrival checks
-- [ ] SOS to trusted contacts with SMS fallback, duress PIN, 112 button
+- [x] Trusted contacts (up to five) kept on the phone; "Tell them" sends an invitation text from
+      the person's own phone
+- [x] Trip sharing: private live-location link, arrival time, overdue text to contacts, add time
+- [x] SOS with a five-second countdown, texts to contacts, live location, 112 button
+- [x] Safety PIN and duress PIN (looks like a normal stop, alarms contacts)
+- [x] Live page for contacts at `/live#...`; the secret never reaches server logs
+- [x] Stops and alarms are queued on the phone when there is no signal
+- [ ] Route deviation checks (needs real-world testing of GPS noise first)
+- [ ] Text messages actually sent: needs the SMS provider account (founder)
 
 ## M4 — Responders and channels
 

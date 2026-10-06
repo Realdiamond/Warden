@@ -5,11 +5,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as BackgroundTask from "expo-background-task";
 import Constants from "expo-constants";
 import { randomUUID } from "expo-crypto";
+import type * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import { checkAlerts } from "./lib/alertCheck.ts";
 import { showNotifications } from "./lib/notify.ts";
 import { getInstallId, loadSettings } from "./lib/settings.ts";
 import { createSource } from "./lib/source.ts";
+import { LOCATION_TASK, recordLocations, sendPendingEnds } from "./safetyRuntime.ts";
 
 export const ALERT_TASK = "warden-alert-check";
 const INTERVAL_MINUTES = 15;
@@ -34,6 +36,7 @@ export async function runStoredAlertCheck(options: { notify: boolean }) {
 // Must be defined when the JavaScript bundle loads, before any screen renders.
 TaskManager.defineTask(ALERT_TASK, async () => {
   try {
+    await sendPendingEnds().catch(() => undefined);
     await runStoredAlertCheck({ notify: true });
     return BackgroundTask.BackgroundTaskResult.Success;
   } catch {
@@ -41,16 +44,27 @@ TaskManager.defineTask(ALERT_TASK, async () => {
   }
 });
 
-/** Turns background checks on or off to match the person's alert setting. */
-export async function syncBackgroundChecks(enabled: boolean): Promise<boolean> {
-  const registered = await TaskManager.isTaskRegisteredAsync(ALERT_TASK);
-  if (!enabled) {
-    if (registered) await BackgroundTask.unregisterTaskAsync(ALERT_TASK);
-    return false;
-  }
+// Receives positions from the location service while a trip or SOS is running.
+TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
+  LOCATION_TASK,
+  async ({ data, error }) => {
+    if (error || !data) return;
+    try {
+      await recordLocations(data.locations);
+    } catch {
+      // Kept in the queue; the next update retries.
+    }
+  },
+);
+
+/**
+ * Keeps the background check registered. It sends alerts (when switched on) and any trip or SOS
+ * stop that could not be sent at the time. Returns false when the phone does not allow it.
+ */
+export async function ensureBackgroundChecks(): Promise<boolean> {
   const status = await BackgroundTask.getStatusAsync();
   if (status !== BackgroundTask.BackgroundTaskStatus.Available) return false;
-  if (!registered) {
+  if (!(await TaskManager.isTaskRegisteredAsync(ALERT_TASK))) {
     await BackgroundTask.registerTaskAsync(ALERT_TASK, { minimumInterval: INTERVAL_MINUTES });
   }
   return true;

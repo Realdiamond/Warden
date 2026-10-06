@@ -9,12 +9,15 @@ import {
   type ReactionResult,
   type ReportStatus,
   type ReportSubmission,
+  SESSION_MAX_MS,
+  type SessionPoint,
+  type SessionStart,
   TIME_WINDOW_MS,
   type TimeWindow,
   tierFor,
   tileFor,
 } from "@warden/shared";
-import { type SendResult, WardenApi } from "./api.ts";
+import { type SendResult, type SessionStartResult, WardenApi } from "./api.ts";
 import { DEMO_INCIDENTS } from "./demoData.ts";
 import { insideBBox } from "./geo.ts";
 
@@ -28,6 +31,19 @@ export interface DataSource {
   alerts(tiles: string[], after: string | null): Promise<AlertsResponse>;
   /** Null when the incident is closed or gone. */
   react(incidentId: string, kind: ReactionKind): Promise<ReactionResult | null>;
+  startSession(body: SessionStart): Promise<SessionStartResult>;
+  sessionPoints(
+    sessionId: string,
+    controlToken: string,
+    points: SessionPoint[],
+  ): Promise<{ ok: true } | { ok: false; ended: boolean }>;
+  extendSession(sessionId: string, controlToken: string, minutes: number): Promise<string | null>;
+  endSession(
+    sessionId: string,
+    controlToken: string,
+    outcome: "arrived" | "safe" | "cancelled",
+    duress: boolean,
+  ): Promise<boolean>;
 }
 
 export function liveSource(api: WardenApi): DataSource {
@@ -39,6 +55,10 @@ export function liveSource(api: WardenApi): DataSource {
     status: (id, token) => api.status(id, token),
     alerts: (tiles, after) => api.alerts(tiles, after),
     react: (id, kind) => api.react(id, kind),
+    startSession: (body) => api.startSession(body),
+    sessionPoints: (id, token, points) => api.sessionPoints(id, token, points),
+    extendSession: (id, token, minutes) => api.extendSession(id, token, minutes),
+    endSession: (id, token, outcome, duress) => api.endSession(id, token, outcome, duress),
   };
 }
 
@@ -120,6 +140,28 @@ export function demoSource(now: () => number = Date.now): DataSource {
     async react(incidentId) {
       const item = DEMO_INCIDENTS.find((incident) => incident.id === incidentId);
       return item ? { accepted: true, label: item.label } : null;
+    },
+    // Demo sessions stay on the phone: no link, no messages.
+    async startSession() {
+      return {
+        ok: true,
+        receipt: {
+          sessionId: "demo",
+          viewToken: "demo",
+          controlToken: "demo",
+          viewUrl: null,
+          expiresAt: new Date(now() + SESSION_MAX_MS).toISOString(),
+        },
+      };
+    },
+    async sessionPoints() {
+      return { ok: true };
+    },
+    async extendSession(_id, _token, minutes) {
+      return new Date(now() + minutes * 60_000).toISOString();
+    },
+    async endSession() {
+      return true;
     },
   };
 }

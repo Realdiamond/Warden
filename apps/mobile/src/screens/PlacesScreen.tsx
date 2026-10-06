@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { syncBackgroundChecks } from "../background.ts";
+import { ensureBackgroundChecks } from "../background.ts";
 import { Button, Icon, ModalHeader, Note } from "../components/ui.tsx";
 import {
   type AlertPrefs,
@@ -78,7 +78,7 @@ export function PlacesScreen({
       setPlaces(await loadPlaces(AsyncStorage));
       const loaded = await loadAlertPrefs(AsyncStorage);
       setPrefs(loaded);
-      setBackgroundOk(await syncBackgroundChecks(loaded.enabled).catch(() => false));
+      setBackgroundOk(await ensureBackgroundChecks().catch(() => false));
     })();
   }, []);
 
@@ -95,7 +95,7 @@ export function PlacesScreen({
       if (!next.aroundMe && prefs.aroundMe) await clearLastArea(AsyncStorage);
       setPrefs(next);
       await saveAlertPrefs(AsyncStorage, next);
-      setBackgroundOk(await syncBackgroundChecks(next.enabled).catch(() => false));
+      setBackgroundOk(await ensureBackgroundChecks().catch(() => false));
       onChanged();
     },
     [prefs, onChanged],

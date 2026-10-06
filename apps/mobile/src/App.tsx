@@ -23,10 +23,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { runStoredAlertCheck, syncBackgroundChecks } from "./background.ts";
+import { ensureBackgroundChecks, runStoredAlertCheck } from "./background.ts";
 import { IncidentCard } from "./components/IncidentCard.tsx";
 import { DEFAULT_CENTER, IncidentMap } from "./components/IncidentMap.tsx";
-import { Button, Icon } from "./components/ui.tsx";
+import { Button, EmergencyCallButton, Icon, ModalHeader, Note } from "./components/ui.tsx";
 import {
   type AlertState,
   EMPTY_ALERT_STATE,
@@ -43,14 +43,25 @@ import { alertIdFromResponse, setUpNotifications, speakAlerts } from "./lib/noti
 import { Outbox } from "./lib/outbox.ts";
 import { loadPlaces, saveLastArea } from "./lib/places.ts";
 import { loadReactions, type ReactionMemory, rememberReaction } from "./lib/reactions.ts";
+import { type ActiveSession, loadActive, minutesLeft } from "./lib/safety.ts";
 import { getInstallId, loadSettings, type Settings, saveSettings } from "./lib/settings.ts";
 import { createSource } from "./lib/source.ts";
 import { COLORS } from "./lib/ui.ts";
+import {
+  extendActive,
+  finishActive,
+  sendPendingEnds,
+  startSafetySession,
+} from "./safetyRuntime.ts";
 import { AlertsScreen } from "./screens/AlertsScreen.tsx";
 import { MyReports } from "./screens/MyReports.tsx";
 import { PlacesScreen } from "./screens/PlacesScreen.tsx";
 import { ReportFlow, type SendOutcome } from "./screens/ReportFlow.tsx";
+import { SafetyScreen } from "./screens/SafetyScreen.tsx";
+import { SessionScreen } from "./screens/SessionScreen.tsx";
 import { SettingsScreen } from "./screens/SettingsScreen.tsx";
+import { SosCountdown } from "./screens/SosCountdown.tsx";
+import { type TripPlan, TripScreen } from "./screens/TripScreen.tsx";
 
 const extra = (Constants.expoConfig?.extra ?? {}) as { apiUrl?: string; mapStyleUrl?: string };
 const BUILT_IN_API_URL = extra.apiUrl ?? "";
@@ -70,7 +81,19 @@ export function App() {
   );
 }
 
-type Sheet = "report" | "mine" | "settings" | "alerts" | "places" | null;
+type Sheet =
+  | "report"
+  | "mine"
+  | "settings"
+  | "alerts"
+  | "places"
+  | "menu"
+  | "safety"
+  | "trip"
+  | "session"
+  | "sos"
+  | "sosFailed"
+  | null;
 
 /** How often the open app checks for alerts. */
 const ALERT_POLL_MS = 60_000;
@@ -88,6 +111,8 @@ function Root() {
   const [alertState, setAlertState] = useState<AlertState>(EMPTY_ALERT_STATE);
   const [placeCount, setPlaceCount] = useState(0);
   const [reactions, setReactions] = useState<ReactionMemory>({});
+  const [active, setActive] = useState<ActiveSession | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   // Start with the area around the default map centre so incidents load before the first pan.
   const bboxRef = useRef<BBox>(
     boundsToBBox([
@@ -107,9 +132,10 @@ function Root() {
       setAlertState(await loadAlertState(AsyncStorage));
       setPlaceCount((await loadPlaces(AsyncStorage)).length);
       setReactions(await loadReactions(AsyncStorage));
-      const prefs = await loadAlertPrefs(AsyncStorage);
+      setActive(await loadActive(AsyncStorage));
+      void sendPendingEnds().catch(() => undefined);
       await setUpNotifications().catch(() => undefined);
-      await syncBackgroundChecks(prefs.enabled).catch(() => false);
+      await ensureBackgroundChecks().catch(() => false);
     })();
   }, []);
 
@@ -223,6 +249,62 @@ function Root() {
     },
     [source, reactions, refresh],
   );
+
+  // Trips and SOS. The location service updates storage; the screen reads it back.
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => {
+      void loadActive(AsyncStorage).then(setActive);
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [active]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 6_000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const startTrip = useCallback(async (plan: TripPlan): Promise<string | null> => {
+    const result = await startSafetySession("trip", {
+      expectedArrivalAt: new Date(Date.now() + plan.minutes * 60_000).toISOString(),
+      destination: plan.destination,
+      note: plan.note,
+    });
+    if (!result.ok) return `Could not start: ${result.message}`;
+    setActive(result.session);
+    setSheet("session");
+    if (!result.sharing) setToast("Location permission is needed to share your trip.");
+    return null;
+  }, []);
+
+  const sendSos = useCallback(async () => {
+    setSheet("session");
+    const result = await startSafetySession("sos");
+    if (!result.ok) {
+      setSheet("sosFailed");
+      return;
+    }
+    setActive(result.session);
+  }, []);
+
+  const finish = useCallback(async (outcome: "arrived" | "safe" | "cancelled", duress: boolean) => {
+    const sent = await finishActive(outcome, duress);
+    setActive(null);
+    setSheet(null);
+    // The same words whether or not a duress PIN was used.
+    setToast(
+      sent
+        ? "Stopped sharing your location."
+        : "Stopped. Your contacts will be told when you are back online.",
+    );
+  }, []);
+
+  const extend = useCallback(async (minutes: number) => {
+    const updated = await extendActive(minutes);
+    if (updated) setActive(updated);
+    else setToast("Could not add time. Check your connection and try again.");
+  }, []);
 
   const regionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onRegionChange = useCallback(
@@ -351,6 +433,22 @@ function Root() {
         {online && loadError && source.kind === "live" && (
           <Text style={styles.banner}>Could not reach the Warden server.</Text>
         )}
+        {active && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setSheet("session")}
+            style={[styles.sessionBanner, active.kind === "sos" && styles.sessionBannerSos]}
+          >
+            <Icon
+              name={active.kind === "sos" ? "alarm-light" : "map-marker-path"}
+              color="#FFFFFF"
+            />
+            <Text style={styles.sessionBannerText}>
+              {active.kind === "sos" ? "SOS is on. Tap to manage." : tripBanner(active)}
+            </Text>
+          </Pressable>
+        )}
+        {toast && <Text style={styles.banner}>{toast}</Text>}
       </SafeAreaView>
 
       <SafeAreaView edges={["bottom"]} style={styles.bottom} pointerEvents="box-none">
@@ -365,11 +463,11 @@ function Root() {
         <View style={styles.actions}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="My reports"
-            onPress={() => setSheet("mine")}
-            style={styles.roundButton}
+            accessibilityLabel="SOS: alert my trusted contacts"
+            onPress={() => setSheet(active ? "session" : "sos")}
+            style={styles.sosButton}
           >
-            <Icon name="format-list-bulleted" color={COLORS.primary} />
+            <Text style={styles.sosText}>SOS</Text>
           </Pressable>
           <View style={styles.reportButton}>
             <Button
@@ -381,11 +479,19 @@ function Root() {
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Settings"
-            onPress={() => setSheet("settings")}
+            accessibilityLabel="Share my trip"
+            onPress={() => setSheet(active ? "session" : "trip")}
             style={styles.roundButton}
           >
-            <Icon name="cog" color={COLORS.primary} />
+            <Icon name="map-marker-path" color={COLORS.primary} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Menu"
+            onPress={() => setSheet("menu")}
+            style={styles.roundButton}
+          >
+            <Icon name="menu" color={COLORS.primary} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -425,6 +531,80 @@ function Root() {
                 onChanged={() => void placesChanged()}
               />
             )}
+            {sheet === "menu" && (
+              <View style={styles.menu}>
+                <ModalHeader title="Menu" onClose={() => setSheet(null)} />
+                <View style={styles.menuItems}>
+                  <Button
+                    label="My reports"
+                    icon="format-list-bulleted"
+                    onPress={() => setSheet("mine")}
+                  />
+                  <Button
+                    label="Alerts and places"
+                    icon="bell-outline"
+                    onPress={() => setSheet("alerts")}
+                  />
+                  <Button
+                    label="Safety contacts and PIN"
+                    icon="account-heart"
+                    onPress={() => setSheet("safety")}
+                  />
+                  <Button
+                    label="Share my trip"
+                    icon="map-marker-path"
+                    onPress={() => setSheet(active ? "session" : "trip")}
+                  />
+                  <Button label="Settings" icon="cog" onPress={() => setSheet("settings")} />
+                  <EmergencyCallButton />
+                </View>
+              </View>
+            )}
+            {sheet === "safety" && <SafetyScreen onClose={() => setSheet(null)} />}
+            {sheet === "trip" && (
+              <TripScreen
+                styleUrl={MAP_STYLE_URL}
+                mapCenter={mapCenter}
+                onStart={startTrip}
+                onContacts={() => setSheet("safety")}
+                onClose={() => setSheet(null)}
+              />
+            )}
+            {sheet === "sos" && (
+              <SosCountdown onSend={() => void sendSos()} onCancel={() => setSheet(null)} />
+            )}
+            {sheet === "session" &&
+              (active ? (
+                <SessionScreen
+                  session={active}
+                  demo={active.feedId === "demo"}
+                  onExtend={extend}
+                  onFinish={finish}
+                  onClose={() => setSheet(null)}
+                />
+              ) : (
+                <View style={styles.loading}>
+                  <ActivityIndicator size="large" color={COLORS.danger} />
+                </View>
+              ))}
+            {sheet === "sosFailed" && (
+              <View style={styles.menu}>
+                <ModalHeader title="SOS" onClose={() => setSheet(null)} />
+                <View style={styles.menuItems}>
+                  <Note tone="warning">
+                    Warden could not be reached, so your contacts were not alerted. Call 112 or text
+                    someone you trust.
+                  </Note>
+                  <EmergencyCallButton />
+                  <Button
+                    label="Try again"
+                    variant="danger"
+                    icon="alarm-light"
+                    onPress={() => void sendSos()}
+                  />
+                </View>
+              </View>
+            )}
             {sheet === "settings" && (
               <SettingsScreen
                 settings={settings}
@@ -437,6 +617,14 @@ function Root() {
       </Modal>
     </View>
   );
+}
+
+function tripBanner(session: ActiveSession): string {
+  const left = minutesLeft(session, new Date());
+  if (left === null) return "Sharing your trip. Tap to manage.";
+  return left >= 0
+    ? `Sharing your trip · ${left} min left`
+    : `Sharing your trip · ${-left} min late`;
 }
 
 const styles = StyleSheet.create({
@@ -494,5 +682,30 @@ const styles = StyleSheet.create({
   bottom: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 12, gap: 12 },
   actions: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 12 },
   reportButton: { flex: 1 },
+  sosButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.danger,
+    elevation: 4,
+  },
+  sosText: { color: "#FFFFFF", fontWeight: "800", fontSize: 16 },
+  sessionBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    alignSelf: "flex-start",
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    backgroundColor: COLORS.primary,
+    elevation: 3,
+  },
+  sessionBannerSos: { backgroundColor: COLORS.danger },
+  sessionBannerText: { color: "#FFFFFF", fontWeight: "700" },
+  menu: { flex: 1 },
+  menuItems: { padding: 16, gap: 12 },
   modal: { flex: 1, backgroundColor: COLORS.background },
 });
