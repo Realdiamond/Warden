@@ -2,8 +2,10 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.ts";
 import { type Config, loadConfig } from "../src/config.ts";
+import { Cipher, Hasher } from "../src/crypto.ts";
 import { migrate } from "../src/db/migrate.ts";
 import { createPool, type Pool } from "../src/db/pool.ts";
+import type { ServiceDeps } from "../src/services/deps.ts";
 import { createStaff } from "../src/services/staff.ts";
 
 export const TEST_DATABASE_URL =
@@ -104,4 +106,18 @@ export async function signInStaff(ctx: TestContext, role: "moderator" | "admin" 
   const cookie = response.cookies.find((c) => c.name === "warden_staff");
   if (!cookie) throw new Error(`Login failed: ${response.statusCode} ${response.body}`);
   return { email, cookie: `warden_staff=${cookie.value}` };
+}
+
+/** The same service dependencies the app uses, with the test clock, for calling services directly. */
+export function serviceDeps(ctx: TestContext): ServiceDeps {
+  return {
+    pool: ctx.pool,
+    cipher: new Cipher({
+      currentKeyId: ctx.config.fieldKeyId,
+      keys: new Map([[ctx.config.fieldKeyId, ctx.config.fieldKey]]),
+    }),
+    hasher: new Hasher(ctx.config.hmacKey),
+    now: ctx.now,
+    random: () => 0,
+  };
 }

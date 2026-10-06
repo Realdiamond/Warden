@@ -5,6 +5,7 @@ import {
   createTestContext,
   LAGOS,
   mapAround,
+  serviceDeps,
   signInStaff,
   submitReport,
   type TestContext,
@@ -211,19 +212,7 @@ describe("housekeeping", () => {
   it("resolves incidents with no new reports after their active window", async () => {
     await submitReport(ctx, { categoryId: "theft", location: LAGOS });
     ctx.advance(6 * 3_600_000 + 1);
-    // Build the same deps the app uses, with the test clock.
-    const { Cipher, Hasher } = await import("../src/crypto.ts");
-    const deps = {
-      pool: ctx.pool,
-      cipher: new Cipher({
-        currentKeyId: ctx.config.fieldKeyId,
-        keys: new Map([[ctx.config.fieldKeyId, ctx.config.fieldKey]]),
-      }),
-      hasher: new Hasher(ctx.config.hmacKey),
-      now: ctx.now,
-      random: () => 0,
-    };
-    expect(await runHousekeeping(deps)).toEqual({ expired: 1 });
+    expect(await runHousekeeping(serviceDeps(ctx))).toEqual({ expired: 1 });
     const map = await mapAround(ctx);
     expect(map.incidents[0]).toMatchObject({ label: "Resolved", active: false });
   });

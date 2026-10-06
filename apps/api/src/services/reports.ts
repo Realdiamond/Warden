@@ -18,6 +18,7 @@ import {
 import { cellCenter, cellsFor, isInNigeria, nearbyCells, publicCellFor } from "@warden/shared/geo";
 import { randomToken, safeEqual, sha256 } from "../crypto.ts";
 import { type Client, withTransaction } from "../db/pool.ts";
+import { loadIncidentForAlert, recordIncidentAlert } from "./alerts.ts";
 import { appendAudit } from "./audit.ts";
 import type { ServiceDeps } from "./deps.ts";
 
@@ -200,7 +201,9 @@ async function mergeOrCreateIncident(
         WHERE id = $1`,
       [candidate.id, independent, nextState, publishAfter, now, activeUntil],
     );
-    if (released) {
+    if (released && publishAfter) {
+      const incident = await loadIncidentForAlert(client, candidate.id);
+      if (incident) await recordIncidentAlert(client, incident, "new", publishAfter, now);
       await appendAudit(client, {
         at: now,
         actorType: "system",
@@ -247,6 +250,10 @@ async function mergeOrCreateIncident(
       activeUntil,
     ],
   );
+  if (publishAfter) {
+    const incident = await loadIncidentForAlert(client, id);
+    if (incident) await recordIncidentAlert(client, incident, "new", publishAfter, now);
+  }
   return id;
 }
 

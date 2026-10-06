@@ -22,6 +22,7 @@ import {
 } from "@warden/shared";
 import { cellBoundary, cellCenter } from "@warden/shared/geo";
 import { withTransaction } from "../db/pool.ts";
+import { alertForTransition, isActiveLive, loadIncidentForAlert } from "./alerts.ts";
 import { appendAudit } from "./audit.ts";
 import { floorToMinute, type ServiceDeps } from "./deps.ts";
 
@@ -42,10 +43,14 @@ interface IncidentRow {
   last_report_at: Date;
   publish_after: Date | null;
   active_until: Date;
+  confirmations: number;
+  over_votes: number;
+  false_votes: number;
 }
 
 const INCIDENT_COLUMNS = `id, category_id, severity, state, public_cell, report_count,
-  independent_reports, first_reported_at, last_report_at, publish_after, active_until`;
+  independent_reports, first_reported_at, last_report_at, publish_after, active_until,
+  confirmations, over_votes, false_votes`;
 
 export async function mapIncidents(deps: ServiceDeps, query: MapQuery): Promise<PublicIncident[]> {
   const now = deps.now();
@@ -73,7 +78,7 @@ export async function mapIncidents(deps: ServiceDeps, query: MapQuery): Promise<
   );
 
   return rows.flatMap((row): PublicIncident[] => {
-    const label = publicLabel(row.state, row.independent_reports);
+    const label = publicLabel(row.state, row.independent_reports + row.confirmations);
     if (!label) return [];
     return [
       {
@@ -216,7 +221,10 @@ export async function incidentDetail(
 
     return {
       ...toQueueItem(row, now),
-      publicLabel: publicLabel(row.state, row.independent_reports),
+      publicLabel: publicLabel(row.state, row.independent_reports + row.confirmations),
+      confirmations: row.confirmations,
+      overVotes: row.over_votes,
+      falseVotes: row.false_votes,
       reports: decrypted,
       audit: audit.rows.map((entry) => ({
         id: entry.id,
@@ -255,6 +263,8 @@ export async function moderateIncident(
 
     const result = applyAction(row.state, decision.action, category);
     if (!result.ok) return { ok: false, status: 409, message: result.error };
+    const before = await loadIncidentForAlert(client, incidentId);
+    const wasLive = before ? isActiveLive(before, now) : false;
 
     await client.query(
       `UPDATE incidents
@@ -284,6 +294,7 @@ export async function moderateIncident(
       reason: decision.reason ?? null,
       details: { from: row.state, to: result.state },
     });
+    await alertForTransition(client, incidentId, { wasLive, previousState: row.state }, now);
 
     return { ok: true, id: incidentId, previousState: row.state, state: result.state };
   });
@@ -293,15 +304,24 @@ export async function moderateIncident(
 export async function runHousekeeping(deps: ServiceDeps): Promise<{ expired: number }> {
   const now = deps.now();
   return withTransaction(deps.pool, async (client) => {
-    const expired = await client.query<{ id: string; state: IncidentState }>(
-      `UPDATE incidents
+    const expired = await client.query<{ id: string; was_live: boolean; previous: IncidentState }>(
+      `UPDATE incidents AS i
           SET state = 'resolved', resolved_at = $1, updated_at = $1
-        WHERE state = ANY('{unconfirmed,verified,disputed}'::text[])
-          AND active_until < $1
-        RETURNING id`,
+         FROM incidents AS old
+        WHERE old.id = i.id
+          AND i.state = ANY('{unconfirmed,verified,disputed}'::text[])
+          AND i.active_until < $1
+        RETURNING i.id, old.state AS previous,
+          (i.handling = 'public' AND i.publish_after IS NOT NULL AND i.publish_after <= $1) AS was_live`,
       [now],
     );
     for (const row of expired.rows) {
+      await alertForTransition(
+        client,
+        row.id,
+        { wasLive: row.was_live, previousState: row.previous },
+        now,
+      );
       await appendAudit(client, {
         at: now,
         actorType: "system",

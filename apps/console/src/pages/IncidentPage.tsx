@@ -83,6 +83,12 @@ export function IncidentPage({ id }: { id: string }) {
           {timeAgo(incident.firstReportedAt)} · latest {timeAgo(incident.lastReportAt)}
           {incident.state === "held" && ` · review ${reviewDue(incident.reviewDueInMs)}`}
         </p>
+        {incident.confirmations + incident.overVotes + incident.falseVotes > 0 && (
+          <p className="muted">
+            People nearby: {incident.confirmations} still happening · {incident.overVotes} it's over
+            · {incident.falseVotes} looks false
+          </p>
+        )}
       </header>
 
       <p className="restricted" role="note">

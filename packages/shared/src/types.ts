@@ -86,6 +86,10 @@ export interface AuditEntry {
 
 export interface IncidentDetail extends QueueItem {
   publicLabel: PublicLabel | null;
+  /** Community reactions from distinct phones. */
+  confirmations: number;
+  overVotes: number;
+  falseVotes: number;
   reports: ModeratorReport[];
   audit: AuditEntry[];
   allowedActions: ModerationAction[];

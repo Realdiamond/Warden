@@ -120,6 +120,12 @@ try {
       WHERE id IN (SELECT incident_id FROM reports WHERE id = ANY($1::uuid[]))`,
     [reportIds],
   );
+  // Alerts for demo incidents carry the demo source so phones can label them as not real.
+  await pool.query(
+    `UPDATE alert_events SET source = 'demo'
+      WHERE incident_id IN (SELECT incident_id FROM reports WHERE id = ANY($1::uuid[]))`,
+    [reportIds],
+  );
   console.log(`Seeded ${reportIds.length} demo reports into ${rowCount} incidents.`);
 } finally {
   await pool.end();

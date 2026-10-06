@@ -28,6 +28,8 @@ TEST_DATABASE_URL=postgres://warden:warden_dev@localhost:5432/warden_test pnpm t
 | `POST /v1/reports` | Anyone (headers `X-Warden-Install`, `Idempotency-Key`) | Anonymous report |
 | `GET /v1/reports/:id/status` | The reporter (`X-Warden-Status-Token`) | Status of one's own report |
 | `GET /v1/map/incidents?bbox=&window=&categories=` | Anyone | Public incidents as H3 areas |
+| `GET /v1/alerts?tiles=&after=` | Anyone | Alert events for coarse 0.1° tiles; phones match saved places locally |
+| `POST /v1/incidents/:id/reactions` | Anyone (header `X-Warden-Install`) | `confirm`, `over` or `false`; one per phone per incident |
 | `POST /v1/admin/login`, `POST /v1/admin/logout`, `GET /v1/admin/me` | Staff | Session cookie |
 | `GET /v1/admin/queue?state=` | Staff | Moderation queue |
 | `GET /v1/admin/incidents/:id` | Staff | Detail with decrypted reports (audited) |
