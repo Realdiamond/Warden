@@ -28,6 +28,12 @@ services:
       MIGRATE_ON_START: "true"
       TRUST_PROXY: "true"
       LOG_LEVEL: info
+      # Links sent to trusted contacts point here.
+      PUBLIC_WEB_URL: https://${DOMAIN}
+      # "log" until an SMS provider account exists; then "termii" with the key below.
+      SMS_DRIVER: ${SMS_DRIVER:-log}
+      TERMII_API_KEY: ${TERMII_API_KEY:-}
+      TERMII_SENDER_ID: ${TERMII_SENDER_ID:-Warden}
 
   caddy:
     image: caddy:2

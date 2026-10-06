@@ -172,8 +172,8 @@ export async function alertFeed(deps: ServiceDeps, query: AlertsQuery): Promise<
         AND visible_at <= $2
         AND (visible_at, id) > ($3, $4::bigint)
       ORDER BY visible_at, id
-      LIMIT ${FEED_LIMIT}`,
-    [query.tiles, upTo, after.at, after.id],
+      LIMIT $5`,
+    [query.tiles, upTo, after.at, after.id, FEED_LIMIT],
   );
 
   const alerts: PublicAlert[] = rows.map((row) => ({

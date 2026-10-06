@@ -7,6 +7,7 @@ import { migrate } from "../src/db/migrate.ts";
 import { createPool, type Pool } from "../src/db/pool.ts";
 import type { ServiceDeps } from "../src/services/deps.ts";
 import { createStaff } from "../src/services/staff.ts";
+import { MemorySmsSender } from "../src/sms/sender.ts";
 
 export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? "postgres://warden:warden_dev@localhost:5432/warden_test";
@@ -18,6 +19,7 @@ export interface TestContext {
   pool: Pool;
   config: Config;
   logs: string[];
+  sms: MemorySmsSender;
   now: () => Date;
   advance: (ms: number) => void;
   close: () => Promise<void>;
@@ -37,11 +39,14 @@ export async function createTestContext(): Promise<TestContext> {
     LOG_LEVEL: "info",
     WARDEN_FIELD_KEY: randomBytes(32).toString("base64"),
     WARDEN_HMAC_KEY: randomBytes(32).toString("base64"),
+    PUBLIC_WEB_URL: "https://warden.test",
   });
 
   let current = new Date("2026-10-05T12:00:00.000Z");
   const logs: string[] = [];
+  const sms = new MemorySmsSender();
   const app = await buildApp({
+    sms,
     config,
     pool,
     now: () => current,
@@ -55,6 +60,7 @@ export async function createTestContext(): Promise<TestContext> {
     pool,
     config,
     logs,
+    sms,
     now: () => current,
     advance: (ms) => {
       current = new Date(current.getTime() + ms);
@@ -119,5 +125,8 @@ export function serviceDeps(ctx: TestContext): ServiceDeps {
     hasher: new Hasher(ctx.config.hmacKey),
     now: ctx.now,
     random: () => 0,
+    sms: ctx.sms,
+    smsHourlyCap: ctx.config.sms.hourlyCap,
+    publicWebUrl: ctx.config.publicWebUrl,
   };
 }

@@ -36,6 +36,18 @@ const EnvSchema = z.object({
   MAP_ORIGINS: z.string().default("https://tiles.openfreemap.org"),
   /** Run database migrations when the server starts (handy for small deployments). */
   MIGRATE_ON_START: booleanString.default(false),
+  /** Public address of this server, used in links sent to trusted contacts. */
+  PUBLIC_WEB_URL: z
+    .string()
+    .regex(/^https?:\/\/[^\s/]+(\/[^\s]*)?$/, "PUBLIC_WEB_URL must be a full URL")
+    .optional(),
+  /** "log" until an SMS provider account exists. */
+  SMS_DRIVER: z.enum(["log", "termii"]).default("log"),
+  TERMII_API_KEY: z.string().optional(),
+  TERMII_SENDER_ID: z.string().max(11).default("Warden"),
+  TERMII_BASE_URL: z.string().default("https://api.ng.termii.com"),
+  /** Safety valve: at most this many text messages an hour across the whole service. */
+  SMS_HOURLY_CAP: z.coerce.number().int().min(1).default(500),
 });
 
 export interface Config {
@@ -52,6 +64,10 @@ export interface Config {
   consoleDist: string | undefined;
   mapOrigins: string[];
   migrateOnStart: boolean;
+  publicWebUrl: string | null;
+  sms:
+    | { driver: "log"; hourlyCap: number }
+    | { driver: "termii"; hourlyCap: number; apiKey: string; senderId: string; baseUrl: string };
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -63,6 +79,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`Invalid configuration:\n${problems.join("\n")}`);
   }
   const e = parsed.data;
+  if (e.SMS_DRIVER === "termii" && !e.TERMII_API_KEY) {
+    throw new Error("Invalid configuration:\n- TERMII_API_KEY is required when SMS_DRIVER=termii");
+  }
   return {
     env: e.NODE_ENV,
     host: e.HOST,
@@ -79,5 +98,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .map((origin) => origin.trim())
       .filter(Boolean),
     migrateOnStart: e.MIGRATE_ON_START,
+    publicWebUrl: e.PUBLIC_WEB_URL?.replace(/\/+$/, "") ?? null,
+    sms:
+      e.SMS_DRIVER === "termii"
+        ? {
+            driver: "termii",
+            hourlyCap: e.SMS_HOURLY_CAP,
+            apiKey: e.TERMII_API_KEY ?? "",
+            senderId: e.TERMII_SENDER_ID,
+            baseUrl: e.TERMII_BASE_URL,
+          }
+        : { driver: "log", hourlyCap: e.SMS_HOURLY_CAP },
   };
 }

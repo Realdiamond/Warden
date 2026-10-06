@@ -70,6 +70,9 @@ importers:
       '@testing-library/react':
         specifier: 16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@types/geojson':
+        specifier: 7946.0.16
+        version: 7946.0.16
       '@types/react':
         specifier: ~19.2.18
         version: 19.2.18

@@ -11,8 +11,12 @@ import type { Pool } from "./db/pool.ts";
 import { problem } from "./http.ts";
 import { registerAdminRoutes } from "./routes/admin.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
+import { registerSessionRoutes } from "./routes/sessions.ts";
 import type { ServiceDeps } from "./services/deps.ts";
 import { runHousekeeping } from "./services/incidents.ts";
+import { runSessionHousekeeping } from "./services/sessions.ts";
+import { deliverDueSms } from "./services/sms.ts";
+import { LogSmsSender, type SmsSender, TermiiSmsSender } from "./sms/sender.ts";
 
 export interface AppOptions {
   config: Config;
@@ -23,10 +27,18 @@ export interface AppOptions {
   logStream?: { write(line: string): void };
   /** Run expiry and clean-up on this interval; off when omitted. */
   housekeepingIntervalMs?: number;
+  /** Replaces the configured SMS sender; tests pass an in-memory one. */
+  sms?: SmsSender;
 }
 
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const { config, pool } = options;
+  let logSms: (entry: Record<string, unknown>) => void = () => undefined;
+  const sms =
+    options.sms ??
+    (config.sms.driver === "termii"
+      ? new TermiiSmsSender(config.sms)
+      : new LogSmsSender((entry) => logSms(entry)));
 
   const deps: ServiceDeps = {
     pool,
@@ -37,6 +49,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     hasher: new Hasher(config.hmacKey),
     now: options.now ?? (() => new Date()),
     random: options.random ?? Math.random,
+    sms,
+    smsHourlyCap: config.sms.hourlyCap,
+    publicWebUrl: config.publicWebUrl,
   };
 
   const app = Fastify({
@@ -75,6 +90,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     },
   });
   await app.register(cookie);
+  logSms = (entry) => app.log.info(entry, "sms");
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof ZodError) {
@@ -99,6 +115,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   registerPublicRoutes(app, deps);
+  registerSessionRoutes(app, deps);
   registerAdminRoutes(app, deps, config);
 
   const consoleDist = config.consoleDist ? resolve(config.consoleDist) : undefined;
@@ -106,7 +123,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     await app.register(fastifyStatic, { root: consoleDist });
     app.setNotFoundHandler((request, reply) => {
       if (request.method === "GET" && !request.url.startsWith("/v1/")) {
-        return reply.sendFile("index.html");
+        // The page contacts open from a trip or SOS link; everything else is the console.
+        const page = /^\/live\/?(\?|$)/.test(request.url) ? "live.html" : "index.html";
+        return reply.sendFile(page);
       }
       return problem(reply, 404, "Not found");
     });
@@ -120,6 +139,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         .then(({ expired }) => {
           if (expired > 0) app.log.info({ expired }, "incidents expired");
         })
+        .then(() => runSessionHousekeeping(deps))
+        .then((result) => {
+          if (result.overdue + result.expired + result.deleted > 0) {
+            app.log.info(result, "sessions housekeeping");
+          }
+        })
+        .then(() => deliverDueSms(deps))
         .catch((err: unknown) => app.log.error({ err }, "housekeeping failed"));
     }, options.housekeepingIntervalMs);
     timer.unref();

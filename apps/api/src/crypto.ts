@@ -15,7 +15,14 @@ const VERSION = 1;
 const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
 
-export type Purpose = "report.location" | "report.description" | "idempotency.response";
+export type Purpose =
+  | "report.location"
+  | "report.description"
+  | "idempotency.response"
+  | "session.details"
+  | "session.viewToken"
+  | "session.point"
+  | "sms.message";
 
 export interface FieldKeys {
   /** Key id written next to each ciphertext, so keys can be rotated. */

@@ -10,6 +10,7 @@ import { Cipher, Hasher } from "../crypto.ts";
 import { createPool } from "../db/pool.ts";
 import type { ServiceDeps } from "../services/deps.ts";
 import { createReport } from "../services/reports.ts";
+import { LogSmsSender } from "../sms/sender.ts";
 
 const { values } = parseArgs({ options: { force: { type: "boolean", default: false } } });
 const config = loadConfig();
@@ -89,6 +90,10 @@ const baseDeps = {
   }),
   hasher: new Hasher(config.hmacKey),
   random: Math.random,
+  // Demo reports never send text messages.
+  sms: new LogSmsSender(() => undefined),
+  smsHourlyCap: 0,
+  publicWebUrl: null,
 };
 
 const reportIds: string[] = [];

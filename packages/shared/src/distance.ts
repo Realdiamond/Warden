@@ -5,6 +5,18 @@ import type { ProximityBand } from "./schemas.ts";
 
 const EARTH_RADIUS_M = 6_371_008.8;
 
+/** Generous bounding box around Nigeria (about 4.27°N–13.89°N, 2.67°E–14.68°E). */
+export const NIGERIA_BOUNDS = { minLat: 4.0, maxLat: 14.0, minLng: 2.6, maxLng: 14.8 } as const;
+
+export function isInNigeria(lat: number, lng: number): boolean {
+  return (
+    lat >= NIGERIA_BOUNDS.minLat &&
+    lat <= NIGERIA_BOUNDS.maxLat &&
+    lng >= NIGERIA_BOUNDS.minLng &&
+    lng <= NIGERIA_BOUNDS.maxLng
+  );
+}
+
 export interface LatLng {
   lat: number;
   lng: number;
