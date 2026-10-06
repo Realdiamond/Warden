@@ -42,7 +42,8 @@ export function tilesAround(lat: number, lng: number): string[] {
   return tiles;
 }
 
-export const MAX_ALERT_TILES = 45;
+/** Room for five saved places and the current area, nine tiles each. */
+export const MAX_ALERT_TILES = 54;
 const TILE_PATTERN = /^-?\d{1,4}_-?\d{1,4}$/;
 
 export const AlertsQuerySchema = z.object({

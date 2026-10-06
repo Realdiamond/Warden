@@ -1,12 +1,18 @@
 // Where the app gets its data: the live API, or built-in demo data when no server is set up.
 
 import {
+  type AlertsResponse,
   type BBox,
+  type PublicAlert,
   type PublicIncident,
+  type ReactionKind,
+  type ReactionResult,
   type ReportStatus,
   type ReportSubmission,
   TIME_WINDOW_MS,
   type TimeWindow,
+  tierFor,
+  tileFor,
 } from "@warden/shared";
 import { type SendResult, WardenApi } from "./api.ts";
 import { DEMO_INCIDENTS } from "./demoData.ts";
@@ -14,23 +20,61 @@ import { insideBBox } from "./geo.ts";
 
 export interface DataSource {
   kind: "live" | "demo";
+  /** Identifies where alerts come from, so a saved feed position is never sent elsewhere. */
+  feedId: string;
   incidents(bbox: BBox, window: TimeWindow): Promise<PublicIncident[]>;
   send(body: ReportSubmission, idempotencyKey: string): Promise<SendResult>;
   status(reportId: string, statusToken: string): Promise<ReportStatus | null>;
+  alerts(tiles: string[], after: string | null): Promise<AlertsResponse>;
+  /** Null when the incident is closed or gone. */
+  react(incidentId: string, kind: ReactionKind): Promise<ReactionResult | null>;
 }
 
 export function liveSource(api: WardenApi): DataSource {
   return {
     kind: "live",
+    feedId: api.baseUrl,
     incidents: (bbox, window) => api.incidents(bbox, window),
     send: (body, key) => api.submitReport(body, key),
     status: (id, token) => api.status(id, token),
+    alerts: (tiles, after) => api.alerts(tiles, after),
+    react: (id, kind) => api.react(id, kind),
   };
+}
+
+const DEMO_CURSOR = "demo";
+const DEMO_ALERT_WINDOW_MIN = 6 * 60;
+
+/** Demo alerts: the active sample incidents, sent once, labelled as demo. */
+export function demoAlerts(tiles: string[], after: string | null, now: number): AlertsResponse {
+  if (after === DEMO_CURSOR) return { alerts: [], cursor: DEMO_CURSOR };
+  const wanted = new Set(tiles);
+  const alerts: PublicAlert[] = DEMO_INCIDENTS.filter(
+    (item) =>
+      item.active &&
+      item.minutesAgo <= DEMO_ALERT_WINDOW_MIN &&
+      wanted.has(tileFor(item.center.lat, item.center.lng)),
+  )
+    .sort((a, b) => b.minutesAgo - a.minutesAgo)
+    .map((item) => ({
+      id: `demo_${item.id}`,
+      incidentId: item.id,
+      kind: "new",
+      tier: tierFor(item.severity),
+      categoryId: item.categoryId,
+      label: item.label,
+      center: item.center,
+      message: null,
+      source: "demo",
+      visibleAt: new Date(now - item.minutesAgo * 60_000).toISOString(),
+    }));
+  return { alerts, cursor: DEMO_CURSOR };
 }
 
 export function demoSource(now: () => number = Date.now): DataSource {
   return {
     kind: "demo",
+    feedId: "demo",
     async incidents(bbox, window) {
       const cutoff = TIME_WINDOW_MS[window] / 60_000;
       return DEMO_INCIDENTS.filter(
@@ -69,6 +113,13 @@ export function demoSource(now: () => number = Date.now): DataSource {
         reportCount: 1,
         updatedAt: new Date(now()).toISOString(),
       };
+    },
+    async alerts(tiles, after) {
+      return demoAlerts(tiles, after, now());
+    },
+    async react(incidentId) {
+      const item = DEMO_INCIDENTS.find((incident) => incident.id === incidentId);
+      return item ? { accepted: true, label: item.label } : null;
     },
   };
 }

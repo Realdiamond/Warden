@@ -19,11 +19,17 @@ Known follow-ups from M1:
       architecture (Play Store bundles do this automatically).
 - [ ] First tests on real low-end Android phones on MTN, Airtel and Glo.
 
-## M2 — Alerts
+## M2 — Alerts (built; see [ADR 0002](adr/0002-alerts-without-push.md))
 
-- [ ] Saved places kept on the phone; area alerts via push topics per H3 cell
-- [ ] Spoken alerts (English, Pidgin), quiet hours, all-clear and corrections
-- [ ] Reactions: "I can see this", "It's over"
+- [x] Saved places kept on the phone (up to five, plus "where I last was")
+- [x] Alert feed by coarse tiles; the phone matches its own places, so the server never learns them
+- [x] Notifications by tier (danger, warning, advisory), quiet hours, flood control, test alert
+- [x] All-clear ("it's over") and corrections sent only to people who were told
+- [x] Spoken alerts in English while the app is open (Pidgin comes with the translation work)
+- [x] Reactions: "Still happening", "It's over", "Looks false"; community thresholds, never for
+      critical incidents
+- [x] Background checks about every 15 minutes when the phone allows it
+- [ ] Push delivery for faster alerts once a Firebase project exists (founder)
 
 ## M3 — Trips and SOS (contacts only)
 

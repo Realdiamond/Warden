@@ -2,8 +2,11 @@
 // location and a distance band only.
 
 import type {
+  AlertsResponse,
   BBox,
   PublicIncident,
+  ReactionKind,
+  ReactionResult,
   ReportReceipt,
   ReportStatus,
   ReportSubmission,
@@ -83,5 +86,27 @@ export class WardenApi {
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`Status request failed (${response.status})`);
     return (await response.json()) as ReportStatus;
+  }
+
+  /** Alerts for coarse tiles only; the phone matches its saved places itself. */
+  async alerts(tiles: string[], after: string | null): Promise<AlertsResponse> {
+    const query = `tiles=${tiles.join(",")}${after ? `&after=${encodeURIComponent(after)}` : ""}`;
+    const response = await this.#request(`/v1/alerts?${query}`);
+    if (!response.ok) throw new Error(`Alerts request failed (${response.status})`);
+    return (await response.json()) as AlertsResponse;
+  }
+
+  async react(incidentId: string, kind: ReactionKind): Promise<ReactionResult | null> {
+    const response = await this.#request(
+      `/v1/incidents/${encodeURIComponent(incidentId)}/reactions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-warden-install": this.#installId },
+        body: JSON.stringify({ kind }),
+      },
+    );
+    if (response.status === 404 || response.status === 409) return null;
+    if (!response.ok) throw new Error(`Reaction failed (${response.status})`);
+    return (await response.json()) as ReactionResult;
   }
 }

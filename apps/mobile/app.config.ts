@@ -18,7 +18,7 @@ const config: ExpoConfig = {
       foregroundImage: "./assets/android-icon-foreground.png",
       monochromeImage: "./assets/android-icon-monochrome.png",
     },
-    permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+    permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "POST_NOTIFICATIONS"],
     blockedPermissions: ["ACCESS_BACKGROUND_LOCATION"],
     predictiveBackGestureEnabled: false,
   },
@@ -32,6 +32,8 @@ const config: ExpoConfig = {
         isAndroidBackgroundLocationEnabled: false,
       },
     ],
+    ["expo-notifications", { icon: "./assets/notification-icon.png", color: "#0F5C4D" }],
+    "expo-background-task",
   ],
   extra: {
     apiUrl: process.env.WARDEN_API_URL ?? "",

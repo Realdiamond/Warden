@@ -167,7 +167,7 @@ describe("alert feed", () => {
       "",
       "tiles=",
       "tiles=abc",
-      `tiles=${Array.from({ length: 46 }, (_, i) => `1_${i}`).join(",")}`,
+      `tiles=${Array.from({ length: 55 }, (_, i) => `1_${i}`).join(",")}`,
       "tiles=1_1&after=x",
     ]) {
       const response = await ctx.app.inject({ method: "GET", url: `/v1/alerts?${query}` });
