@@ -1,8 +1,17 @@
 import type {
+  BroadcastInput,
+  BroadcastSummary,
+  DeploymentInput,
   IncidentDetail,
   IncidentState,
+  IncidentUpdateInput,
   ModerationAction,
   QueueItem,
+  ResponderDeployment,
+  ResponderInboxItem,
+  ResponderIncidentDetail,
+  SignedBroadcast,
+  SosBoardItem,
   StaffUser,
 } from "@warden/shared";
 
@@ -57,4 +66,38 @@ export const api = {
       `/v1/admin/incidents/${encodeURIComponent(id)}/actions`,
       { method: "POST", body: JSON.stringify(reason ? { action, reason } : { action }) },
     ),
+
+  responder: {
+    incidents: () => request<{ items: ResponderInboxItem[] }>("/v1/admin/responder/incidents"),
+    incident: (id: string) =>
+      request<ResponderIncidentDetail>(`/v1/admin/responder/incidents/${encodeURIComponent(id)}`),
+    update: (id: string, input: IncidentUpdateInput) =>
+      request<{ state: IncidentState }>(
+        `/v1/admin/responder/incidents/${encodeURIComponent(id)}/updates`,
+        { method: "POST", body: JSON.stringify(input) },
+      ),
+    deployments: () => request<{ items: ResponderDeployment[] }>("/v1/admin/responder/deployments"),
+    deploy: (input: DeploymentInput) =>
+      request<{ id: string }>("/v1/admin/responder/deployments", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    endDeployment: (id: string) =>
+      request<void>(`/v1/admin/responder/deployments/${encodeURIComponent(id)}/end`, {
+        method: "POST",
+        body: "{}",
+      }),
+    broadcasts: () => request<{ items: BroadcastSummary[] }>("/v1/admin/responder/broadcasts"),
+    broadcast: (input: BroadcastInput) =>
+      request<SignedBroadcast>("/v1/admin/responder/broadcasts", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    withdraw: (id: string) =>
+      request<void>(`/v1/admin/responder/broadcasts/${encodeURIComponent(id)}/withdraw`, {
+        method: "POST",
+        body: "{}",
+      }),
+    sos: () => request<{ items: SosBoardItem[] }>("/v1/admin/responder/sos"),
+  },
 };

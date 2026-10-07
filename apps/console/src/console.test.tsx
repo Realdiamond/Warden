@@ -35,6 +35,16 @@ describe("router", () => {
     expect(parseRoute("#/queue/bogus")).toEqual({ page: "queue", state: "held" });
     expect(parseRoute("")).toEqual({ page: "queue", state: "held" });
   });
+
+  it("knows the responder pages", () => {
+    expect(parseRoute(routeHref({ page: "r-incident", id: "x1" }))).toEqual({
+      page: "r-incident",
+      id: "x1",
+    });
+    for (const page of ["r-incidents", "r-deployments", "r-broadcasts", "r-sos"] as const) {
+      expect(parseRoute(routeHref({ page }))).toEqual({ page });
+    }
+  });
 });
 
 describe("QueuePage", () => {

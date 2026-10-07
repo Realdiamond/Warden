@@ -6,18 +6,19 @@
 import { randomUUID } from "node:crypto";
 import {
   type BroadcastInput,
+  type BroadcastSummary,
   broadcastSigningText,
   type DeploymentInput,
   type DeploymentKind,
   type DeploymentVisibility,
   type IncidentState,
   type IncidentUpdateInput,
-  type ModeratorReport,
   type OrganisationKind,
   type PublicPresence,
   publicLabel,
   type ResponderDeployment,
   type ResponderInboxItem,
+  type ResponderIncidentDetail,
   type Severity,
   type SignedBroadcast,
   type SosBoardItem,
@@ -136,6 +137,7 @@ function toInboxItem(row: InboxRow): ResponderInboxItem {
     reportCount: row.report_count,
     firstReportedAt: row.first_reported_at.toISOString(),
     lastReportAt: row.last_report_at.toISOString(),
+    cell: row.public_cell,
     center: cellCenter(row.public_cell),
     latestUpdate: responderStatusOf(row),
   };
@@ -163,11 +165,6 @@ export async function responderInbox(
     [orgId(staff), now, new Date(now.getTime() - INBOX_WINDOW_MS)],
   );
   return rows.map(toInboxItem);
-}
-
-export interface ResponderIncidentDetail extends ResponderInboxItem {
-  reports: ModeratorReport[];
-  updates: { kind: string; text: string | null; organisation: string; at: string }[];
 }
 
 async function lockVisibleIncident(
@@ -555,7 +552,10 @@ export async function withdrawBroadcast(
   });
 }
 
-export async function listBroadcasts(deps: ServiceDeps, staff: StaffUser) {
+export async function listBroadcasts(
+  deps: ServiceDeps,
+  staff: StaffUser,
+): Promise<BroadcastSummary[]> {
   const { rows } = await deps.pool.query<{
     id: string;
     tier: string;

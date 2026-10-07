@@ -170,8 +170,33 @@ export interface ResponderInboxItem {
   reportCount: number;
   firstReportedAt: string;
   lastReportAt: string;
+  /** Public H3 area. */
+  cell: string;
   center: { lat: number; lng: number };
   latestUpdate: ResponderStatus | null;
+}
+
+export interface ResponderIncidentDetail extends ResponderInboxItem {
+  reports: {
+    id: string;
+    receivedAt: string;
+    occurredAt: string | null;
+    channel: string;
+    proximity: string;
+    description: string | null;
+    location: { lat: number; lng: number; accuracyM: number | null };
+  }[];
+  updates: { kind: string; text: string | null; organisation: string; at: string }[];
+}
+
+export interface BroadcastSummary {
+  id: string;
+  tier: string;
+  message: string;
+  radiusM: number;
+  createdAt: string;
+  expiresAt: string;
+  withdrawn: boolean;
 }
 
 export interface ResponderDeployment {
