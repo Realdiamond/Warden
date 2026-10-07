@@ -46,6 +46,14 @@ const EnvSchema = z.object({
   TERMII_API_KEY: z.string().optional(),
   TERMII_SENDER_ID: z.string().max(11).default("Warden"),
   TERMII_BASE_URL: z.string().default("https://api.ng.termii.com"),
+  /** Ed25519 seed (base64, 32 bytes) for signing broadcasts; broadcasts are off without it. */
+  WARDEN_SIGNING_KEY: base64Key("WARDEN_SIGNING_KEY").optional(),
+  WARDEN_SIGNING_KEY_ID: z
+    .string()
+    .regex(/^[a-z0-9-]{1,32}$/)
+    .default("s1"),
+  /** Secret part of the USSD callback address given to the USSD provider; USSD is off without it. */
+  USSD_CALLBACK_SECRET: z.string().min(24).optional(),
   /** Safety valve: at most this many text messages an hour across the whole service. */
   SMS_HOURLY_CAP: z.coerce.number().int().min(1).default(500),
 });
@@ -65,6 +73,8 @@ export interface Config {
   mapOrigins: string[];
   migrateOnStart: boolean;
   publicWebUrl: string | null;
+  signingKey: { id: string; seed: Buffer } | null;
+  ussdCallbackSecret: string | null;
   sms:
     | { driver: "log"; hourlyCap: number }
     | { driver: "termii"; hourlyCap: number; apiKey: string; senderId: string; baseUrl: string };
@@ -99,6 +109,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .filter(Boolean),
     migrateOnStart: e.MIGRATE_ON_START,
     publicWebUrl: e.PUBLIC_WEB_URL?.replace(/\/+$/, "") ?? null,
+    signingKey: e.WARDEN_SIGNING_KEY
+      ? { id: e.WARDEN_SIGNING_KEY_ID, seed: e.WARDEN_SIGNING_KEY }
+      : null,
+    ussdCallbackSecret: e.USSD_CALLBACK_SECRET ?? null,
     sms:
       e.SMS_DRIVER === "termii"
         ? {

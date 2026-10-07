@@ -1,6 +1,7 @@
 // Response shapes returned by the API. Public types never carry exact locations or report text.
 
 import type { CategoryId, Severity } from "./categories.ts";
+import type { Organisation, ResponderStatus } from "./responders.ts";
 import type { IncidentState, ModerationAction, PublicLabel } from "./rules.ts";
 import type { ProximityBand } from "./schemas.ts";
 
@@ -21,6 +22,8 @@ export interface PublicIncident {
   cell: string;
   center: { lat: number; lng: number };
   boundary: Ring;
+  /** The latest public update from a verified responder, if any. */
+  responder: ResponderStatus | null;
 }
 
 export interface MapResponse {
@@ -47,7 +50,9 @@ export interface ReportStatus {
 export interface StaffUser {
   id: string;
   email: string;
-  role: "moderator" | "admin";
+  role: "moderator" | "admin" | "responder";
+  /** Set for responders: the organisation they act for. */
+  organisation: Organisation | null;
 }
 
 export interface QueueItem {

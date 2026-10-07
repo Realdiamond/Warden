@@ -8,6 +8,7 @@
     "start": "node src/main.ts",
     "migrate": "node --env-file-if-exists=.env src/cli/migrate.ts",
     "create-staff": "node --env-file-if-exists=.env src/cli/create-staff.ts",
+    "create-org": "node --env-file-if-exists=.env src/cli/create-org.ts",
     "seed-demo": "node --env-file-if-exists=.env src/cli/seed-demo.ts",
     "gen-keys": "node src/cli/gen-keys.ts",
     "typecheck": "tsc -p tsconfig.json",

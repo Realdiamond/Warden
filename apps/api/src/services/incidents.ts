@@ -16,12 +16,15 @@ import {
   publicLabel,
   type QueueItem,
   REVIEW_SLA_MS,
+  type ResponderStatus,
   type Severity,
   type StaffUser,
   TIME_WINDOW_MS,
+  UPDATE_TEXT,
+  type UpdateKind,
 } from "@warden/shared";
 import { cellBoundary, cellCenter } from "@warden/shared/geo";
-import { withTransaction } from "../db/pool.ts";
+import { type Client, withTransaction } from "../db/pool.ts";
 import { alertForTransition, isActiveLive, loadIncidentForAlert } from "./alerts.ts";
 import { appendAudit } from "./audit.ts";
 import { floorToMinute, type ServiceDeps } from "./deps.ts";
@@ -62,9 +65,10 @@ export async function mapIncidents(deps: ServiceDeps, query: MapQuery): Promise<
     params.push(query.categories);
     categoryFilter = `AND category_id = ANY($${params.length}::text[])`;
   }
-  const { rows } = await deps.pool.query<IncidentRow>(
-    `SELECT ${INCIDENT_COLUMNS}
+  const { rows } = await deps.pool.query<IncidentRow & LatestUpdateColumns>(
+    `SELECT ${INCIDENT_COLUMNS}, lu.*
        FROM incidents
+       LEFT JOIN LATERAL (${LATEST_UPDATE_SQL}) lu ON true
       WHERE handling = 'public'
         AND state = ANY($1::text[])
         AND publish_after IS NOT NULL
@@ -93,9 +97,37 @@ export async function mapIncidents(deps: ServiceDeps, query: MapQuery): Promise<
         cell: row.public_cell,
         center: cellCenter(row.public_cell),
         boundary: cellBoundary(row.public_cell),
+        responder: responderStatusOf(row),
       },
     ];
   });
+}
+
+/** The newest responder update for the incident in the outer query. */
+export const LATEST_UPDATE_SQL = `
+  SELECT u.kind AS update_kind, u.public_text AS update_text, u.created_at AS update_at,
+         o.name AS update_org
+    FROM incident_updates u JOIN organisations o ON o.id = u.organisation_id
+   WHERE u.incident_id = incidents.id
+   ORDER BY u.created_at DESC, u.id DESC
+   LIMIT 1`;
+
+export interface LatestUpdateColumns {
+  update_kind: UpdateKind | null;
+  update_text: string | null;
+  update_at: Date | null;
+  update_org: string | null;
+}
+
+export function responderStatusOf(row: LatestUpdateColumns): ResponderStatus | null {
+  if (!row.update_kind || !row.update_at || !row.update_org) return null;
+  const text = row.update_text ?? (row.update_kind === "note" ? "" : UPDATE_TEXT[row.update_kind]);
+  return {
+    kind: row.update_kind,
+    organisation: row.update_org,
+    text,
+    at: floorToMinute(row.update_at),
+  };
 }
 
 function toQueueItem(row: IncidentRow, now: Date): QueueItem {
@@ -155,6 +187,37 @@ function allowedActions(state: IncidentState, category: Category) {
   return MODERATION_ACTIONS.filter((action) => applyAction(state, action, category).ok);
 }
 
+/** Decrypted reports for staff screens. Callers must write the restricted-view audit entry. */
+export async function decryptReports(
+  deps: ServiceDeps,
+  client: Client,
+  incidentId: string,
+): Promise<ModeratorReport[]> {
+  const reports = await client.query<ReportRow>(
+    `SELECT id, key_id, channel, proximity, location_enc, description_enc, occurred_at, received_at
+       FROM reports WHERE incident_id = $1 ORDER BY received_at ASC`,
+    [incidentId],
+  );
+  return reports.rows.map((report) => {
+    const location = deps.cipher.decryptJson<{
+      lat: number;
+      lng: number;
+      accuracyM: number | null;
+    }>("report.location", report.key_id, report.location_enc);
+    return {
+      id: report.id,
+      receivedAt: report.received_at.toISOString(),
+      occurredAt: report.occurred_at?.toISOString() ?? null,
+      channel: report.channel,
+      proximity: report.proximity,
+      description: report.description_enc
+        ? deps.cipher.decrypt("report.description", report.key_id, report.description_enc)
+        : null,
+      location,
+    };
+  });
+}
+
 /**
  * Full incident for a moderator, including decrypted exact locations and text. Every call is
  * written to the audit log because it reads Restricted data.
@@ -175,29 +238,7 @@ export async function incidentDetail(
     const category = getCategory(row.category_id);
     if (!category) return null;
 
-    const reports = await client.query<ReportRow>(
-      `SELECT id, key_id, channel, proximity, location_enc, description_enc, occurred_at, received_at
-         FROM reports WHERE incident_id = $1 ORDER BY received_at ASC`,
-      [incidentId],
-    );
-    const decrypted: ModeratorReport[] = reports.rows.map((report) => {
-      const location = deps.cipher.decryptJson<{
-        lat: number;
-        lng: number;
-        accuracyM: number | null;
-      }>("report.location", report.key_id, report.location_enc);
-      return {
-        id: report.id,
-        receivedAt: report.received_at.toISOString(),
-        occurredAt: report.occurred_at?.toISOString() ?? null,
-        channel: report.channel,
-        proximity: report.proximity,
-        description: report.description_enc
-          ? deps.cipher.decrypt("report.description", report.key_id, report.description_enc)
-          : null,
-        location,
-      };
-    });
+    const decrypted = await decryptReports(deps, client, incidentId);
 
     await appendAudit(client, {
       at: now,

@@ -21,6 +21,7 @@ import {
 import { randomToken, safeEqual, sha256 } from "../crypto.ts";
 import { type Client, withTransaction } from "../db/pool.ts";
 import type { ServiceDeps } from "./deps.ts";
+import { updateSessionArea } from "./responders.ts";
 import { queueSms } from "./sms.ts";
 
 interface SessionDetails {
@@ -155,8 +156,8 @@ export async function startSession(
     const { rows } = await client.query<SessionRow>(
       `INSERT INTO safety_sessions
          (id, kind, state, view_token_hash, control_token_hash, key_id, view_token_enc, details_enc,
-          expected_arrival_at, started_at, expires_at, updated_at)
-       VALUES ($1, $2, 'active', $3, $4, $5, $6, $7, $8, $9, $10, $9)
+          expected_arrival_at, started_at, expires_at, updated_at, share_with_responders)
+       VALUES ($1, $2, 'active', $3, $4, $5, $6, $7, $8, $9, $10, $9, $11)
        RETURNING *`,
       [
         id,
@@ -169,6 +170,7 @@ export async function startSession(
         expectedArrivalAt,
         now,
         expiresAt,
+        start.kind === "sos" && start.shareWithResponders,
       ],
     );
     const row = rows[0];
@@ -222,6 +224,7 @@ export async function addPoints(
     const latest = now.getTime() + 60_000;
     let accepted = 0;
     let newest = 0;
+    let newestPoint: SessionPoint | null = null;
     for (const point of points) {
       const at = new Date(point.at).getTime();
       if (at < earliest || at > latest) continue;
@@ -243,7 +246,10 @@ export async function addPoints(
         ],
       );
       accepted += 1;
-      newest = Math.max(newest, Math.min(at, now.getTime()));
+      if (at >= newest) {
+        newest = Math.min(at, now.getTime());
+        newestPoint = point;
+      }
     }
     if (accepted > 0) {
       await client.query(
@@ -252,6 +258,7 @@ export async function addPoints(
           WHERE id = $1`,
         [row.id, new Date(newest), now],
       );
+      if (newestPoint) await updateSessionArea(client, row.id, newestPoint);
     }
     return { ok: true, accepted, state: row.state };
   });

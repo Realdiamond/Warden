@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { AlertsQuerySchema, communityOutcome, tierFor, tileFor, tilesAround } from "./alerts.ts";
+import {
+  AlertsQuerySchema,
+  communityOutcome,
+  tierFor,
+  tileFor,
+  tilesAround,
+  tilesForCircle,
+} from "./alerts.ts";
 
 describe("alert tiles", () => {
   it("puts nearby points in the same 0.1 degree tile", () => {
@@ -53,5 +60,17 @@ describe("community outcome", () => {
     expect(communityOutcome("verified", "critical", counts(10, 10))).toBeNull();
     expect(communityOutcome("held", "standard", counts(10, 10))).toBeNull();
     expect(communityOutcome("resolved", "standard", counts(10, 10))).toBeNull();
+  });
+});
+
+describe("broadcast tiles", () => {
+  it("covers the centre tile and only tiles the circle reaches", () => {
+    const small = tilesForCircle(6.5244, 3.3792, 500);
+    expect(small).toEqual([tileFor(6.5244, 3.3792)]);
+    const wide = tilesForCircle(6.5244, 3.3792, 20_000);
+    expect(wide).toContain(tileFor(6.5244, 3.3792));
+    expect(wide.length).toBeGreaterThan(9);
+    expect(wide.length).toBeLessThan(30);
+    expect(tilesForCircle(6.5244, 3.3792, 50_000).length).toBeLessThan(110);
   });
 });

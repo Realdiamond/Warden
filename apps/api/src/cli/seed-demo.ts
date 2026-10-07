@@ -94,6 +94,7 @@ const baseDeps = {
   sms: new LogSmsSender(() => undefined),
   smsHourlyCap: 0,
   publicWebUrl: null,
+  signer: null,
 };
 
 const reportIds: string[] = [];

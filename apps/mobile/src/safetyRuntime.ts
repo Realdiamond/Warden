@@ -122,6 +122,7 @@ export async function startSafetySession(
     expectedArrivalAt?: string;
     destination?: { lat: number; lng: number; label?: string };
     note?: string;
+    shareWithResponders?: boolean;
   } = {},
 ): Promise<StartOutcome> {
   const existing = await loadActive(AsyncStorage);
@@ -134,6 +135,7 @@ export async function startSafetySession(
     kind,
     personName: profile.personName.trim() || "A Warden user",
     contacts: profile.contacts.map((c) => ({ name: c.name, phone: c.phone })),
+    shareWithResponders: kind === "sos" && trip.shareWithResponders === true,
     ...(trip.expectedArrivalAt ? { expectedArrivalAt: trip.expectedArrivalAt } : {}),
     ...(trip.destination ? { destination: trip.destination } : {}),
     ...(trip.note ? { note: trip.note } : {}),

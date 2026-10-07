@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import type { CategoryId, Severity } from "./categories.ts";
+import type { SignedBroadcast } from "./responders.ts";
 import type { IncidentState, PublicLabel } from "./rules.ts";
 
 export const ALERT_KINDS = ["new", "upgraded", "resolved", "correction", "broadcast"] as const;
@@ -71,6 +72,8 @@ export interface PublicAlert {
   message: string | null;
   source: string | null;
   visibleAt: string;
+  /** For broadcasts: everything needed to check the signature on the phone. */
+  broadcast: SignedBroadcast | null;
 }
 
 export interface AlertsResponse {
@@ -122,4 +125,26 @@ export function communityOutcome(
     return "disputed";
   }
   return null;
+}
+
+/** Every tile a circle touches, for broadcasts wider than one tile. */
+export function tilesForCircle(lat: number, lng: number, radiusM: number): string[] {
+  const dLat = radiusM / 111_320;
+  const dLng = radiusM / (111_320 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
+  const rowMin = Math.floor((lat - dLat) / TILE_SIZE_DEG);
+  const rowMax = Math.floor((lat + dLat) / TILE_SIZE_DEG);
+  const colMin = Math.floor((lng - dLng) / TILE_SIZE_DEG);
+  const colMax = Math.floor((lng + dLng) / TILE_SIZE_DEG);
+  const tiles: string[] = [];
+  for (let row = rowMin; row <= rowMax; row += 1) {
+    for (let col = colMin; col <= colMax; col += 1) {
+      // Nearest point of the tile to the centre, in degrees scaled to metres.
+      const nearLat = Math.min(Math.max(lat, row * TILE_SIZE_DEG), (row + 1) * TILE_SIZE_DEG);
+      const nearLng = Math.min(Math.max(lng, col * TILE_SIZE_DEG), (col + 1) * TILE_SIZE_DEG);
+      const dy = (nearLat - lat) * 111_320;
+      const dx = (nearLng - lng) * 111_320 * Math.cos((lat * Math.PI) / 180);
+      if (Math.hypot(dx, dy) <= radiusM) tiles.push(`${row}_${col}`);
+    }
+  }
+  return tiles;
 }

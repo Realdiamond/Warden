@@ -50,6 +50,7 @@ function alert(overrides: Partial<PublicAlert> = {}): PublicAlert {
     message: null,
     source: null,
     visibleAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(),
+    broadcast: null,
     ...overrides,
   };
 }

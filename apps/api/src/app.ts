@@ -12,10 +12,12 @@ import { problem } from "./http.ts";
 import { registerAdminRoutes } from "./routes/admin.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
 import { registerSessionRoutes } from "./routes/sessions.ts";
+import { registerUssdRoutes } from "./routes/ussd.ts";
 import type { ServiceDeps } from "./services/deps.ts";
 import { runHousekeeping } from "./services/incidents.ts";
 import { runSessionHousekeeping } from "./services/sessions.ts";
 import { deliverDueSms } from "./services/sms.ts";
+import { Signer } from "./signing.ts";
 import { LogSmsSender, type SmsSender, TermiiSmsSender } from "./sms/sender.ts";
 
 export interface AppOptions {
@@ -52,6 +54,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     sms,
     smsHourlyCap: config.sms.hourlyCap,
     publicWebUrl: config.publicWebUrl,
+    signer: config.signingKey ? new Signer(config.signingKey.seed, config.signingKey.id) : null,
   };
 
   const app = Fastify({
@@ -65,7 +68,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       serializers: {
         req: (req: { method: string; url: string }) => ({
           method: req.method,
-          url: req.url.split("?")[0],
+          // The USSD callback address contains a secret.
+          url: (req.url.split("?")[0] ?? "").replace(/^\/v1\/ussd\/.*/, "/v1/ussd/:secret"),
         }),
         res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
       },
@@ -116,6 +120,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   registerPublicRoutes(app, deps);
   registerSessionRoutes(app, deps);
+  registerUssdRoutes(app, deps, config.ussdCallbackSecret);
   registerAdminRoutes(app, deps, config);
 
   const consoleDist = config.consoleDist ? resolve(config.consoleDist) : undefined;

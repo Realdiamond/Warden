@@ -6,7 +6,9 @@ import { Cipher, Hasher } from "../src/crypto.ts";
 import { migrate } from "../src/db/migrate.ts";
 import { createPool, type Pool } from "../src/db/pool.ts";
 import type { ServiceDeps } from "../src/services/deps.ts";
+import { createOrganisation } from "../src/services/responders.ts";
 import { createStaff } from "../src/services/staff.ts";
+import { Signer } from "../src/signing.ts";
 import { MemorySmsSender } from "../src/sms/sender.ts";
 
 export const TEST_DATABASE_URL =
@@ -39,7 +41,9 @@ export async function createTestContext(): Promise<TestContext> {
     LOG_LEVEL: "info",
     WARDEN_FIELD_KEY: randomBytes(32).toString("base64"),
     WARDEN_HMAC_KEY: randomBytes(32).toString("base64"),
+    WARDEN_SIGNING_KEY: randomBytes(32).toString("base64"),
     PUBLIC_WEB_URL: "https://warden.test",
+    USSD_CALLBACK_SECRET: "ussd-test-secret-0123456789abcdef",
   });
 
   let current = new Date("2026-10-05T12:00:00.000Z");
@@ -128,5 +132,49 @@ export function serviceDeps(ctx: TestContext): ServiceDeps {
     sms: ctx.sms,
     smsHourlyCap: ctx.config.sms.hourlyCap,
     publicWebUrl: ctx.config.publicWebUrl,
+    signer: ctx.config.signingKey
+      ? new Signer(ctx.config.signingKey.seed, ctx.config.signingKey.id)
+      : null,
   };
+}
+
+/** Lagos box used for test organisations. */
+export const LAGOS_AREA = {
+  type: "Polygon",
+  coordinates: [
+    [
+      [2.69, 6.37],
+      [4.35, 6.37],
+      [4.35, 6.71],
+      [2.69, 6.71],
+      [2.69, 6.37],
+    ],
+  ],
+};
+
+export async function signInResponder(
+  ctx: TestContext,
+  options: { name?: string; jurisdiction?: unknown | null } = {},
+) {
+  const { id: organisationId } = await createOrganisation(
+    ctx.pool,
+    {
+      name: options.name ?? "Lagos Police Test Desk",
+      kind: "police",
+      jurisdiction: options.jurisdiction === undefined ? LAGOS_AREA : options.jurisdiction,
+    },
+    ctx.now(),
+  );
+  const email = `desk-${randomBytes(3).toString("hex")}@police.test`;
+  const password = "correct horse battery staple";
+  await createStaff(ctx.pool, { email, password, role: "responder", organisationId }, ctx.now());
+  const response = await ctx.app.inject({
+    method: "POST",
+    url: "/v1/admin/login",
+    headers: { "x-warden-console": "1" },
+    payload: { email, password },
+  });
+  const cookie = response.cookies.find((c) => c.name === "warden_staff");
+  if (!cookie) throw new Error(`Login failed: ${response.statusCode} ${response.body}`);
+  return { organisationId, cookie: `warden_staff=${cookie.value}` };
 }

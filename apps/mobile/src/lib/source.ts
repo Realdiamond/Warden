@@ -87,6 +87,7 @@ export function demoAlerts(tiles: string[], after: string | null, now: number): 
       message: null,
       source: "demo",
       visibleAt: new Date(now - item.minutesAgo * 60_000).toISOString(),
+      broadcast: null,
     }));
   return { alerts, cursor: DEMO_CURSOR };
 }
@@ -113,6 +114,7 @@ export function demoSource(now: () => number = Date.now): DataSource {
           cell: item.cell,
           center: item.center,
           boundary: item.boundary,
+          responder: null,
         };
       });
     },

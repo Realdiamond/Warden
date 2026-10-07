@@ -3,7 +3,12 @@
 
 import { randomUUID } from "node:crypto";
 import { hash, verify } from "@node-rs/argon2";
-import { MIN_STAFF_PASSWORD_LENGTH, type StaffUser } from "@warden/shared";
+import {
+  MIN_STAFF_PASSWORD_LENGTH,
+  type Organisation,
+  type OrganisationKind,
+  type StaffUser,
+} from "@warden/shared";
 import { randomToken, sha256 } from "../crypto.ts";
 import { type Pool, withTransaction } from "../db/pool.ts";
 import { appendAudit } from "./audit.ts";
@@ -26,18 +31,27 @@ function getDummyHash(): Promise<string> {
 
 export async function createStaff(
   pool: Pool,
-  input: { email: string; password: string; role: StaffUser["role"] },
+  input: {
+    email: string;
+    password: string;
+    role: StaffUser["role"];
+    organisationId?: string | null;
+  },
   now: Date,
 ): Promise<StaffUser> {
   if (input.password.length < MIN_STAFF_PASSWORD_LENGTH) {
     throw new Error(`Password must be at least ${MIN_STAFF_PASSWORD_LENGTH} characters`);
   }
+  if (input.role === "responder" && !input.organisationId) {
+    throw new Error("A responder must belong to an organisation");
+  }
   const id = randomUUID();
   const passwordHash = await hash(input.password, ARGON2_OPTIONS);
   return withTransaction(pool, async (client) => {
     await client.query(
-      "INSERT INTO staff (id, email, password_hash, role, created_at) VALUES ($1, $2, $3, $4, $5)",
-      [id, input.email.trim(), passwordHash, input.role, now],
+      `INSERT INTO staff (id, email, password_hash, role, organisation_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, input.email.trim(), passwordHash, input.role, input.organisationId ?? null, now],
     );
     await appendAudit(client, {
       at: now,
@@ -46,13 +60,40 @@ export async function createStaff(
       action: "staff.created",
       objectType: "staff",
       objectId: id,
-      details: { role: input.role },
+      details: { role: input.role, organisationId: input.organisationId ?? null },
     });
-    return { id, email: input.email.trim(), role: input.role };
+    const organisation = input.organisationId
+      ? await loadOrganisation(client, input.organisationId)
+      : null;
+    return { id, email: input.email.trim(), role: input.role, organisation };
   });
 }
 
-interface StaffRow {
+async function loadOrganisation(db: Pick<Pool, "query">, id: string): Promise<Organisation | null> {
+  const { rows } = await db.query<Organisation>(
+    "SELECT id, name, kind FROM organisations WHERE id = $1",
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+const STAFF_COLUMNS = `st.email, st.role, st.disabled_at, st.organisation_id,
+  o.name AS org_name, o.kind AS org_kind, o.disabled_at AS org_disabled_at`;
+
+interface OrgColumns {
+  organisation_id: string | null;
+  org_name: string | null;
+  org_kind: OrganisationKind | null;
+  org_disabled_at: Date | null;
+}
+
+function organisationOf(row: OrgColumns): Organisation | null {
+  return row.organisation_id && row.org_name && row.org_kind
+    ? { id: row.organisation_id, name: row.org_name, kind: row.org_kind }
+    : null;
+}
+
+interface StaffRow extends OrgColumns {
   id: string;
   email: string;
   role: StaffUser["role"];
@@ -69,17 +110,24 @@ export async function login(
 ): Promise<LoginResult> {
   const now = deps.now();
   const { rows } = await deps.pool.query<StaffRow>(
-    "SELECT id, email, role, password_hash, disabled_at FROM staff WHERE lower(email) = lower($1)",
+    `SELECT st.id, st.password_hash, ${STAFF_COLUMNS}
+       FROM staff st LEFT JOIN organisations o ON o.id = st.organisation_id
+      WHERE lower(st.email) = lower($1)`,
     [email.trim()],
   );
   const row = rows[0];
   const passwordOk = await verify(row?.password_hash ?? (await getDummyHash()), password).catch(
     () => false,
   );
-  if (!row || !passwordOk || row.disabled_at) return { ok: false };
+  if (!row || !passwordOk || row.disabled_at || row.org_disabled_at) return { ok: false };
 
   const token = randomToken(32);
-  const staff: StaffUser = { id: row.id, email: row.email, role: row.role };
+  const staff: StaffUser = {
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    organisation: organisationOf(row),
+  };
   await withTransaction(deps.pool, async (client) => {
     await client.query(
       `INSERT INTO staff_sessions (token_hash, staff_id, created_at, last_seen_at, expires_at)
@@ -99,7 +147,7 @@ export async function login(
   return { ok: true, staff, token };
 }
 
-interface SessionRow {
+interface SessionRow extends OrgColumns {
   staff_id: string;
   email: string;
   role: StaffUser["role"];
@@ -112,14 +160,15 @@ export async function authenticate(deps: ServiceDeps, token: string): Promise<St
   const now = deps.now();
   const tokenHash = sha256(token);
   const { rows } = await deps.pool.query<SessionRow>(
-    `SELECT s.staff_id, st.email, st.role, st.disabled_at, s.last_seen_at, s.expires_at
+    `SELECT s.staff_id, ${STAFF_COLUMNS}, s.last_seen_at, s.expires_at
        FROM staff_sessions s
        JOIN staff st ON st.id = s.staff_id
+       LEFT JOIN organisations o ON o.id = st.organisation_id
       WHERE s.token_hash = $1`,
     [tokenHash],
   );
   const row = rows[0];
-  if (!row || row.disabled_at) return null;
+  if (!row || row.disabled_at || row.org_disabled_at) return null;
   if (row.expires_at <= now || now.getTime() - row.last_seen_at.getTime() > SESSION_IDLE_MS) {
     await deps.pool.query("DELETE FROM staff_sessions WHERE token_hash = $1", [tokenHash]);
     return null;
@@ -130,7 +179,7 @@ export async function authenticate(deps: ServiceDeps, token: string): Promise<St
       now,
     ]);
   }
-  return { id: row.staff_id, email: row.email, role: row.role };
+  return { id: row.staff_id, email: row.email, role: row.role, organisation: organisationOf(row) };
 }
 
 export async function logout(deps: ServiceDeps, token: string): Promise<void> {

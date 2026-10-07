@@ -78,6 +78,8 @@ export const SessionStartSchema = z
     destination: DestinationSchema.optional(),
     expectedArrivalAt: z.iso.datetime().optional(),
     note: z.string().trim().max(MAX_SESSION_NOTE).optional(),
+    /** SOS only: also show this SOS to verified responders whose area it is in. */
+    shareWithResponders: z.boolean().default(false),
   })
   .refine((s) => s.kind === "sos" || s.expectedArrivalAt !== undefined, {
     message: "A trip needs an expected arrival time",

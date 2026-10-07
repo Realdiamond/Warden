@@ -26,7 +26,17 @@ import type { ServiceDeps } from "./deps.ts";
 const MAX_REPORT_AGE_MS = 7 * 86_400_000;
 const CLOCK_SKEW_MS = 5 * 60_000;
 
-export type ReportChannel = "app" | "lite" | "demo";
+export type ReportChannel = "app" | "lite" | "ussd" | "demo";
+
+/**
+ * USSD reports carry only a local government area, not a point: they are always held for a
+ * moderator, and if published are shown at the coarsest area (H3 resolution 7, about 5 km²).
+ */
+const USSD_DECISION = {
+  state: "held",
+  publishDelayMs: 0,
+  reason: "USSD reports are approximate and need a moderator",
+} as const;
 
 export interface NewReport {
   submission: ParsedReportSubmission;
@@ -105,6 +115,7 @@ export async function createReport(
       installId,
       cells,
       now,
+      approximate: channel === "ussd",
     });
 
     const reportId = randomUUID();
@@ -152,9 +163,15 @@ export async function createReport(
 async function mergeOrCreateIncident(
   deps: ServiceDeps,
   client: Client,
-  args: { categoryId: string; installId: string; cells: ReturnType<typeof cellsFor>; now: Date },
+  args: {
+    categoryId: string;
+    installId: string;
+    cells: ReturnType<typeof cellsFor>;
+    now: Date;
+    approximate: boolean;
+  },
 ): Promise<string> {
-  const { categoryId, installId, cells, now } = args;
+  const { categoryId, installId, cells, now, approximate } = args;
   const category = requireCategory(categoryId);
   const activeUntil = new Date(now.getTime() + ACTIVE_TTL_MS[category.severity]);
 
@@ -179,10 +196,12 @@ async function mergeOrCreateIncident(
       [candidate.id, tag],
     );
     const independent = candidate.independent_reports + (repeat.rowCount === 0 ? 1 : 0);
-    const decision = decidePublication(
-      { category, independentReports: independent, reporterTrust: "low" },
-      deps.random,
-    );
+    const decision = approximate
+      ? USSD_DECISION
+      : decidePublication(
+          { category, independentReports: independent, reporterTrust: "low" },
+          deps.random,
+        );
     const nextState = stateAfterMerge(candidate.state, decision);
     const released = candidate.state === "held" && nextState === "unconfirmed";
     const publishAfter = released
@@ -218,12 +237,11 @@ async function mergeOrCreateIncident(
     return candidate.id;
   }
 
-  const decision = decidePublication(
-    { category, independentReports: 1, reporterTrust: "low" },
-    deps.random,
-  );
+  const decision = approximate
+    ? USSD_DECISION
+    : decidePublication({ category, independentReports: 1, reporterTrust: "low" }, deps.random);
   const id = randomUUID();
-  const publicCell = publicCellFor(cells, category.severity);
+  const publicCell = approximate ? cells.r7 : publicCellFor(cells, category.severity);
   const center = cellCenter(publicCell);
   const publishAfter =
     decision.state === "unconfirmed" ? new Date(now.getTime() + decision.publishDelayMs) : null;

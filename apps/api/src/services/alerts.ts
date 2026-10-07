@@ -141,6 +141,14 @@ export async function alertForTransition(
 
 interface FeedRow {
   id: string;
+  broadcast_id: string | null;
+  organisation: string | null;
+  radius_m: number | null;
+  key_id: string | null;
+  signature: Buffer | null;
+  expires_at: Date | null;
+  b_lat: number | null;
+  b_lng: number | null;
   incident_id: string | null;
   kind: AlertKind;
   tier: PublicAlert["tier"];
@@ -166,12 +174,17 @@ export async function alertFeed(deps: ServiceDeps, query: AlertsQuery): Promise<
     : { at: new Date(now.getTime() - FIRST_FETCH_WINDOW_MS), id: "0" };
 
   const { rows } = await deps.pool.query<FeedRow>(
-    `SELECT id, incident_id, kind, tier, category_id, label, lat, lng, message, source, visible_at
-       FROM alert_events
-      WHERE tile = ANY($1::text[])
-        AND visible_at <= $2
-        AND (visible_at, id) > ($3, $4::bigint)
-      ORDER BY visible_at, id
+    `SELECT e.id, e.incident_id, e.kind, e.tier, e.category_id, e.label, e.lat, e.lng, e.message,
+            e.source, e.visible_at, e.broadcast_id, o.name AS organisation, b.radius_m, b.key_id,
+            b.signature, b.expires_at, b.lat AS b_lat, b.lng AS b_lng
+       FROM alert_events e
+       LEFT JOIN broadcasts b ON b.id = e.broadcast_id
+       LEFT JOIN organisations o ON o.id = b.organisation_id
+      WHERE e.tile = ANY($1::text[])
+        AND e.visible_at <= $2
+        AND (e.visible_at, e.id) > ($3, $4::bigint)
+        AND (b.id IS NULL OR b.withdrawn_at IS NULL)
+      ORDER BY e.visible_at, e.id
       LIMIT $5`,
     [query.tiles, upTo, after.at, after.id, FEED_LIMIT],
   );
@@ -187,6 +200,28 @@ export async function alertFeed(deps: ServiceDeps, query: AlertsQuery): Promise<
     message: row.message,
     source: row.source,
     visibleAt: row.visible_at.toISOString(),
+    broadcast:
+      row.broadcast_id &&
+      row.organisation &&
+      row.radius_m !== null &&
+      row.key_id &&
+      row.signature &&
+      row.expires_at &&
+      row.b_lat !== null &&
+      row.b_lng !== null &&
+      row.message
+        ? {
+            id: row.broadcast_id,
+            organisation: row.organisation,
+            tier: row.tier,
+            center: { lat: row.b_lat, lng: row.b_lng },
+            radiusM: row.radius_m,
+            message: row.message,
+            expiresAt: row.expires_at.toISOString(),
+            keyId: row.key_id,
+            signature: row.signature.toString("base64"),
+          }
+        : null,
   }));
   const last = alerts.at(-1);
   return { alerts, cursor: last ? last.id : (query.after ?? null) };

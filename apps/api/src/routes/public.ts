@@ -2,11 +2,13 @@
 
 import {
   AlertsQuerySchema,
+  BBoxSchema,
   MapQuerySchema,
   ReactionSchema,
   ReportSubmissionSchema,
 } from "@warden/shared";
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { headerValue, problem, tooMany } from "../http.ts";
 import { RateLimiter } from "../rateLimit.ts";
 import { alertFeed } from "../services/alerts.ts";
@@ -14,6 +16,7 @@ import type { ServiceDeps } from "../services/deps.ts";
 import { mapIncidents } from "../services/incidents.ts";
 import { reactToIncident } from "../services/reactions.ts";
 import { createReport, getReportStatus } from "../services/reports.ts";
+import { publicPresence } from "../services/responders.ts";
 
 const INSTALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{8,128}$/;
@@ -114,5 +117,13 @@ export function registerPublicRoutes(app: FastifyInstance, deps: ServiceDeps): v
     const feed = await alertFeed(deps, query);
     reply.header("cache-control", "public, max-age=15");
     return feed;
+  });
+
+  /** Responder deployments their organisations chose to show, as areas only. */
+  app.get("/v1/map/presence", async (request, reply) => {
+    const { bbox } = z.object({ bbox: BBoxSchema }).parse(request.query);
+    const presence = await publicPresence(deps, bbox);
+    reply.header("cache-control", "public, max-age=30");
+    return { presence, generatedAt: deps.now().toISOString() };
   });
 }
