@@ -12,6 +12,10 @@ const base64Key = (name: string) =>
       return key;
     });
 
+/** Docker Compose passes unset optional values as empty strings; treat those as unset. */
+const optional = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((value) => (value === "" ? undefined : value), schema.optional());
+
 const booleanString = z
   .enum(["true", "false", "1", "0"])
   .transform((value) => value === "true" || value === "1");
@@ -37,23 +41,22 @@ const EnvSchema = z.object({
   /** Run database migrations when the server starts (handy for small deployments). */
   MIGRATE_ON_START: booleanString.default(false),
   /** Public address of this server, used in links sent to trusted contacts. */
-  PUBLIC_WEB_URL: z
-    .string()
-    .regex(/^https?:\/\/[^\s/]+(\/[^\s]*)?$/, "PUBLIC_WEB_URL must be a full URL")
-    .optional(),
+  PUBLIC_WEB_URL: optional(
+    z.string().regex(/^https?:\/\/[^\s/]+(\/[^\s]*)?$/, "PUBLIC_WEB_URL must be a full URL"),
+  ),
   /** "log" until an SMS provider account exists. */
   SMS_DRIVER: z.enum(["log", "termii"]).default("log"),
-  TERMII_API_KEY: z.string().optional(),
+  TERMII_API_KEY: optional(z.string()),
   TERMII_SENDER_ID: z.string().max(11).default("Warden"),
   TERMII_BASE_URL: z.string().default("https://api.ng.termii.com"),
   /** Ed25519 seed (base64, 32 bytes) for signing broadcasts; broadcasts are off without it. */
-  WARDEN_SIGNING_KEY: base64Key("WARDEN_SIGNING_KEY").optional(),
+  WARDEN_SIGNING_KEY: optional(base64Key("WARDEN_SIGNING_KEY")),
   WARDEN_SIGNING_KEY_ID: z
     .string()
     .regex(/^[a-z0-9-]{1,32}$/)
     .default("s1"),
   /** Secret part of the USSD callback address given to the USSD provider; USSD is off without it. */
-  USSD_CALLBACK_SECRET: z.string().min(24).optional(),
+  USSD_CALLBACK_SECRET: optional(z.string().min(24)),
   /** Safety valve: at most this many text messages an hour across the whole service. */
   SMS_HOURLY_CAP: z.coerce.number().int().min(1).default(500),
 });

@@ -1,4 +1,9 @@
-import { type BBox, MAX_BBOX_SPAN_DEG, type PublicIncident } from "@warden/shared";
+import {
+  type BBox,
+  MAX_BBOX_SPAN_DEG,
+  type PublicIncident,
+  type PublicPresence,
+} from "@warden/shared";
 
 /** Map bounds come as [west, south, east, north]; the API accepts at most a 6° box. */
 export function boundsToBBox(bounds: readonly [number, number, number, number]): BBox {
@@ -41,4 +46,16 @@ export function insideBBox(point: { lat: number; lng: number }, bbox: BBox): boo
     point.lng >= bbox.minLng &&
     point.lng <= bbox.maxLng
   );
+}
+
+export function presenceToGeoJSON(presence: readonly PublicPresence[]): GeoJSON.FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: presence.map((item) => ({
+      type: "Feature",
+      id: item.id,
+      properties: { id: item.id, kind: item.kind },
+      geometry: { type: "Polygon", coordinates: [item.boundary] },
+    })),
+  };
 }

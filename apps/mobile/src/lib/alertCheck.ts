@@ -6,6 +6,7 @@ import {
   type AlertPlace,
   type AlertPrefs,
   type AlertState,
+  type BroadcastChecker,
   loadAlertPrefs,
   loadAlertState,
   type PlannedNotification,
@@ -22,6 +23,7 @@ export interface AlertCheckDeps {
   feedId: string;
   fetchAlerts(tiles: string[], after: string | null): Promise<AlertsResponse>;
   now(): Date;
+  checkBroadcast?: BroadcastChecker;
 }
 
 export interface AlertCheckResult {
@@ -71,7 +73,7 @@ async function runCheck(deps: AlertCheckDeps): Promise<AlertCheckResult> {
     cursor = feed.cursor;
     if (feed.alerts.length < FEED_PAGE) break;
   }
-  const result = processAlerts(state, fetched, places, prefs, deps.now());
+  const result = processAlerts(state, fetched, places, prefs, deps.now(), deps.checkBroadcast);
   state = { ...result.state, cursor };
   // Saved before notifying: a crash may lose a notification but never repeats one.
   await saveAlertState(deps.store, state);

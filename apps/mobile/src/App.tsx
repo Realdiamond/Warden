@@ -4,6 +4,7 @@ import NetInfo from "@react-native-community/netinfo";
 import type {
   BBox,
   PublicIncident,
+  PublicPresence,
   ReactionKind,
   ReportSubmission,
   TimeWindow,
@@ -26,6 +27,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { ensureBackgroundChecks, runStoredAlertCheck } from "./background.ts";
 import { IncidentCard } from "./components/IncidentCard.tsx";
 import { DEFAULT_CENTER, IncidentMap } from "./components/IncidentMap.tsx";
+import { PresenceCard } from "./components/PresenceCard.tsx";
 import { Button, EmergencyCallButton, Icon, ModalHeader, Note } from "./components/ui.tsx";
 import {
   type AlertState,
@@ -102,6 +104,8 @@ function Root() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [installId, setInstallId] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<PublicIncident[]>([]);
+  const [presence, setPresence] = useState<PublicPresence[]>([]);
+  const [presenceId, setPresenceId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [window, setWindow] = useState<TimeWindow>("24h");
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -153,6 +157,11 @@ function Root() {
     } catch {
       setLoadError(true);
     }
+    // Deployments are extra information; the map works without them.
+    source
+      .presence(bbox)
+      .then(setPresence)
+      .catch(() => undefined);
   }, [source, window]);
 
   useEffect(() => {
@@ -372,6 +381,7 @@ function Root() {
 
   const selected = incidents.find((incident) => incident.id === selectedId) ?? null;
   const unread = unreadCount(alertState);
+  const selectedPresence = presence.find((item) => item.id === presenceId) ?? null;
   const mapCenter = {
     lat: (bboxRef.current.minLat + bboxRef.current.maxLat) / 2,
     lng: (bboxRef.current.minLng + bboxRef.current.maxLng) / 2,
@@ -383,9 +393,17 @@ function Root() {
         ref={cameraRef}
         styleUrl={MAP_STYLE_URL}
         incidents={incidents}
+        presence={presence}
         showUser={showUser}
         onRegionChange={onRegionChange}
-        onSelect={setSelectedId}
+        onSelect={(id) => {
+          setSelectedId(id);
+          if (id) setPresenceId(null);
+        }}
+        onSelectPresence={(id) => {
+          setPresenceId(id);
+          if (id) setSelectedId(null);
+        }}
       />
 
       <SafeAreaView edges={["top"]} style={styles.top} pointerEvents="box-none">
@@ -452,6 +470,7 @@ function Root() {
       </SafeAreaView>
 
       <SafeAreaView edges={["bottom"]} style={styles.bottom} pointerEvents="box-none">
+        {selectedPresence && <PresenceCard presence={selectedPresence} />}
         {selected && (
           <IncidentCard
             key={selected.id}

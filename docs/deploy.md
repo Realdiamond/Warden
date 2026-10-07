@@ -19,8 +19,12 @@ Technical tab of the requirements).
    openssl rand -hex 24      # POSTGRES_PASSWORD (hex, so it is safe inside the database address)
    openssl rand -base64 32   # WARDEN_FIELD_KEY
    openssl rand -base64 32   # WARDEN_HMAC_KEY
+   openssl rand -base64 32   # WARDEN_SIGNING_KEY (signs responder broadcasts)
+   openssl rand -hex 24      # USSD_CALLBACK_SECRET (only if you set up USSD)
    ```
-   Put the three values and your `DOMAIN` into `.env`.
+   Put the values and your `DOMAIN` into `.env`. Once the server is running (step 4), print the
+   public key that matches your signing key for the app build:
+   `docker compose exec api node apps/api/src/cli/gen-keys.ts --public`
 4. Start everything: `docker compose up -d --build`
 5. Create the first moderator account (the password is printed once; store it safely):
    ```bash
@@ -28,6 +32,25 @@ Technical tab of the requirements).
    ```
 6. Open `https://api.yourdomain.ng` for the moderator console.
 7. On the phone app, open Settings, turn off demo mode, and enter `https://api.yourdomain.ng`.
+
+## Optional pieces
+
+- **Text messages to trusted contacts** (SOS, late trips): open an SMS account with Termii, then
+  set `SMS_DRIVER=termii` and `TERMII_API_KEY` in `.env` and restart. Until then the server only
+  notes that a message would have been sent. The Termii connection has not been tried with a
+  live account yet; send yourself a test SOS first.
+- **Responder organisations**: after checking an organisation is genuine, create it and give
+  its desk an account:
+  ```bash
+  docker compose exec api node apps/api/src/cli/create-org.ts --name "Lagos State Police Command" --kind police --area lagos
+  docker compose exec api node apps/api/src/cli/create-staff.ts --email desk@example.ng --role responder --org <id printed above>
+  ```
+- **Broadcast checking in the app**: in GitHub, add the repository variable
+  `WARDEN_BROADCAST_PUBLIC_KEY` (and `WARDEN_API_URL` to point new builds at your server). The
+  next Android build marks broadcasts signed with your key as "Verified by Warden".
+- **USSD**: with a USSD provider (for example Africa's Talking), set the callback address to
+  `https://api.yourdomain.ng/v1/ussd/<USSD_CALLBACK_SECRET>`. The area list covers Lagos and the
+  FCT; check the area centres in `apps/api/src/ussd/areas.ts` before launch.
 
 ## Keep safe
 

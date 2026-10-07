@@ -5,6 +5,7 @@ import type {
   AlertsResponse,
   BBox,
   PublicIncident,
+  PublicPresence,
   ReactionKind,
   ReactionResult,
   ReportReceipt,
@@ -55,6 +56,15 @@ export class WardenApi {
     if (!response.ok) throw new Error(`Map request failed (${response.status})`);
     const body = (await response.json()) as { incidents: PublicIncident[] };
     return body.incidents;
+  }
+
+  async presence(bbox: BBox): Promise<PublicPresence[]> {
+    const box = [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat]
+      .map((n) => n.toFixed(5))
+      .join(",");
+    const response = await this.#request(`/v1/map/presence?bbox=${box}`);
+    if (!response.ok) throw new Error(`Presence request failed (${response.status})`);
+    return ((await response.json()) as { presence: PublicPresence[] }).presence;
   }
 
   async submitReport(body: ReportSubmission, idempotencyKey: string): Promise<SendResult> {

@@ -67,8 +67,14 @@ export function AlertsScreen({
               <View style={styles.rowText}>
                 <Text style={[styles.title, !item.read && styles.unread]}>{title}</Text>
                 <Text style={styles.meta}>
-                  {item.alert.source === "demo" ? "Demo · " : ""}Near {item.placeName} ·{" "}
-                  {describeDistance(item.distanceM)} · {timeAgo(item.alert.visibleAt)}
+                  {item.alert.source === "demo" ? "Demo · " : ""}
+                  {item.alert.kind === "broadcast"
+                    ? item.verified
+                      ? "Verified by Warden · "
+                      : "Not verified · "
+                    : ""}
+                  Near {item.placeName} · {describeDistance(item.distanceM)} ·{" "}
+                  {timeAgo(item.alert.visibleAt)}
                 </Text>
                 {item.alert.message ? (
                   <Text style={styles.message}>{item.alert.message}</Text>

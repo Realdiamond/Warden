@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -208,6 +209,23 @@ export function SafetyScreen({ onClose }: { onClose: () => void }) {
           live location. Their numbers stay on this phone until then.
         </Note>
 
+        <Text style={styles.section}>SOS</Text>
+        <View style={styles.toggleRow}>
+          <View style={styles.flex}>
+            <Text style={styles.contactName}>Also alert responders near me</Text>
+            <Text style={styles.help}>
+              When you press SOS, verified responders (such as police or emergency services) in your
+              area can see your name and live location until you are safe.
+            </Text>
+          </View>
+          <Switch
+            value={profile.shareSosWithResponders}
+            onValueChange={(value) => void store({ ...profile, shareSosWithResponders: value })}
+            accessibilityLabel="Also alert responders near me"
+            trackColor={{ true: COLORS.primary }}
+          />
+        </View>
+
         <Text style={styles.section}>Safety PIN</Text>
         <Text style={styles.help}>
           {pins?.pinHash
@@ -334,4 +352,5 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   buttonRow: { flexDirection: "row", gap: 8 },
+  toggleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
 });

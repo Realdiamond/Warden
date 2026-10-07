@@ -15,11 +15,17 @@ export interface TrustedContact {
 export interface SafetyProfile {
   personName: string;
   contacts: TrustedContact[];
+  /** Also show an SOS to verified responders in the area (off unless the person turns it on). */
+  shareSosWithResponders: boolean;
 }
 
 const PROFILE_KEY = "warden.safetyProfile.v1";
 
-export const EMPTY_PROFILE: SafetyProfile = { personName: "", contacts: [] };
+export const EMPTY_PROFILE: SafetyProfile = {
+  personName: "",
+  contacts: [],
+  shareSosWithResponders: false,
+};
 
 export async function loadProfile(store: KeyValueStore): Promise<SafetyProfile> {
   const raw = await store.getItem(PROFILE_KEY);
@@ -38,6 +44,7 @@ export async function loadProfile(store: KeyValueStore): Promise<SafetyProfile> 
     return {
       personName: typeof p.personName === "string" ? p.personName : "",
       contacts: contacts.slice(0, MAX_CONTACTS),
+      shareSosWithResponders: p.shareSosWithResponders === true,
     };
   } catch {
     return EMPTY_PROFILE;

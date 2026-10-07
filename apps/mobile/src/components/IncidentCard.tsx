@@ -54,6 +54,15 @@ export function IncidentCard({
         </Text>
         <Text style={styles.explain}>{LABEL_EXPLANATION[incident.label]}</Text>
       </View>
+      {incident.responder && (
+        <View style={styles.responder}>
+          <Icon name="shield-check" size={18} color={COLORS.primary} />
+          <Text style={styles.responderText}>
+            {incident.responder.text} · {incident.responder.organisation} ·{" "}
+            {timeAgo(incident.responder.at)}
+          </Text>
+        </View>
+      )}
       {incident.active &&
         (reacted ? (
           <Text style={styles.reacted}>
@@ -138,4 +147,6 @@ const styles = StyleSheet.create({
   reactionText: { color: COLORS.text, fontSize: 13, fontWeight: "600", flexShrink: 1 },
   pressed: { opacity: 0.6 },
   reacted: { color: COLORS.primary, fontWeight: "600" },
+  responder: { flexDirection: "row", alignItems: "center", gap: 6 },
+  responderText: { flex: 1, color: COLORS.text, fontWeight: "600" },
 });

@@ -44,7 +44,12 @@ export interface InboxEntry {
   distanceM: number;
   read: boolean;
   receivedAt: string;
+  /** Broadcasts only: whether Warden's signature was checked. */
+  verified?: boolean;
 }
+
+/** How the phone judges a broadcast's signature; see broadcasts.ts. */
+export type BroadcastChecker = (alert: PublicAlert) => "verified" | "unverified" | "invalid";
 
 export interface AlertState {
   /** Which server the cursor belongs to; a different server starts afresh. */
@@ -138,7 +143,8 @@ export function matchPlace(
   alert: PublicAlert,
   places: AlertPlace[],
 ): { place: AlertPlace; distanceM: number } | null {
-  const radius = ALERT_RADIUS_M[alert.tier];
+  // Broadcasts reach as far as the agency chose; incidents use the tier's radius.
+  const radius = alert.broadcast?.radiusM ?? ALERT_RADIUS_M[alert.tier];
   let best: { place: AlertPlace; distanceM: number } | null = null;
   for (const place of places) {
     const distanceM = distanceMeters(place, alert.center);
@@ -196,7 +202,10 @@ export function alertTitle(alert: PublicAlert): string {
 function alertBody(alert: PublicAlert, entry: InboxEntry, now: Date): string {
   const demo = alert.source === "demo" ? "Demo, not real. " : "";
   const where = `Near ${entry.placeName} (${describeDistance(entry.distanceM)})`;
-  if (alert.kind === "broadcast") return `${demo}${alert.message ?? ""} · ${where}`;
+  if (alert.kind === "broadcast") {
+    const check = entry.verified ? "" : " (not verified)";
+    return `${demo}${alert.message ?? ""}${check} · Covers ${entry.placeName}`;
+  }
   const what =
     alert.kind === "resolved"
       ? "Reported as over."
@@ -222,16 +231,28 @@ export function processAlerts(
   places: AlertPlace[],
   prefs: AlertPrefs,
   now: Date,
+  checkBroadcast: BroadcastChecker = () => "unverified",
 ): { state: AlertState; notifications: PlannedNotification[] } {
-  const seen = new Set(state.inbox.map((entry) => entry.alert.id));
+  // A broadcast arrives once per tile; one entry per broadcast is enough.
+  const keyOf = (alert: PublicAlert) =>
+    alert.broadcast ? `broadcast:${alert.broadcast.id}` : alert.id;
+  const seen = new Set(state.inbox.map((entry) => keyOf(entry.alert)));
   const toldAbout = new Set(state.toldAbout);
   const added: InboxEntry[] = [];
   const planned: PlannedNotification[] = [];
   const quiet = isQuietTime(prefs, now);
 
   for (const alert of alerts) {
-    if (seen.has(alert.id)) continue;
-    seen.add(alert.id);
+    if (seen.has(keyOf(alert))) continue;
+    seen.add(keyOf(alert));
+    let verified: boolean | undefined;
+    if (alert.kind === "broadcast") {
+      if (!alert.broadcast || new Date(alert.broadcast.expiresAt) <= now) continue;
+      const check = checkBroadcast(alert);
+      // A broadcast whose signature fails is not from Warden: never show it.
+      if (check === "invalid") continue;
+      verified = check === "verified";
+    }
     const followUp = FOLLOW_UPS.has(alert.kind);
     // Only people who heard about an incident need to hear that it is over.
     if (followUp && (!alert.incidentId || !toldAbout.has(alert.incidentId))) continue;
@@ -244,6 +265,7 @@ export function processAlerts(
       distanceM: match.distanceM,
       read: false,
       receivedAt: now.toISOString(),
+      ...(verified === undefined ? {} : { verified }),
     };
     added.push(entry);
 

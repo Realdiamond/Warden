@@ -5,6 +5,7 @@ import {
   type BBox,
   type PublicAlert,
   type PublicIncident,
+  type PublicPresence,
   type ReactionKind,
   type ReactionResult,
   type ReportStatus,
@@ -26,6 +27,8 @@ export interface DataSource {
   /** Identifies where alerts come from, so a saved feed position is never sent elsewhere. */
   feedId: string;
   incidents(bbox: BBox, window: TimeWindow): Promise<PublicIncident[]>;
+  /** Responder deployments shown publicly, as areas. */
+  presence(bbox: BBox): Promise<PublicPresence[]>;
   send(body: ReportSubmission, idempotencyKey: string): Promise<SendResult>;
   status(reportId: string, statusToken: string): Promise<ReportStatus | null>;
   alerts(tiles: string[], after: string | null): Promise<AlertsResponse>;
@@ -51,6 +54,7 @@ export function liveSource(api: WardenApi): DataSource {
     kind: "live",
     feedId: api.baseUrl,
     incidents: (bbox, window) => api.incidents(bbox, window),
+    presence: (bbox) => api.presence(bbox),
     send: (body, key) => api.submitReport(body, key),
     status: (id, token) => api.status(id, token),
     alerts: (tiles, after) => api.alerts(tiles, after),
@@ -60,6 +64,22 @@ export function liveSource(api: WardenApi): DataSource {
     extendSession: (id, token, minutes) => api.extendSession(id, token, minutes),
     endSession: (id, token, outcome, duress) => api.endSession(id, token, outcome, duress),
   };
+}
+
+/** Two sample deployments, drawn on the areas of two sample incidents. */
+function demoPresence(now: number): PublicPresence[] {
+  const until = new Date(now + 3 * 3_600_000).toISOString();
+  return DEMO_INCIDENTS.slice(0, 2).map((item, index) => ({
+    id: `demo-presence-${index}`,
+    kind: index === 0 ? "patrol" : "ambulance",
+    organisationKind: index === 0 ? "police" : "health",
+    organisation: index === 0 ? "Demo Police Division" : "Demo Ambulance Service",
+    label: index === 0 ? "Night patrol" : "Ambulance on standby",
+    cell: item.cell,
+    center: item.center,
+    boundary: item.boundary,
+    until,
+  }));
 }
 
 const DEMO_CURSOR = "demo";
@@ -117,6 +137,9 @@ export function demoSource(now: () => number = Date.now): DataSource {
           responder: null,
         };
       });
+    },
+    async presence(bbox) {
+      return demoPresence(now()).filter((p) => insideBBox(p.center, bbox));
     },
     async send(_body, key) {
       return {

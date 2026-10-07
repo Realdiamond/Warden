@@ -25,6 +25,8 @@ services:
       DATABASE_URL: postgres://warden:${POSTGRES_PASSWORD}@db:5432/warden
       WARDEN_FIELD_KEY: ${WARDEN_FIELD_KEY:?set WARDEN_FIELD_KEY in .env}
       WARDEN_HMAC_KEY: ${WARDEN_HMAC_KEY:?set WARDEN_HMAC_KEY in .env}
+      WARDEN_SIGNING_KEY: ${WARDEN_SIGNING_KEY:-}
+      USSD_CALLBACK_SECRET: ${USSD_CALLBACK_SECRET:-}
       MIGRATE_ON_START: "true"
       TRUST_PROXY: "true"
       LOG_LEVEL: info

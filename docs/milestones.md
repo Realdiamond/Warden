@@ -43,15 +43,23 @@ Known follow-ups from M1:
 - [ ] Route deviation checks (needs real-world testing of GPS noise first)
 - [ ] Text messages actually sent: needs the SMS provider account (founder)
 
-## M4 — Responders and channels
+## M4 — Responders and channels (built; see [ADR 0004](adr/0004-responders-and-ussd.md))
 
-- [ ] Responder console: inbox, deployments with visibility levels, signed broadcasts
-- [ ] USSD and SMS reporting pilot
+- [x] Verified organisations with an area (jurisdiction) and responder accounts
+- [x] Responder console: incidents in their area (audited detail), public updates on the map,
+      deployments with four visibility levels, signed broadcasts, SOS board
+- [x] App: responder updates on incident cards, public deployments layer, broadcast signature
+      check, "also alert responders" option for SOS
+- [x] USSD reporting for Lagos and the FCT (held for a moderator, coarse area only)
+- [ ] SMS reporting (needs the SMS provider's inbound number)
+- [ ] Real organisation onboarding and boundaries (founder: partnerships, official maps)
 
 ## Blocked on the founder (not on code)
 
 - [ ] Server and domain for a live backend
-- [ ] Firebase project (push)
+- [ ] Firebase project (faster push alerts; the app works without it)
+- [ ] USSD short code (Africa's Talking or similar)
+- [ ] Partner agreements with responder organisations
 - [ ] Google Play developer account
 - [ ] Company registration (CAC)
 - [ ] SMS provider account and sender ID

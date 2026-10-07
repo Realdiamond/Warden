@@ -21,6 +21,11 @@ jobs:
     name: Build APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Optional repository variables (Settings > Secrets and variables > Actions > Variables).
+    # Both are public values; leave them unset for a demo-mode build.
+    env:
+      WARDEN_API_URL: ${{ vars.WARDEN_API_URL }}
+      WARDEN_BROADCAST_PUBLIC_KEY: ${{ vars.WARDEN_BROADCAST_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4

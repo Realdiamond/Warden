@@ -135,7 +135,8 @@ export async function startSafetySession(
     kind,
     personName: profile.personName.trim() || "A Warden user",
     contacts: profile.contacts.map((c) => ({ name: c.name, phone: c.phone })),
-    shareWithResponders: kind === "sos" && trip.shareWithResponders === true,
+    shareWithResponders:
+      kind === "sos" && (trip.shareWithResponders ?? profile.shareSosWithResponders),
     ...(trip.expectedArrivalAt ? { expectedArrivalAt: trip.expectedArrivalAt } : {}),
     ...(trip.destination ? { destination: trip.destination } : {}),
     ...(trip.note ? { note: trip.note } : {}),

@@ -8,6 +8,7 @@ import { randomUUID } from "expo-crypto";
 import type * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import { checkAlerts } from "./lib/alertCheck.ts";
+import { checkBroadcast } from "./lib/broadcasts.ts";
 import { showNotifications } from "./lib/notify.ts";
 import { getInstallId, loadSettings } from "./lib/settings.ts";
 import { createSource } from "./lib/source.ts";
@@ -16,7 +17,10 @@ import { LOCATION_TASK, recordLocations, sendPendingEnds } from "./safetyRuntime
 export const ALERT_TASK = "warden-alert-check";
 const INTERVAL_MINUTES = 15;
 
-const extra = (Constants.expoConfig?.extra ?? {}) as { apiUrl?: string };
+const extra = (Constants.expoConfig?.extra ?? {}) as {
+  apiUrl?: string;
+  broadcastPublicKey?: string;
+};
 
 /** One check using the saved settings; shared by the background task and the open app. */
 export async function runStoredAlertCheck(options: { notify: boolean }) {
@@ -28,6 +32,10 @@ export async function runStoredAlertCheck(options: { notify: boolean }) {
     feedId: source.feedId,
     fetchAlerts: (tiles, after) => source.alerts(tiles, after),
     now: () => new Date(),
+    checkBroadcast: (alert) =>
+      alert.broadcast
+        ? checkBroadcast(alert.broadcast, extra.broadcastPublicKey || null)
+        : "invalid",
   });
   if (options.notify) await showNotifications(result.notifications);
   return result;

@@ -41,6 +41,8 @@ const config: ExpoConfig = {
   ],
   extra: {
     apiUrl: process.env.WARDEN_API_URL ?? "",
+    // Public half of the server's broadcast signing key (from gen-keys). Not secret.
+    broadcastPublicKey: process.env.WARDEN_BROADCAST_PUBLIC_KEY ?? "",
     mapStyleUrl: process.env.WARDEN_MAP_STYLE_URL ?? "https://tiles.openfreemap.org/styles/liberty",
   },
 };
