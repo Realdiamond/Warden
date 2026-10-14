@@ -1,0 +1,90 @@
+.live {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.live-head {
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.live-head h1 {
+  margin: 4px 0;
+  font-size: 1.4rem;
+}
+
+.live-head p {
+  margin: 0;
+}
+
+.live-brand {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.live-alarm {
+  background: var(--critical-bg);
+  border-color: var(--danger);
+  color: var(--critical-text);
+}
+
+.live-alarm .live-brand {
+  color: var(--critical-text);
+}
+
+.live-done {
+  background: var(--bg);
+}
+
+.live-call {
+  display: block;
+  text-align: center;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--danger);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-decoration: none;
+}
+
+.live-map {
+  height: min(60vh, 420px);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.live-map-empty {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.live-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.live-facts dt {
+  color: var(--muted);
+}
+
+.live-facts dd {
+  margin: 0;
+}
+
+.live-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}

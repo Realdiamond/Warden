@@ -1,0 +1,7 @@
+.git
+**/node_modules
+**/dist
+apps/mobile
+*.zip
+**/.env
+**/.env.*

@@ -1,0 +1,55 @@
+# Pilot deployment on one server: API + console, PostgreSQL with PostGIS, and Caddy for HTTPS.
+# Usage: see docs/deploy.md
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: warden
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: warden
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warden -d warden"]
+      interval: 10s
+      retries: 10
+
+  api:
+    build: ..
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://warden:${POSTGRES_PASSWORD}@db:5432/warden
+      WARDEN_FIELD_KEY: ${WARDEN_FIELD_KEY:?set WARDEN_FIELD_KEY in .env}
+      WARDEN_HMAC_KEY: ${WARDEN_HMAC_KEY:?set WARDEN_HMAC_KEY in .env}
+      WARDEN_SIGNING_KEY: ${WARDEN_SIGNING_KEY:-}
+      USSD_CALLBACK_SECRET: ${USSD_CALLBACK_SECRET:-}
+      MIGRATE_ON_START: "true"
+      TRUST_PROXY: "true"
+      LOG_LEVEL: info
+      # Links sent to trusted contacts point here.
+      PUBLIC_WEB_URL: https://${DOMAIN}
+      # "log" until an SMS provider account exists; then "termii" with the key below.
+      SMS_DRIVER: ${SMS_DRIVER:-log}
+      TERMII_API_KEY: ${TERMII_API_KEY:-}
+      TERMII_SENDER_ID: ${TERMII_SENDER_ID:-Warden}
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  db-data:
+  caddy-data:

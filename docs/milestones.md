@@ -1,0 +1,66 @@
+# Milestones
+
+The full plan lives in the [Warden 2.0 Requirements Set](https://claude.ai/code/artifact/9e32d210-e4da-4bad-b899-a11b5ba06bcf).
+This file tracks the build, one milestone at a time. Tick items as they land.
+
+## M1 — Report to map (built; testing on real phones next)
+
+- [x] Monorepo, tooling, decision records
+- [x] Shared rules: categories, payload schemas, publication rules, H3 privacy levels
+- [x] API: anonymous reports, merging, publication rules, map endpoint
+- [x] API: staff login, moderation actions, hash-chained audit log, expiry job
+- [x] Moderator console: queue, incident detail, verify / hold / remove / resolve
+- [x] Android app: map, incident card, quick report, offline outbox, my reports, demo mode
+- [x] CI: tests on every push; APK published as a GitHub pre-release
+
+Known follow-ups from M1:
+
+- [ ] The test APK is about 57 MB because it carries two phone architectures; split it per
+      architecture (Play Store bundles do this automatically).
+- [ ] First tests on real low-end Android phones on MTN, Airtel and Glo.
+
+## M2 — Alerts (built; see [ADR 0002](adr/0002-alerts-without-push.md))
+
+- [x] Saved places kept on the phone (up to five, plus "where I last was")
+- [x] Alert feed by coarse tiles; the phone matches its own places, so the server never learns them
+- [x] Notifications by tier (danger, warning, advisory), quiet hours, flood control, test alert
+- [x] All-clear ("it's over") and corrections sent only to people who were told
+- [x] Spoken alerts in English while the app is open (Pidgin comes with the translation work)
+- [x] Reactions: "Still happening", "It's over", "Looks false"; community thresholds, never for
+      critical incidents
+- [x] Background checks about every 15 minutes when the phone allows it
+- [ ] Push delivery for faster alerts once a Firebase project exists (founder)
+
+## M3 — Trips and SOS (built; see [ADR 0003](adr/0003-trips-and-sos.md))
+
+- [x] Trusted contacts (up to five) kept on the phone; "Tell them" sends an invitation text from
+      the person's own phone
+- [x] Trip sharing: private live-location link, arrival time, overdue text to contacts, add time
+- [x] SOS with a five-second countdown, texts to contacts, live location, 112 button
+- [x] Safety PIN and duress PIN (looks like a normal stop, alarms contacts)
+- [x] Live page for contacts at `/live#...`; the secret never reaches server logs
+- [x] Stops and alarms are queued on the phone when there is no signal
+- [ ] Route deviation checks (needs real-world testing of GPS noise first)
+- [ ] Text messages actually sent: needs the SMS provider account (founder)
+
+## M4 — Responders and channels (built; see [ADR 0004](adr/0004-responders-and-ussd.md))
+
+- [x] Verified organisations with an area (jurisdiction) and responder accounts
+- [x] Responder console: incidents in their area (audited detail), public updates on the map,
+      deployments with four visibility levels, signed broadcasts, SOS board
+- [x] App: responder updates on incident cards, public deployments layer, broadcast signature
+      check, "also alert responders" option for SOS
+- [x] USSD reporting for Lagos and the FCT (held for a moderator, coarse area only)
+- [ ] SMS reporting (needs the SMS provider's inbound number)
+- [ ] Real organisation onboarding and boundaries (founder: partnerships, official maps)
+
+## Blocked on the founder (not on code)
+
+- [ ] Server and domain for a live backend
+- [ ] Firebase project (faster push alerts; the app works without it)
+- [ ] USSD short code (Africa's Talking or similar)
+- [ ] Partner agreements with responder organisations
+- [ ] Google Play developer account
+- [ ] Company registration (CAC)
+- [ ] SMS provider account and sender ID
+- [ ] Privacy notice, consent text and DPIA with a lawyer
