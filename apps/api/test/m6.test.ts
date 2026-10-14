@@ -89,6 +89,20 @@ describe("off-route trips", () => {
     expect(ctx.sms.sent.at(-1)?.text).toContain("Ada has arrived safely");
   });
 
+  it("clears the alarm and tells contacts when the person answers late", async () => {
+    const trip = await start("trip");
+    // Nothing to clear yet: no message.
+    expect((await control(trip, "flag", { reason: "ok" })).statusCode).toBe(200);
+    await control(trip, "flag", { reason: "off_route" });
+    expect((await control(trip, "flag", { reason: "ok" })).statusCode).toBe(200);
+    await deliverDueSms(serviceDeps(ctx));
+    expect(ctx.sms.sent.map((m) => m.text)).toEqual([
+      expect.stringContaining("moved away from their route"),
+      expect.stringContaining("Ada says they are OK and is carrying on"),
+    ]);
+    expect(await view(trip)).toMatchObject({ alarm: false, offRouteAt: null });
+  });
+
   it("raises the duress alarm without ending the trip", async () => {
     const trip = await start("trip");
     expect((await control(trip, "flag", { reason: "duress" })).statusCode).toBe(200);

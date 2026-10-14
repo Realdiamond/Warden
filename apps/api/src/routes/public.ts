@@ -30,12 +30,15 @@ const STATUS_CHECKS_PER_HOUR = 120;
 const REACTIONS_PER_HOUR = 30;
 /** Trusted reporters may report more, but a stolen code still cannot flood the map. */
 const TRUSTED_REPORTS_PER_HOUR = 30;
+/** Checking a code reads the database, so one phone cannot try codes without limit. */
+const CODE_CHECKS_PER_HOUR = TRUSTED_REPORTS_PER_HOUR;
 
 export function registerPublicRoutes(app: FastifyInstance, deps: ServiceDeps): void {
   const reportLimiter = new RateLimiter(REPORTS_PER_HOUR, 3_600_000);
   const statusLimiter = new RateLimiter(STATUS_CHECKS_PER_HOUR, 3_600_000);
   const reactionLimiter = new RateLimiter(REACTIONS_PER_HOUR, 3_600_000);
   const trustedLimiter = new RateLimiter(TRUSTED_REPORTS_PER_HOUR, 3_600_000);
+  const codeCheckLimiter = new RateLimiter(CODE_CHECKS_PER_HOUR, 3_600_000);
 
   app.post("/v1/reports", async (request, reply) => {
     const installId = headerValue(request.headers["x-warden-install"]);
@@ -52,6 +55,13 @@ export function registerPublicRoutes(app: FastifyInstance, deps: ServiceDeps): v
     }
 
     const reporterCode = headerValue(request.headers["x-warden-reporter-code"]);
+    if (reporterCode) {
+      const checks = codeCheckLimiter.hit(
+        deps.hasher.hmacHex("rl-code-check", installId.toLowerCase()),
+        deps.now().getTime(),
+      );
+      if (!checks.allowed) return tooMany(reply, checks.retryAfterMs);
+    }
     const limit = reporterCode
       ? trustedLimiter.hit(
           deps.hasher.hmacHex("rl-trusted", normaliseReporterCode(reporterCode)),

@@ -8,6 +8,7 @@ import {
   MAX_POINTS_PER_UPLOAD,
   newRouteWatch,
   type RouteWatch,
+  type SessionFlag,
   type SessionKind,
   type SessionPoint,
   updateRouteWatch,
@@ -62,18 +63,30 @@ export function watchRoute(
   if (!session.route || session.kind !== "trip") return { session, ask: false };
   let route = session.route;
   let ask = false;
+  let arrived = false;
   for (const point of points) {
     const result = updateRouteWatch(route, point);
     route = result.watch;
-    if (result.status === "ask") ask = true;
+    if (result.status === "ask") {
+      ask = true;
+      arrived = false;
+    } else if (result.status === "near") {
+      ask = false;
+      arrived = true;
+    }
   }
+  const previous = session.checkIn ?? null;
+  // Reaching the destination settles an unanswered question; contacts who were already told
+  // still need the person to answer.
   const checkIn: CheckIn | null = ask
     ? {
         askedAt: now.toISOString(),
         dueAt: new Date(now.getTime() + CHECK_IN_WINDOW_MS).toISOString(),
         flagged: false,
       }
-    : (session.checkIn ?? null);
+    : arrived && !previous?.flagged
+      ? null
+      : previous;
   return { session: { ...session, route, checkIn }, ask };
 }
 
@@ -169,6 +182,55 @@ export function shareText(
   const t = strings(language);
   const link = viewUrl ? ` ${viewUrl}` : "";
   return kind === "sos" ? t.sosShare(link) : t.tripShare(link, personName);
+}
+
+/** A flag the server has not heard about yet (no signal); retried like a stop. */
+export interface PendingFlag {
+  sessionId: string;
+  controlToken: string;
+  reason: SessionFlag;
+}
+
+const PENDING_FLAGS_KEY = "warden.safety.pendingFlags.v1";
+
+export async function loadPendingFlags(store: KeyValueStore): Promise<PendingFlag[]> {
+  const raw = await store.getItem(PENDING_FLAGS_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as PendingFlag[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Sends a flag now, or keeps it to send later. Returns true when the server has it. */
+export async function sendOrQueueFlag(
+  store: KeyValueStore,
+  flag: PendingFlag,
+  send: (flag: PendingFlag) => Promise<boolean>,
+): Promise<boolean> {
+  const sent = await send(flag).catch(() => false);
+  if (!sent) {
+    const pending = await loadPendingFlags(store);
+    await store.setItem(PENDING_FLAGS_KEY, JSON.stringify([...pending, flag].slice(-20)));
+  }
+  return sent;
+}
+
+/** Retries flags in order; stops at the first failure so they reach the server in order. */
+export async function retryPendingFlags(
+  store: KeyValueStore,
+  send: (flag: PendingFlag) => Promise<boolean>,
+): Promise<number> {
+  const pending = await loadPendingFlags(store);
+  let sent = 0;
+  for (const flag of pending) {
+    if (!(await send(flag).catch(() => false))) break;
+    sent += 1;
+  }
+  if (sent > 0) await store.setItem(PENDING_FLAGS_KEY, JSON.stringify(pending.slice(sent)));
+  return sent;
 }
 
 /** A stop the server has not heard about yet (no signal); retried until it gets through. */

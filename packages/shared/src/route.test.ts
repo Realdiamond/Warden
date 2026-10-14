@@ -104,4 +104,17 @@ describe("off-route checks", () => {
     ]);
     expect(statuses).toEqual(["on_course", "on_course", "on_course"]);
   });
+
+  it("settles an open question once the person reaches the destination", () => {
+    const asked = feed(newRouteWatch(LEKKI), [
+      [0, 0],
+      [0.4, 10],
+      [0.1, 20],
+      [0.1, 25],
+    ]);
+    expect(asked.watch.asked).toBe(true);
+    const arrived = updateRouteWatch(asked.watch, { ...LEKKI, at: "2026-10-01T09:00:00Z" });
+    expect(arrived.status).toBe("near");
+    expect(arrived.watch.asked).toBe(false);
+  });
 });

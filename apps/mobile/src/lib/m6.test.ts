@@ -7,7 +7,10 @@ import {
   type ActiveSession,
   answerRouteCheck,
   checkInOverdue,
+  loadPendingFlags,
+  retryPendingFlags,
   routeWatchFor,
+  sendOrQueueFlag,
   shareText,
   watchRoute,
 } from "./safety.ts";
@@ -15,6 +18,19 @@ import { isValidReporterCode, normaliseReporterCode } from "./settings.ts";
 import { demoSource } from "./source.ts";
 
 const LEKKI = { lat: 6.45, lng: 3.4 };
+
+function memoryStore() {
+  const data = new Map<string, string>();
+  return {
+    getItem: async (key: string) => data.get(key) ?? null,
+    setItem: async (key: string, value: string) => {
+      data.set(key, value);
+    },
+    removeItem: async (key: string) => {
+      data.delete(key);
+    },
+  };
+}
 const START = new Date("2026-10-01T08:00:00Z").getTime();
 
 function trip(): ActiveSession {
@@ -78,6 +94,35 @@ describe("off-route check on the phone", () => {
     expect(answered.checkIn).toBeNull();
     expect(answered.route?.asked).toBe(false);
     expect(watchRoute(answered, [point(10, minutes + 4)], asked).ask).toBe(false);
+  });
+
+  it("drops an unanswered question when the person arrives, but not one contacts were told about", () => {
+    let session = trip();
+    session = watchRoute(session, [point(10, 0), point(6, 10)], new Date(START)).session;
+    const asked = watchRoute(session, [point(9, 11), point(9.5, 16)], new Date(START)).session;
+    expect(asked.checkIn).not.toBeNull();
+    const arrived = watchRoute(asked, [point(0, 30)], new Date(START)).session;
+    expect(arrived.checkIn).toBeNull();
+    const told = { ...asked, checkIn: asked.checkIn && { ...asked.checkIn, flagged: true } };
+    expect(watchRoute(told, [point(0, 30)], new Date(START)).session.checkIn?.flagged).toBe(true);
+  });
+
+  it("keeps flags that could not be sent and retries them in order", async () => {
+    const store = memoryStore();
+    const flag = (reason: "duress" | "ok") => ({ sessionId: "s", controlToken: "c", reason });
+    expect(await sendOrQueueFlag(store, flag("duress"), async () => false)).toBe(false);
+    expect(
+      await sendOrQueueFlag(store, flag("ok"), async () => {
+        throw new Error("offline");
+      }),
+    ).toBe(false);
+    expect((await loadPendingFlags(store)).map((f) => f.reason)).toEqual(["duress", "ok"]);
+
+    // The duress flag goes; "ok" fails again and is kept.
+    expect(await retryPendingFlags(store, async (f) => f.reason === "duress")).toBe(1);
+    expect((await loadPendingFlags(store)).map((f) => f.reason)).toEqual(["ok"]);
+    expect(await retryPendingFlags(store, async () => true)).toBe(1);
+    expect(await loadPendingFlags(store)).toEqual([]);
   });
 
   it("does nothing for SOS, trips without a destination, or older saved trips", () => {

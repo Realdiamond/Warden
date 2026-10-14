@@ -15,7 +15,9 @@ adapted rather than copied.
   person must be more than 1.5 km (or a quarter of the trip) further away than their closest
   point, for four minutes. Then the phone asks "Are you OK?" with a loud notification. Only if
   nobody answers within five minutes does the phone call `POST /v1/sessions/:id/flag` with
-  `off_route`, which texts contacts once and shows the alarm on the live page. Answering needs
+  `off_route`, which texts contacts once and shows the alarm on the live page. Answering later
+  sends `ok`, which clears the alarm and tells contacts the person is OK. Reaching the
+  destination settles an unanswered question. Flags sent without signal are kept and retried. Answering needs
   the Warden PIN; the duress PIN looks the same but flags `duress`. The v1 idea of the server
   tracking routes against a road network was dropped: it needs a routing service, and the server
   would have to reason about people's movements.
@@ -31,8 +33,9 @@ adapted rather than copied.
 - **Safe places come from open data, not from users.** Police stations, hospitals, clinics,
   pharmacies, fuel and fire stations are imported from OpenStreetMap or partner GeoJSON files
   with `import-safe-stops`, and served by area at `GET /v1/safe-stops`. Imported places show
-  "Not yet checked by Warden" until imported again with `--verified`. The phone never sends its
-  position: it asks for a box of about 10 km and works out the nearest places itself.
+  "Not yet checked by Warden" until imported again with `--verified`. The phone does not send its
+  exact position: it asks for a box of about 10 km around it and works out the nearest places
+  itself. The server sees only that rough area, as it does for the map.
 - **Pidgin is a draft.** The phrases that matter most in danger (alerts, spoken alerts, SOS,
   trips, the "Are you OK?" check, safe places, private-report help) have a Pidgin version
   (`apps/mobile/src/lib/i18n.ts`). It was written without a native speaker and is labelled

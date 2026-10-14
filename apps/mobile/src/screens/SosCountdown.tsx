@@ -49,7 +49,7 @@ export function SosCountdown({
       <Text style={styles.text}>{t.sosWillSend}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Send SOS now"
+        accessibilityLabel={t.sendNow}
         onPress={sendNow}
         style={[styles.button, styles.send]}
       >
@@ -57,7 +57,7 @@ export function SosCountdown({
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Cancel SOS"
+        accessibilityLabel={t.cancel}
         onPress={onCancel}
         style={[styles.button, styles.cancel]}
       >

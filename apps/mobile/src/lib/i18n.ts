@@ -87,6 +87,7 @@ export interface Strings {
   directions: string;
   open24h: string;
   notChecked: string;
+  noMapsApp: (name: string, where: string) => string;
   // Reporting and support
   thankYouPrivate: string;
   privateHelp: string;
@@ -169,6 +170,7 @@ const en: Strings = {
   directions: "Directions",
   open24h: "Open 24 hours",
   notChecked: "Not yet checked by Warden",
+  noMapsApp: (name, where) => `No maps app could open this. ${name} is at ${where}.`,
   thankYouPrivate: "Thank you for telling us",
   privateHelp:
     "This report stays private. It never appears on the map. If you or someone else is in danger now, call 112.",
@@ -254,6 +256,7 @@ const pcm: Strings = {
   directions: "Show me road",
   open24h: "E dey open 24 hours",
   notChecked: "Warden never check am",
+  noMapsApp: (name, where) => `Map app no fit open am. ${name} dey for ${where}.`,
   thankYouPrivate: "Thank you say you tell us",
   privateHelp:
     "This report go remain private. E no go show for map. If you or another person dey danger now, call 112.",

@@ -37,6 +37,7 @@ export function SafePlaces({
   count?: number;
 }) {
   const t = strings(language);
+  const [openFailed, setOpenFailed] = useState<SafeStop | null>(null);
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "done"; stops: Array<SafeStop & { distanceM: number }> }
@@ -76,7 +77,10 @@ export function SafePlaces({
             key={stop.id}
             accessibilityRole="button"
             accessibilityLabel={`${t.directions}: ${stop.name}`}
-            onPress={() => void Linking.openURL(directionsUrl(stop))}
+            onPress={() => {
+              setOpenFailed(null);
+              Linking.openURL(directionsUrl(stop)).catch(() => setOpenFailed(stop));
+            }}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
             <Icon name={ICONS[stop.kind]} color={COLORS.primary} />
@@ -91,6 +95,14 @@ export function SafePlaces({
             <Icon name="directions" color={COLORS.primary} />
           </Pressable>
         ))}
+      {openFailed && (
+        <Text style={styles.help}>
+          {t.noMapsApp(
+            openFailed.name,
+            `${openFailed.lat.toFixed(5)}, ${openFailed.lng.toFixed(5)}`,
+          )}
+        </Text>
+      )}
     </View>
   );
 }

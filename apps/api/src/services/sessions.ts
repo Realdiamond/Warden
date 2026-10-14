@@ -82,7 +82,15 @@ function hhmm(date: Date): string {
 
 /** Message texts are short, plain and work on any phone. */
 export function smsText(
-  event: "sos.started" | "trip.overdue" | "off_route" | "duress" | "safe" | "arrived" | "extended",
+  event:
+    | "sos.started"
+    | "trip.overdue"
+    | "off_route"
+    | "back_on_route"
+    | "duress"
+    | "safe"
+    | "arrived"
+    | "extended",
   d: SessionDetails,
   link: string | null,
   extra: { minutes?: number; expectedAt?: Date } = {},
@@ -100,6 +108,8 @@ export function smsText(
       const place = d.destination?.label ? ` to ${d.destination.label}` : "";
       return `Warden: ${d.personName} has moved away from their route${place} and did not answer when Warden checked on them.${where} Please try to call them.`;
     }
+    case "back_on_route":
+      return `Warden: ${d.personName} says they are OK and is carrying on with their trip.`;
     case "duress":
       return `Warden URGENT: ${d.personName} may be in danger and unable to say so.${where} Call 112 if you cannot safely reach them.`;
     case "safe":
@@ -362,6 +372,17 @@ export async function flagSession(
     }
     if (row.kind !== "trip") {
       return { ok: false, status: 409, message: "Only trips have a route." };
+    }
+    if (reason === "ok") {
+      // The person answered "I'm OK" after contacts had been told: tell them and stop the alarm.
+      if (row.off_route_at) {
+        await client.query(
+          "UPDATE safety_sessions SET off_route_at = NULL, updated_at = $2 WHERE id = $1",
+          [row.id, now],
+        );
+        await queueForContacts(client, deps, row, "back_on_route");
+      }
+      return { ok: true };
     }
     if (!row.off_route_at) {
       await client.query(

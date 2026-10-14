@@ -33,7 +33,7 @@ export function SettingsScreen({
       <ModalHeader title="Settings" onClose={onClose} />
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>Language</Text>
-        <View style={styles.choices}>
+        <View style={styles.choices} accessibilityRole="radiogroup">
           {LANGUAGES.map((id) => (
             <Pressable
               key={id}

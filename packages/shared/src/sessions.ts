@@ -113,7 +113,7 @@ export const SessionEndSchema = z.strictObject({
  * Sent by the phone when something is wrong but the trip goes on: the person did not answer
  * "Are you OK?" after leaving their route, or answered it with their duress PIN.
  */
-export const SESSION_FLAGS = ["off_route", "duress"] as const;
+export const SESSION_FLAGS = ["off_route", "duress", "ok"] as const;
 export type SessionFlag = (typeof SESSION_FLAGS)[number];
 export const SessionFlagSchema = z.strictObject({ reason: z.enum(SESSION_FLAGS) });
 

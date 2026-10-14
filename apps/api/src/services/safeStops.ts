@@ -32,7 +32,9 @@ export async function safeStopsIn(pool: Pool, bbox: BBox): Promise<SafeStop[]> {
        FROM safe_stops
       WHERE removed_at IS NULL
         AND location && ST_MakeEnvelope($1, $2, $3, $4, 4326)
-      ORDER BY verified DESC, kind, name
+      -- Nearest to the middle of the box first, so the cap never drops close places.
+      ORDER BY location <-> ST_SetSRID(ST_MakePoint(($1 + $3) / 2, ($2 + $4) / 2), 4326),
+               verified DESC, kind, name
       LIMIT $5`,
     [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat, MAX_STOPS],
   );

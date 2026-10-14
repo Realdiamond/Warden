@@ -56,7 +56,11 @@ export function updateRouteWatch(
   }
   const distance = distanceMeters(point, watch.destination);
   if (distance <= ROUTE_ARRIVED_M) {
-    return { watch: { ...watch, closestM: distance, awaySince: null }, status: "near" };
+    // Arrived: any open question is settled.
+    return {
+      watch: { ...watch, closestM: distance, awaySince: null, asked: false },
+      status: "near",
+    };
   }
   const startDistanceM = watch.startDistanceM ?? distance;
   const closestM = Math.min(watch.closestM ?? distance, distance);

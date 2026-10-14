@@ -20,8 +20,10 @@ import {
   loadActive,
   queuePoints,
   retryPendingEnds,
+  retryPendingFlags,
   routeWatchFor,
   saveActive,
+  sendOrQueueFlag,
   watchRoute,
 } from "./lib/safety.ts";
 import { getInstallId, loadSettings } from "./lib/settings.ts";
@@ -120,9 +122,18 @@ export async function answerCheckInActive(duress: boolean): Promise<ActiveSessio
   const answered = answerRouteCheck(active, here);
   await saveActive(AsyncStorage, answered);
   await Notifications.dismissNotificationAsync(CHECK_IN_NOTIFICATION).catch(() => undefined);
-  if (duress && active.sessionId && active.controlToken) {
-    const source = await storedSource();
-    await source.flagSession(active.sessionId, active.controlToken, "duress").catch(() => false);
+  if (active.sessionId && active.controlToken) {
+    // Duress: contacts are quietly told. Otherwise, if contacts were already told the person
+    // left their route, tell them the person is OK. Kept and retried if there is no signal.
+    const reason = duress ? "duress" : active.checkIn?.flagged ? "ok" : null;
+    if (reason) {
+      const source = await storedSource();
+      await sendOrQueueFlag(
+        AsyncStorage,
+        { sessionId: active.sessionId, controlToken: active.controlToken, reason },
+        (flag) => source.flagSession(flag.sessionId, flag.controlToken, flag.reason),
+      );
+    }
   }
   return answered;
 }
@@ -297,6 +308,9 @@ export async function finishActive(
 /** Called on app start and by the background check. */
 export async function sendPendingEnds(): Promise<void> {
   const source = await storedSource();
+  await retryPendingFlags(AsyncStorage, (flag) =>
+    source.flagSession(flag.sessionId, flag.controlToken, flag.reason),
+  );
   await retryPendingEnds(AsyncStorage, (end) =>
     source.endSession(end.sessionId, end.controlToken, end.outcome, end.duress),
   );
