@@ -4,6 +4,7 @@
 import { z } from "zod";
 import type { AlertTier } from "./alerts.ts";
 import { isInNigeria } from "./distance.ts";
+import type { ReportMediaInfo } from "./media.ts";
 
 export const ORGANISATION_KINDS = [
   "police",
@@ -87,6 +88,7 @@ export type DeploymentInput = z.output<typeof DeploymentSchema>;
 
 export const MAX_BROADCAST_MESSAGE = 280;
 export const MAX_BROADCAST_RADIUS_M = 50_000;
+export const MAX_BROADCAST_AUDIO_BASE64 = 1_400_000;
 
 export const BroadcastSchema = z.strictObject({
   tier: z.enum(["critical", "warning", "advisory"]),
@@ -98,6 +100,14 @@ export const BroadcastSchema = z.strictObject({
     .int()
     .min(15)
     .max(24 * 60),
+  /** Optional spoken version, recorded in the console (M8). */
+  audio: z
+    .strictObject({
+      contentType: z.enum(["audio/webm", "audio/ogg", "audio/mp4"]),
+      /** Base64; about 60 seconds of speech. */
+      data: z.string().max(MAX_BROADCAST_AUDIO_BASE64),
+    })
+    .optional(),
 });
 export type BroadcastInput = z.output<typeof BroadcastSchema>;
 
@@ -109,6 +119,8 @@ export interface BroadcastPayload {
   radiusM: number;
   message: string;
   expiresAt: string;
+  /** SHA-256 (hex) of the spoken version, when there is one; phones check it before playing. */
+  audioSha256?: string | null;
 }
 
 /**
@@ -116,8 +128,8 @@ export interface BroadcastPayload {
  * place, size, sender or expiry breaks the signature.
  */
 export function broadcastSigningText(b: BroadcastPayload): string {
-  return [
-    "warden-broadcast-v1",
+  const lines = [
+    b.audioSha256 ? "warden-broadcast-v2" : "warden-broadcast-v1",
     b.id,
     b.organisation,
     b.tier,
@@ -126,7 +138,10 @@ export function broadcastSigningText(b: BroadcastPayload): string {
     String(b.radiusM),
     b.expiresAt,
     b.message,
-  ].join("\n");
+  ];
+  // v2 adds the audio hash, so a recording cannot be swapped without breaking the signature.
+  if (b.audioSha256) lines.push(`audio:${b.audioSha256}`);
+  return lines.join("\n");
 }
 
 export interface SignedBroadcast extends BroadcastPayload {
@@ -186,6 +201,7 @@ export interface ResponderIncidentDetail extends ResponderInboxItem {
     trusted: boolean;
     description: string | null;
     location: { lat: number; lng: number; accuracyM: number | null };
+    media: ReportMediaInfo[];
   }[];
   updates: { kind: string; text: string | null; organisation: string; at: string }[];
 }
@@ -198,6 +214,8 @@ export interface BroadcastSummary {
   createdAt: string;
   expiresAt: string;
   withdrawn: boolean;
+  /** Has a spoken version (M8). */
+  spoken: boolean;
 }
 
 export interface ResponderDeployment {

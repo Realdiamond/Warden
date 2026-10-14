@@ -12,6 +12,7 @@ import { checkBroadcast } from "./lib/broadcasts.ts";
 import { showNotifications } from "./lib/notify.ts";
 import { getInstallId, loadSettings } from "./lib/settings.ts";
 import { createSource } from "./lib/source.ts";
+import { flushMedia } from "./mediaRuntime.ts";
 import {
   checkActiveCheckIn,
   LOCATION_TASK,
@@ -52,6 +53,7 @@ TaskManager.defineTask(ALERT_TASK, async () => {
   try {
     await sendPendingEnds().catch(() => undefined);
     await checkActiveCheckIn().catch(() => undefined);
+    await flushMedia().catch(() => undefined);
     await runStoredAlertCheck({ notify: true });
     return BackgroundTask.BackgroundTaskResult.Success;
   } catch {

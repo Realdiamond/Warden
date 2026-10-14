@@ -88,3 +88,27 @@
   font-size: 0.9rem;
   margin: 0;
 }
+
+.live-clips h2 {
+  font-size: 1.1rem;
+  margin: 0 0 4px;
+}
+
+.live-clips ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.live-clips li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.live-clips audio {
+  max-width: 100%;
+}

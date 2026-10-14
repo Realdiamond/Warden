@@ -39,6 +39,8 @@ services:
       SMS_DRIVER: ${SMS_DRIVER:-log}
       TERMII_API_KEY: ${TERMII_API_KEY:-}
       TERMII_SENDER_ID: ${TERMII_SENDER_ID:-Warden}
+      # News feeds for the console's News page: "Name|https://feed,Name|https://feed".
+      WARDEN_NEWS_FEEDS: ${WARDEN_NEWS_FEEDS:-}
 
   caddy:
     image: caddy:2

@@ -1,6 +1,7 @@
 import { parseViewFragment, type SessionView } from "@warden/shared";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { fetchSession } from "./liveApi.ts";
+import { SosClips } from "./SosClips.tsx";
 
 const LiveMap = lazy(() => import("./LiveMap.tsx"));
 
@@ -131,6 +132,14 @@ export function LivePage() {
       <Suspense fallback={<div className="live-map live-map-empty">Loading map...</div>}>
         <LiveMap view={view} />
       </Suspense>
+
+      {view.kind === "sos" && (
+        <SosClips
+          sessionId={link.sessionId}
+          viewToken={link.viewToken}
+          live={view.state !== "ended"}
+        />
+      )}
 
       <dl className="live-facts">
         <dt>Last location</dt>

@@ -9,6 +9,7 @@ import {
   type IncidentState,
   IncidentUpdateSchema,
   ModerationDecisionSchema,
+  NewsDecisionSchema,
   PostDecisionSchema,
   StaffLoginSchema,
   type StaffUser,
@@ -20,6 +21,8 @@ import { RateLimiter } from "../rateLimit.ts";
 import { createNotice, decidePost, postQueue } from "../services/community.ts";
 import type { ServiceDeps } from "../services/deps.ts";
 import { incidentDetail, moderateIncident, moderationQueue } from "../services/incidents.ts";
+import { readReportMedia } from "../services/media.ts";
+import { decideLead, newsQueue } from "../services/news.ts";
 import {
   createBroadcast,
   createDeployment,
@@ -27,6 +30,7 @@ import {
   listBroadcasts,
   listDeployments,
   postIncidentUpdate,
+  responderCanSee,
   responderInbox,
   responderIncident,
   sosBoard,
@@ -103,7 +107,13 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
     admin.get("/v1/admin/me", async (request) => currentStaff(request));
 
     // Moderation is for Warden's own staff; responders have their own screens below.
-    const MODERATOR_PATHS = ["/v1/admin/queue", "/v1/admin/incidents/", "/v1/admin/community/"];
+    const MODERATOR_PATHS = [
+      "/v1/admin/queue",
+      "/v1/admin/incidents/",
+      "/v1/admin/community/",
+      "/v1/admin/media/",
+      "/v1/admin/news",
+    ];
     const RESPONDER_PREFIX = "/v1/admin/responder/";
     admin.addHook("preHandler", async (request, reply) => {
       const staff = staffByRequest.get(request);
@@ -147,6 +157,51 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
         return result;
       },
     );
+
+    // ---- Media and news (M8) ------------------------------------------------------------------
+    const sendMedia = (reply: FastifyReply, file: { contentType: string; data: Buffer }) =>
+      reply
+        .header("content-type", file.contentType)
+        .header("cache-control", "private, no-store")
+        .header("x-content-type-options", "nosniff")
+        .send(file.data);
+
+    // Opening a file is audited, so it needs the console header like a change would: another
+    // site cannot make a signed-in moderator's browser open files by linking to them.
+    admin.get<{ Params: { id: string } }>("/v1/admin/media/:id", async (request, reply) => {
+      if (!requireConsoleHeader(request, reply)) return reply;
+      if (!UUID.test(request.params.id)) return problem(reply, 404, "Not found.");
+      const file = await readReportMedia(deps, currentStaff(request), request.params.id);
+      if (!file) return problem(reply, 404, "Not found.");
+      return sendMedia(reply, file);
+    });
+
+    admin.get<{ Params: { id: string; mediaId: string } }>(
+      "/v1/admin/responder/incidents/:id/media/:mediaId",
+      async (request, reply) => {
+        if (!requireConsoleHeader(request, reply)) return reply;
+        const { id, mediaId } = request.params;
+        if (!UUID.test(id) || !UUID.test(mediaId)) return problem(reply, 404, "Not found.");
+        const staff = currentStaff(request);
+        if (!(await responderCanSee(deps, staff, id))) return problem(reply, 404, "Not found.");
+        const file = await readReportMedia(deps, staff, mediaId, id);
+        if (!file) return problem(reply, 404, "Not found.");
+        return sendMedia(reply, file);
+      },
+    );
+
+    admin.get("/v1/admin/news", async (_request, reply) => {
+      reply.header("cache-control", "no-store");
+      return { items: await newsQueue(deps) };
+    });
+
+    admin.post<{ Params: { id: string } }>("/v1/admin/news/:id/actions", async (request, reply) => {
+      if (!UUID.test(request.params.id)) return problem(reply, 404, "Lead not found.");
+      const decision = NewsDecisionSchema.parse(request.body);
+      const result = await decideLead(deps, currentStaff(request), request.params.id, decision);
+      if (!result.ok) return problem(reply, result.status, result.message);
+      return { incidentId: result.incidentId };
+    });
 
     // ---- Community feed (moderators only) ----------------------------------------------------
     admin.get("/v1/admin/community/queue", async (_request, reply) => {
@@ -233,12 +288,17 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
       return { items: await listBroadcasts(deps, currentStaff(request)) };
     });
 
-    admin.post("/v1/admin/responder/broadcasts", async (request, reply) => {
-      const input = BroadcastSchema.parse(request.body);
-      const result = await createBroadcast(deps, currentStaff(request), input);
-      if (!result.ok) return problem(reply, result.status, result.message);
-      return reply.code(201).send(result.broadcast);
-    });
+    // A spoken version can come with the text, so this route takes larger bodies.
+    admin.post(
+      "/v1/admin/responder/broadcasts",
+      { bodyLimit: 2_000_000 },
+      async (request, reply) => {
+        const input = BroadcastSchema.parse(request.body);
+        const result = await createBroadcast(deps, currentStaff(request), input);
+        if (!result.ok) return problem(reply, result.status, result.message);
+        return reply.code(201).send(result.broadcast);
+      },
+    );
 
     admin.post<{ Params: { id: string } }>(
       "/v1/admin/responder/broadcasts/:id/withdraw",

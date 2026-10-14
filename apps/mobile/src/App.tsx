@@ -29,6 +29,7 @@ import { IncidentCard } from "./components/IncidentCard.tsx";
 import { DEFAULT_CENTER, IncidentMap } from "./components/IncidentMap.tsx";
 import { PresenceCard } from "./components/PresenceCard.tsx";
 import { areaAround } from "./components/SafePlaces.tsx";
+import { SosSoundRecorder } from "./components/SosSoundRecorder.tsx";
 import { Button, EmergencyCallButton, Icon, ModalHeader, Note } from "./components/ui.tsx";
 import {
   type AlertState,
@@ -44,6 +45,8 @@ import { boundsToBBox } from "./lib/geo.ts";
 import { strings } from "./lib/i18n.ts";
 import type { Position } from "./lib/location.ts";
 import { currentPosition } from "./lib/location.ts";
+import type { Attachment } from "./lib/media.ts";
+import { removeLeftovers } from "./lib/mediaFiles.ts";
 import { alertIdFromResponse, setUpNotifications, speakAlerts } from "./lib/notify.ts";
 import { Outbox } from "./lib/outbox.ts";
 import { loadPlaces, saveLastArea } from "./lib/places.ts";
@@ -52,6 +55,7 @@ import { type ActiveSession, loadActive, minutesLeft } from "./lib/safety.ts";
 import { getInstallId, loadSettings, type Settings, saveSettings } from "./lib/settings.ts";
 import { createSource } from "./lib/source.ts";
 import { COLORS } from "./lib/ui.ts";
+import { flushMedia, mediaQueue } from "./mediaRuntime.ts";
 import {
   answerCheckInActive,
   checkActiveCheckIn,
@@ -63,6 +67,7 @@ import {
 import { AlertsScreen } from "./screens/AlertsScreen.tsx";
 import { CommunityScreen } from "./screens/CommunityScreen.tsx";
 import { MyReports } from "./screens/MyReports.tsx";
+import { OutlookScreen } from "./screens/OutlookScreen.tsx";
 import { PlacesScreen } from "./screens/PlacesScreen.tsx";
 import { ReportFlow, type SendOutcome } from "./screens/ReportFlow.tsx";
 import { SafetyScreen } from "./screens/SafetyScreen.tsx";
@@ -102,6 +107,7 @@ type Sheet =
   | "sos"
   | "sosFailed"
   | "community"
+  | "outlook"
   | null;
 
 /** How often the open app checks for alerts. */
@@ -134,10 +140,20 @@ function Root() {
     ]),
   );
   const cameraRef = useRef<CameraRef>(null);
-  const outbox = useMemo(() => new Outbox(AsyncStorage), []);
+  const outbox = useMemo(() => new Outbox(AsyncStorage, mediaQueue), []);
 
   useEffect(() => {
     void (async () => {
+      // Files from an earlier run that nothing is waiting to send.
+      const waiting = [
+        ...(await mediaQueue.pending()).map((item) => item.uri),
+        ...(await outbox.pending()).flatMap((r) => (r.attachments ?? []).map((a) => a.uri)),
+      ];
+      try {
+        removeLeftovers(new Set(waiting));
+      } catch {
+        // Tidying up can wait for the next start.
+      }
       setInstallId(await getInstallId(AsyncStorage, randomUUID));
       setSettings(await loadSettings(AsyncStorage, BUILT_IN_API_URL));
       setAlertState(await loadAlertState(AsyncStorage));
@@ -148,7 +164,7 @@ function Root() {
       await setUpNotifications().catch(() => undefined);
       await ensureBackgroundChecks().catch(() => false);
     })();
-  }, []);
+  }, [outbox]);
 
   const source = useMemo(
     () => (settings && installId ? createSource(settings, installId) : null),
@@ -181,7 +197,13 @@ function Root() {
     return NetInfo.addEventListener((state) => {
       const connected = state.isConnected !== false;
       setOnline(connected);
-      if (connected) void outbox.flush(source.send).catch(() => undefined);
+      if (connected) {
+        void outbox
+          .flush(source.send)
+          .catch(() => undefined)
+          .then(() => flushMedia())
+          .catch(() => undefined);
+      }
     });
   }, [source, outbox]);
 
@@ -362,14 +384,15 @@ function Root() {
   }, []);
 
   const submit = useCallback(
-    async (body: ReportSubmission): Promise<SendOutcome> => {
+    async (body: ReportSubmission, attachments: Attachment[]): Promise<SendOutcome> => {
       if (!source)
         return { tone: "error", message: "The app is still starting. Please try again." };
-      await outbox.add(body, randomUUID(), new Date());
+      await outbox.add(body, randomUUID(), new Date(), attachments);
       const result = await outbox
         .flush(source.send)
         .catch(() => ({ sent: 0, rejected: 0, waiting: 1 }));
       void refresh();
+      if (attachments.length > 0) void flushMedia().catch(() => undefined);
       if (result.sent > 0) {
         return {
           tone: "success",
@@ -417,6 +440,7 @@ function Root() {
 
   return (
     <View style={styles.screen}>
+      <SosSoundRecorder session={active} />
       <IncidentMap
         ref={cameraRef}
         styleUrl={MAP_STYLE_URL}
@@ -556,6 +580,7 @@ function Root() {
                 mapCenter={mapCenter}
                 onClose={() => setSheet(null)}
                 onSubmit={submit}
+                onDiscard={(files) => void mediaQueue.discard(files.map((file) => file.uri))}
                 language={settings.language}
               />
             )}
@@ -572,6 +597,7 @@ function Root() {
                 }}
                 onSettings={() => setSheet("places")}
                 onClose={() => void closeAlerts()}
+                downloadAudio={(id) => source.broadcastAudio(id)}
               />
             )}
             {sheet === "places" && (
@@ -611,6 +637,11 @@ function Root() {
                     label={t.community}
                     icon="account-group-outline"
                     onPress={() => setSheet("community")}
+                  />
+                  <Button
+                    label="Area outlook"
+                    icon="chart-timeline-variant"
+                    onPress={() => setSheet("outlook")}
                   />
                   <Button label="Settings" icon="cog" onPress={() => setSheet("settings")} />
                   <EmergencyCallButton />
@@ -676,6 +707,13 @@ function Root() {
                 source={source}
                 around={mapCenter}
                 language={settings.language}
+                onClose={() => setSheet(null)}
+              />
+            )}
+            {sheet === "outlook" && (
+              <OutlookScreen
+                source={source}
+                bbox={bboxRef.current}
                 onClose={() => setSheet(null)}
               />
             )}

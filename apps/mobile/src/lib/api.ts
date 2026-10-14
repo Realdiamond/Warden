@@ -3,6 +3,7 @@
 
 import type {
   AlertsResponse,
+  AreaOutlooksResponse,
   BBox,
   CommunityFeedResponse,
   CommunityPost,
@@ -22,6 +23,8 @@ import type {
   TimeWindow,
 } from "@warden/shared";
 
+import { type MediaUpload, outcomeForStatus, type UploadOutcome } from "./media.ts";
+
 export type SessionStartResult =
   | { ok: true; receipt: SessionReceipt }
   | { ok: false; message: string };
@@ -31,6 +34,13 @@ export type SendResult =
   | { ok: false; retry: boolean; message: string };
 
 const TIMEOUT_MS = 15_000;
+
+/** Sends a file from the phone's storage as the request body; resolves to the HTTP status. */
+export type FileSender = (
+  url: string,
+  uri: string,
+  headers: Record<string, string>,
+) => Promise<number>;
 
 export class WardenApi {
   readonly baseUrl: string;
@@ -137,6 +147,49 @@ export class WardenApi {
       headers: { "x-warden-install": this.#installId },
     });
     return response.ok || response.status === 404;
+  }
+
+  /** Sends one queued file. Network failures count as "try again later". */
+  async uploadMedia(item: MediaUpload, sendFile: FileSender): Promise<UploadOutcome> {
+    const target: { url: string; headers: Record<string, string> } =
+      item.target === "report"
+        ? {
+            url: `${this.baseUrl}/v1/reports/${encodeURIComponent(item.reportId)}/media`,
+            headers: { "x-warden-status-token": item.statusToken },
+          }
+        : {
+            url: `${this.baseUrl}/v1/sessions/${encodeURIComponent(item.sessionId)}/audio`,
+            headers: {
+              "x-warden-session-control": item.controlToken,
+              "x-warden-recorded-at": item.recordedAt,
+            },
+          };
+    try {
+      const status = await sendFile(target.url, item.uri, {
+        ...target.headers,
+        "content-type": item.contentType,
+      });
+      return outcomeForStatus(status);
+    } catch {
+      return "retry";
+    }
+  }
+
+  /** The spoken version of a broadcast, as bytes, or null when there is none. */
+  async broadcastAudio(broadcastId: string): Promise<Uint8Array | null> {
+    const response = await this.#request(`/v1/broadcasts/${encodeURIComponent(broadcastId)}/audio`);
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`Audio request failed (${response.status})`);
+    return new Uint8Array(await response.arrayBuffer());
+  }
+
+  async outlook(bbox: BBox): Promise<AreaOutlooksResponse> {
+    const box = [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat]
+      .map((n) => n.toFixed(4))
+      .join(",");
+    const response = await this.#request(`/v1/areas/outlook?bbox=${box}`);
+    if (!response.ok) throw new Error(`Outlook request failed (${response.status})`);
+    return (await response.json()) as AreaOutlooksResponse;
   }
 
   async safeStops(bbox: BBox): Promise<SafeStop[]> {

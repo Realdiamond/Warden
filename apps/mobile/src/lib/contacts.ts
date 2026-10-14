@@ -17,6 +17,8 @@ export interface SafetyProfile {
   contacts: TrustedContact[];
   /** Also show an SOS to verified responders in the area (off unless the person turns it on). */
   shareSosWithResponders: boolean;
+  /** Record sound in short clips during an SOS for contacts to hear (M8; off unless turned on). */
+  recordSosSound: boolean;
 }
 
 const PROFILE_KEY = "warden.safetyProfile.v1";
@@ -25,6 +27,7 @@ export const EMPTY_PROFILE: SafetyProfile = {
   personName: "",
   contacts: [],
   shareSosWithResponders: false,
+  recordSosSound: false,
 };
 
 export async function loadProfile(store: KeyValueStore): Promise<SafetyProfile> {
@@ -45,6 +48,7 @@ export async function loadProfile(store: KeyValueStore): Promise<SafetyProfile> 
       personName: typeof p.personName === "string" ? p.personName : "",
       contacts: contacts.slice(0, MAX_CONTACTS),
       shareSosWithResponders: p.shareSosWithResponders === true,
+      recordSosSound: p.recordSosSound === true,
     };
   } catch {
     return EMPTY_PROFILE;

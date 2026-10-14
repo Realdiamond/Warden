@@ -25,9 +25,11 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { AttachmentPicker } from "../components/AttachmentPicker.tsx";
 import { Button, EmergencyCallButton, Icon, ModalHeader, Note } from "../components/ui.tsx";
 import { categoryName, type Language, strings } from "../lib/i18n.ts";
 import { currentPosition, type Position } from "../lib/location.ts";
+import type { Attachment } from "../lib/media.ts";
 import { COLORS, GROUP_ICONS } from "../lib/ui.ts";
 import { PickLocation } from "./PickLocation.tsx";
 
@@ -43,11 +45,13 @@ interface Props {
   /** Where the main map was looking; the starting point when the phone's location is unknown. */
   mapCenter: { lat: number; lng: number };
   onClose: () => void;
-  onSubmit: (body: ReportSubmission) => Promise<SendOutcome>;
+  onSubmit: (body: ReportSubmission, attachments: Attachment[]) => Promise<SendOutcome>;
+  /** Removes files the person added but did not send. */
+  onDiscard?: (attachments: Attachment[]) => void;
   language: Language;
 }
 
-export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, language }: Props) {
+export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, onDiscard, language }: Props) {
   const t = strings(language);
   const [step, setStep] = useState<Step>("group");
   const [group, setGroup] = useState<CategoryGroup | null>(null);
@@ -59,6 +63,7 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, language }:
   const [locationError, setLocationError] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [outcome, setOutcome] = useState<SendOutcome | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   async function takeCurrentLocation() {
     setLocating(true);
@@ -97,7 +102,9 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, language }:
       proximity,
       ...(description.trim() ? { description: description.trim() } : {}),
     };
-    setOutcome(await onSubmit(body));
+    const files = attachments;
+    setAttachments([]);
+    setOutcome(await onSubmit(body, files));
     setStep("done");
   }
 
@@ -111,7 +118,14 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, language }:
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="height">
-      <ModalHeader title={t.report} onClose={onClose} onBack={canGoBack ? back : undefined} />
+      <ModalHeader
+        title={t.report}
+        onClose={() => {
+          if (attachments.length > 0) onDiscard?.(attachments);
+          onClose();
+        }}
+        onBack={canGoBack ? back : undefined}
+      />
 
       {step === "pick" ? (
         <PickLocation
@@ -224,6 +238,7 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, language }:
               <Note>
                 Please do not include names, phone numbers, or anyone's ethnicity or religion.
               </Note>
+              <AttachmentPicker attachments={attachments} onChange={setAttachments} />
               <Button
                 label="Send report"
                 variant="primary"

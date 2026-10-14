@@ -8,6 +8,8 @@ import type {
   IncidentUpdateInput,
   ModerationAction,
   ModeratorPost,
+  NewsDecision,
+  NewsLead,
   PostState,
   QueueItem,
   ResponderDeployment,
@@ -81,6 +83,15 @@ export const api = {
       request<{ id: string }>("/v1/admin/community/notices", {
         method: "POST",
         body: JSON.stringify(input),
+      }),
+  },
+
+  news: {
+    queue: () => request<{ items: NewsLead[] }>("/v1/admin/news"),
+    decide: (id: string, decision: NewsDecision) =>
+      request<{ incidentId: string | null }>(`/v1/admin/news/${encodeURIComponent(id)}/actions`, {
+        method: "POST",
+        body: JSON.stringify(decision),
       }),
   },
 

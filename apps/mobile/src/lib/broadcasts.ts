@@ -3,7 +3,7 @@
 // server cannot produce a "verified" broadcast.
 
 import * as ed from "@noble/ed25519";
-import { sha512 } from "@noble/hashes/sha2.js";
+import { sha256, sha512 } from "@noble/hashes/sha2.js";
 import { broadcastSigningText, type SignedBroadcast } from "@warden/shared";
 
 ed.hashes.sha512 = sha512;
@@ -68,4 +68,23 @@ export function checkBroadcast(
   } catch {
     return "invalid";
   }
+}
+
+/** Lower-case hex SHA-256, as the server signs it. */
+export function sha256Hex(bytes: Uint8Array): string {
+  return Array.from(sha256(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * The spoken version of a broadcast, only if its bytes match the hash inside the signed
+ * broadcast. A swapped or damaged recording is never played.
+ */
+export async function verifiedBroadcastAudio(
+  broadcast: Pick<SignedBroadcast, "id" | "audioSha256">,
+  download: (id: string) => Promise<Uint8Array | null>,
+): Promise<Uint8Array | null> {
+  if (!broadcast.audioSha256) return null;
+  const bytes = await download(broadcast.id);
+  if (!bytes) return null;
+  return sha256Hex(bytes) === broadcast.audioSha256.toLowerCase() ? bytes : null;
 }

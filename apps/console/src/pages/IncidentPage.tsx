@@ -2,6 +2,7 @@ import { getCategory, type IncidentDetail, type ModerationAction } from "@warden
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { SeverityBadge, StateBadge } from "../components/Badges.tsx";
+import { MediaList } from "../components/MediaList.tsx";
 import { ReasonDialog } from "../components/ReasonDialog.tsx";
 import { ACTION_LABEL, formatCoordinate, NEEDS_REASON, reviewDue, timeAgo } from "../format.ts";
 import { routeHref } from "../router.ts";
@@ -128,6 +129,7 @@ export function IncidentPage({ id }: { id: string }) {
                   {report.trusted && <span className="tag">Trusted reporter</span>}
                 </p>
                 <p>{report.description ?? <span className="muted">No description</span>}</p>
+                <MediaList media={report.media ?? []} urlFor={(id) => `/v1/admin/media/${id}`} />
                 <p className="muted mono">
                   {formatCoordinate(report.location.lat)}, {formatCoordinate(report.location.lng)}
                   {report.location.accuracyM !== null &&

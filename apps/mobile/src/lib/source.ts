@@ -2,6 +2,7 @@
 
 import {
   type AlertsResponse,
+  type AreaOutlooksResponse,
   type BBox,
   type CommunityPost,
   type CommunityTip,
@@ -23,9 +24,10 @@ import {
   tierFor,
   tileFor,
 } from "@warden/shared";
-import { type SendResult, type SessionStartResult, WardenApi } from "./api.ts";
+import { type FileSender, type SendResult, type SessionStartResult, WardenApi } from "./api.ts";
 import { DEMO_INCIDENTS } from "./demoData.ts";
 import { insideBBox } from "./geo.ts";
+import type { MediaUpload, UploadOutcome } from "./media.ts";
 
 export interface DataSource {
   kind: "live" | "demo";
@@ -59,6 +61,12 @@ export interface DataSource {
   /** Null when accepted; otherwise a message to show. */
   sendTip(tip: CommunityTip): Promise<string | null>;
   flagPost(postId: string): Promise<boolean>;
+  /** M8: sends one queued voice note, photo, video or SOS clip. */
+  uploadMedia(item: MediaUpload, sendFile: FileSender): Promise<UploadOutcome>;
+  /** M8: the spoken version of a broadcast, or null when it has none. */
+  broadcastAudio(broadcastId: string): Promise<Uint8Array | null>;
+  /** M8: how often serious things were reported in areas on the map. */
+  outlook(bbox: BBox): Promise<AreaOutlooksResponse>;
 }
 
 export function liveSource(api: WardenApi): DataSource {
@@ -78,6 +86,9 @@ export function liveSource(api: WardenApi): DataSource {
     flagSession: (id, token, reason) => api.flagSession(id, token, reason),
     safeStops: (bbox) => api.safeStops(bbox),
     communityFeed: (bbox) => api.communityFeed(bbox),
+    uploadMedia: (item, sendFile) => api.uploadMedia(item, sendFile),
+    broadcastAudio: (id) => api.broadcastAudio(id),
+    outlook: (bbox) => api.outlook(bbox),
     sendTip: (tip) => api.sendTip(tip),
     flagPost: (id) => api.flagPost(id),
   };
@@ -258,7 +269,52 @@ export function demoSource(now: () => number = Date.now): DataSource {
     async flagPost() {
       return true;
     },
+    // Demo files stay on the phone and are deleted.
+    async uploadMedia() {
+      return "sent";
+    },
+    async broadcastAudio() {
+      return null;
+    },
+    async outlook(bbox) {
+      return {
+        outlooks: demoOutlooks().filter((o) => insideBBox(o.center, bbox)),
+        generatedAt: new Date(now()).toISOString(),
+      };
+    },
   };
+}
+
+/** A hexagon a few kilometres across, like the server's areas. */
+function hexagon(center: { lat: number; lng: number }): Array<[number, number]> {
+  const ring: Array<[number, number]> = [];
+  for (let i = 0; i <= 6; i++) {
+    const angle = (Math.PI / 3) * (i % 6);
+    ring.push([center.lng + 0.022 * Math.cos(angle), center.lat + 0.02 * Math.sin(angle)]);
+  }
+  return ring;
+}
+
+function demoOutlooks(): AreaOutlooksResponse["outlooks"] {
+  const areas = [
+    {
+      cell: "demo-ikeja",
+      center: { lat: 6.6, lng: 3.35 },
+      level: "elevated" as const,
+      trend: "rising" as const,
+      incidents: 23,
+      peak: { day: "Friday" as const, band: "evening" as const },
+    },
+    {
+      cell: "demo-yaba",
+      center: { lat: 6.51, lng: 3.38 },
+      level: "moderate" as const,
+      trend: "steady" as const,
+      incidents: 9,
+      peak: null,
+    },
+  ];
+  return areas.map((area) => ({ ...area, boundary: hexagon(area.center) }));
 }
 
 export function createSource(

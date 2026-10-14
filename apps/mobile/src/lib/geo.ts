@@ -1,6 +1,7 @@
 import {
   type BBox,
   MAX_BBOX_SPAN_DEG,
+  type PublicAreaOutlook,
   type PublicIncident,
   type PublicPresence,
 } from "@warden/shared";
@@ -69,5 +70,20 @@ export function feedArea(center: { lat: number; lng: number }) {
     maxLat: center.lat + FEED_DEG,
     minLng: center.lng - FEED_DEG,
     maxLng: center.lng + FEED_DEG,
+  };
+}
+
+/** Area outlooks (M8) as shaded hexagons; the level picks the colour. */
+export function outlooksToGeoJSON(
+  outlooks: readonly PublicAreaOutlook[],
+): GeoJSON.FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: outlooks.map((outlook) => ({
+      type: "Feature",
+      id: outlook.cell,
+      properties: { cell: outlook.cell, level: outlook.level },
+      geometry: { type: "Polygon", coordinates: [outlook.boundary] },
+    })),
   };
 }

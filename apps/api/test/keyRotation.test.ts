@@ -24,7 +24,8 @@ const BASE_ENV = {
   WARDEN_HMAC_KEY: randomBytes(32).toString("base64"),
 };
 
-/** Some of every kind of encrypted row: a report, a retried request, a trip with a point, a tip. */
+/** Some of every kind of encrypted row: a report, a retried request, a trip with a point, a tip,
+ * a photo and an SOS audio clip. */
 async function storeSomePrivateData() {
   const install = randomUUID();
   const report = await submitReport(
@@ -59,6 +60,29 @@ async function storeSomePrivateData() {
     payload: { body: "Avoid the junction after dark this week.", location: LAGOS },
   });
   expect(tip.statusCode).toBe(202);
+  const { reportId, statusToken } = report.json() as { reportId: string; statusToken: string };
+  const photo = await ctx.app.inject({
+    method: "POST",
+    url: `/v1/reports/${reportId}/media`,
+    headers: { "x-warden-status-token": statusToken, "content-type": "image/jpeg" },
+    // A minimal JPEG: start of image, then the scan.
+    payload: Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, 0xda, 0x00, 0x04, 1, 1]),
+      Buffer.alloc(64, 1),
+    ]),
+  });
+  expect(photo.statusCode).toBe(201);
+  const clip = await ctx.app.inject({
+    method: "POST",
+    url: `/v1/sessions/${sessionId}/audio`,
+    headers: { "x-warden-session-control": controlToken, "content-type": "audio/mp4" },
+    payload: Buffer.concat([
+      Buffer.from([0, 0, 0, 0x20]),
+      Buffer.from("ftypM4A "),
+      Buffer.alloc(64),
+    ]),
+  });
+  expect(clip.statusCode).toBe(201);
 }
 
 describe("changing the field encryption key", () => {

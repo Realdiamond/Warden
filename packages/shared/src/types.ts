@@ -1,6 +1,7 @@
 // Response shapes returned by the API. Public types never carry exact locations or report text.
 
 import type { CategoryId, Severity } from "./categories.ts";
+import type { ReportMediaInfo } from "./media.ts";
 import type { Organisation, ResponderStatus } from "./responders.ts";
 import type { IncidentState, ModerationAction, PublicLabel } from "./rules.ts";
 import type { ProximityBand } from "./schemas.ts";
@@ -81,6 +82,8 @@ export interface ModeratorReport {
   description: string | null;
   /** Exact location, decrypted for moderators only. */
   location: { lat: number; lng: number; accuracyM: number | null };
+  /** Voice notes, photos and videos sent with the report (M8). */
+  media: ReportMediaInfo[];
 }
 
 export interface AuditEntry {

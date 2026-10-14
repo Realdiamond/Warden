@@ -466,3 +466,31 @@ select {
 .sos-card.duress {
   background: var(--critical-bg);
 }
+
+.media-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: grid;
+  gap: 8px;
+}
+
+.media-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.media-photo {
+  max-width: 100%;
+  max-height: 360px;
+  border-radius: 6px;
+}
+
+.voice-recorder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

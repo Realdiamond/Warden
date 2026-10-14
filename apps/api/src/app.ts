@@ -10,6 +10,7 @@ import { Cipher, Hasher } from "./crypto.ts";
 import type { Pool } from "./db/pool.ts";
 import { problem } from "./http.ts";
 import { registerAdminRoutes } from "./routes/admin.ts";
+import { registerMediaRoutes } from "./routes/media.ts";
 import { registerPublicRoutes } from "./routes/public.ts";
 import { registerSessionRoutes } from "./routes/sessions.ts";
 import { registerUssdRoutes } from "./routes/ussd.ts";
@@ -117,6 +118,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   registerPublicRoutes(app, deps);
   registerSessionRoutes(app, deps);
+  registerMediaRoutes(app, deps);
   registerUssdRoutes(app, deps, config.ussdCallbackSecret);
   registerAdminRoutes(app, deps, config);
 

@@ -3,7 +3,7 @@
 // broadcasts, and see SOS sessions whose owners chose to share them. Every read of exact
 // locations and every action is written to the audit log.
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   type BroadcastInput,
   type BroadcastSummary,
@@ -36,8 +36,9 @@ import {
   type LatestUpdateColumns,
   responderStatusOf,
 } from "./incidents.ts";
+import { looksLike } from "./media.ts";
 
-export type ResponderFailure = { ok: false; status: 403 | 404 | 409 | 503; message: string };
+export type ResponderFailure = { ok: false; status: 400 | 403 | 404 | 409 | 503; message: string };
 
 const INBOX_WINDOW_MS = 24 * 3_600_000;
 const NOT_FOUND: ResponderFailure = { ok: false, status: 404, message: "Not found." };
@@ -455,6 +456,18 @@ export async function createBroadcast(
   const now = deps.now();
   const org = orgId(staff);
   const organisation = staff.organisation?.name ?? "";
+  let audio: { contentType: string; sha256: string; data: Buffer } | null = null;
+  if (input.audio) {
+    const data = Buffer.from(input.audio.data, "base64");
+    if (data.length < 8 || !looksLike("audio", input.audio.contentType, data)) {
+      return { ok: false, status: 400, message: "The recording could not be read." };
+    }
+    audio = {
+      contentType: input.audio.contentType,
+      sha256: createHash("sha256").update(data).digest("hex"),
+      data,
+    };
+  }
   return withTransaction(deps.pool, async (client) => {
     const inside = await client.query(
       `SELECT 1 WHERE ${inJurisdiction("ST_SetSRID(ST_MakePoint($2, $3), 4326)", "$1")}`,
@@ -471,13 +484,14 @@ export async function createBroadcast(
       radiusM: input.radiusM,
       message: input.message,
       expiresAt: new Date(now.getTime() + input.expiresInMinutes * 60_000).toISOString(),
+      ...(audio ? { audioSha256: audio.sha256 } : {}),
     };
     const signature = signer.sign(broadcastSigningText(payload));
     await client.query(
       `INSERT INTO broadcasts
          (id, organisation_id, staff_id, tier, message, lat, lng, radius_m, key_id, signature,
-          expires_at, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          expires_at, created_at, audio_content_type, audio_sha256, audio_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         payload.id,
         org,
@@ -491,6 +505,9 @@ export async function createBroadcast(
         signature,
         new Date(payload.expiresAt),
         now,
+        audio?.contentType ?? null,
+        audio?.sha256 ?? null,
+        audio?.data ?? null,
       ],
     );
     for (const tile of tilesForCircle(input.center.lat, input.center.lng, input.radiusM)) {
@@ -518,7 +535,12 @@ export async function createBroadcast(
       objectType: "broadcast",
       objectId: payload.id,
       reason: payload.message,
-      details: { tier: payload.tier, radiusM: payload.radiusM, organisationId: org },
+      details: {
+        tier: payload.tier,
+        radiusM: payload.radiusM,
+        organisationId: org,
+        ...(audio ? { audioSha256: audio.sha256 } : {}),
+      },
     });
     return {
       ok: true,
@@ -564,8 +586,10 @@ export async function listBroadcasts(
     created_at: Date;
     expires_at: Date;
     withdrawn_at: Date | null;
+    spoken: boolean;
   }>(
-    `SELECT id, tier, message, radius_m, created_at, expires_at, withdrawn_at
+    `SELECT id, tier, message, radius_m, created_at, expires_at, withdrawn_at,
+            audio_data IS NOT NULL AS spoken
        FROM broadcasts WHERE organisation_id = $1 ORDER BY created_at DESC LIMIT 50`,
     [orgId(staff)],
   );
@@ -577,6 +601,7 @@ export async function listBroadcasts(
     createdAt: row.created_at.toISOString(),
     expiresAt: row.expires_at.toISOString(),
     withdrawn: row.withdrawn_at !== null,
+    spoken: row.spoken,
   }));
 }
 
@@ -662,5 +687,30 @@ export async function updateSessionArea(
     `UPDATE safety_sessions SET last_area = ST_SetSRID(ST_MakePoint($2, $3), 4326)
       WHERE id = $1 AND share_with_responders`,
     [sessionId, area.lng, area.lat],
+  );
+}
+
+/** The spoken version of a broadcast, public like its text. Phones check its hash. */
+export async function broadcastAudio(
+  deps: ServiceDeps,
+  broadcastId: string,
+): Promise<{ contentType: string; data: Buffer } | null> {
+  const { rows } = await deps.pool.query<{ audio_content_type: string; audio_data: Buffer }>(
+    `SELECT audio_content_type, audio_data FROM broadcasts
+      WHERE id = $1 AND audio_data IS NOT NULL AND withdrawn_at IS NULL AND expires_at > $2`,
+    [broadcastId, deps.now()],
+  );
+  const row = rows[0];
+  return row ? { contentType: row.audio_content_type, data: row.audio_data } : null;
+}
+
+/** True when the responder's organisation can see this incident (its area, last 24 hours). */
+export async function responderCanSee(
+  deps: ServiceDeps,
+  staff: StaffUser,
+  incidentId: string,
+): Promise<boolean> {
+  return withTransaction(deps.pool, async (client) =>
+    Boolean(await lockVisibleIncident(client, staff, incidentId, deps.now())),
   );
 }
