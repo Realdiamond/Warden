@@ -7,6 +7,7 @@ import {
   type IncidentDetail,
   type IncidentState,
   type MapQuery,
+  MEDIA_RETENTION_DAYS,
   MODERATION_ACTIONS,
   type ModerationDecision,
   type ModeratorReport,
@@ -28,6 +29,7 @@ import { type Client, withTransaction } from "../db/pool.ts";
 import { alertForTransition, isActiveLive, loadIncidentForAlert } from "./alerts.ts";
 import { appendAudit } from "./audit.ts";
 import { floorToMinute, type ServiceDeps } from "./deps.ts";
+import { mediaForReports } from "./media.ts";
 
 const MAP_LIMIT = 500;
 const QUEUE_LIMIT = 200;
@@ -200,6 +202,10 @@ export async function decryptReports(
        FROM reports WHERE incident_id = $1 ORDER BY received_at ASC`,
     [incidentId],
   );
+  const media = await mediaForReports(
+    client,
+    reports.rows.map((r) => r.id),
+  );
   return reports.rows.map((report) => {
     const location = deps.cipher.decryptJson<{
       lat: number;
@@ -217,6 +223,7 @@ export async function decryptReports(
         ? deps.cipher.decrypt("report.description", report.key_id, report.description_enc)
         : null,
       location,
+      media: media.get(report.id) ?? [],
     };
   });
 }
@@ -380,6 +387,10 @@ export async function runHousekeeping(deps: ServiceDeps): Promise<{ expired: num
       new Date(now.getTime() - 24 * 3_600_000),
     ]);
     await client.query("DELETE FROM staff_sessions WHERE expires_at < $1", [now]);
+    // Voice notes, photos and videos are kept only as long as moderators need them.
+    await client.query("DELETE FROM report_media WHERE created_at < $1", [
+      new Date(now.getTime() - MEDIA_RETENTION_DAYS * 24 * 3_600_000),
+    ]);
     return { expired: expired.rowCount ?? 0 };
   });
 }

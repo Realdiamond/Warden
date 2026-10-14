@@ -149,6 +149,7 @@ interface FeedRow {
   expires_at: Date | null;
   b_lat: number | null;
   b_lng: number | null;
+  audio_sha256: string | null;
   incident_id: string | null;
   kind: AlertKind;
   tier: PublicAlert["tier"];
@@ -176,7 +177,7 @@ export async function alertFeed(deps: ServiceDeps, query: AlertsQuery): Promise<
   const { rows } = await deps.pool.query<FeedRow>(
     `SELECT e.id, e.incident_id, e.kind, e.tier, e.category_id, e.label, e.lat, e.lng, e.message,
             e.source, e.visible_at, e.broadcast_id, o.name AS organisation, b.radius_m, b.key_id,
-            b.signature, b.expires_at, b.lat AS b_lat, b.lng AS b_lng
+            b.signature, b.expires_at, b.lat AS b_lat, b.lng AS b_lng, b.audio_sha256
        FROM alert_events e
        LEFT JOIN broadcasts b ON b.id = e.broadcast_id
        LEFT JOIN organisations o ON o.id = b.organisation_id
@@ -218,6 +219,7 @@ export async function alertFeed(deps: ServiceDeps, query: AlertsQuery): Promise<
             radiusM: row.radius_m,
             message: row.message,
             expiresAt: row.expires_at.toISOString(),
+            ...(row.audio_sha256 ? { audioSha256: row.audio_sha256 } : {}),
             keyId: row.key_id,
             signature: row.signature.toString("base64"),
           }
