@@ -33,14 +33,34 @@ export function fromBase64(text: string): Uint8Array {
 }
 
 /**
- * "verified" when the signature checks out with the built-in key, "invalid" when it does not
- * (the broadcast is then dropped), and "unverified" for test builds that carry no key.
+ * The keys this build trusts, from WARDEN_BROADCAST_PUBLIC_KEY. Either one bare key (trusted for
+ * any key id, as in builds before key rotation) or a list of "id:key" pairs separated by commas,
+ * so a build can trust the current key and the next one while the server switches over.
+ */
+export function parseTrustedKeys(config: string | null): Map<string | null, string> {
+  const keys = new Map<string | null, string>();
+  for (const entry of (config ?? "").split(/[,\s]+/)) {
+    if (!entry) continue;
+    const colon = entry.indexOf(":");
+    if (colon < 0) keys.set(null, entry);
+    else keys.set(entry.slice(0, colon), entry.slice(colon + 1));
+  }
+  return keys;
+}
+
+/**
+ * "verified" when the signature checks out with a built-in key, "invalid" when it does not or
+ * the broadcast names a key this build does not trust (the broadcast is then dropped), and
+ * "unverified" for test builds that carry no key.
  */
 export function checkBroadcast(
   broadcast: SignedBroadcast,
-  publicKeyBase64: string | null,
+  trustedKeys: string | null,
 ): BroadcastCheck {
-  if (!publicKeyBase64) return "unverified";
+  const keys = parseTrustedKeys(trustedKeys);
+  if (keys.size === 0) return "unverified";
+  const publicKeyBase64 = keys.get(broadcast.keyId) ?? keys.get(null);
+  if (!publicKeyBase64) return "invalid";
   try {
     const message = new TextEncoder().encode(broadcastSigningText(broadcast));
     const ok = ed.verify(fromBase64(broadcast.signature), message, fromBase64(publicKeyBase64));

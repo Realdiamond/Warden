@@ -44,10 +44,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   const deps: ServiceDeps = {
     pool,
-    cipher: new Cipher({
-      currentKeyId: config.fieldKeyId,
-      keys: new Map([[config.fieldKeyId, config.fieldKey]]),
-    }),
+    cipher: new Cipher(config.fieldKeys),
     hasher: new Hasher(config.hmacKey),
     now: options.now ?? (() => new Date()),
     random: options.random ?? Math.random,

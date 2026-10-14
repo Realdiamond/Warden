@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { FieldKeys } from "./crypto.ts";
 
 const base64Key = (name: string) =>
   z
@@ -31,6 +32,11 @@ const EnvSchema = z.object({
     .string()
     .regex(/^[a-z0-9-]{1,32}$/)
     .default("k1"),
+  /**
+   * Earlier field keys, still needed to read data locked with them until rotate-field-key has
+   * re-encrypted it: "k1:<base64>,k2:<base64>".
+   */
+  WARDEN_OLD_FIELD_KEYS: optional(z.string()),
   WARDEN_HMAC_KEY: base64Key("WARDEN_HMAC_KEY"),
   COOKIE_SECURE: booleanString.optional(),
   TRUST_PROXY: booleanString.default(false),
@@ -69,6 +75,8 @@ export interface Config {
   databaseUrl: string;
   fieldKeyId: string;
   fieldKey: Buffer;
+  /** The current field key and any old ones, for the Cipher. */
+  fieldKeys: FieldKeys;
   hmacKey: Buffer;
   cookieSecure: boolean;
   trustProxy: boolean;
@@ -92,6 +100,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`Invalid configuration:\n${problems.join("\n")}`);
   }
   const e = parsed.data;
+  const fieldKeys = parseFieldKeys(
+    e.WARDEN_FIELD_KEY_ID,
+    e.WARDEN_FIELD_KEY,
+    e.WARDEN_OLD_FIELD_KEYS,
+  );
   if (e.SMS_DRIVER === "termii" && !e.TERMII_API_KEY) {
     throw new Error("Invalid configuration:\n- TERMII_API_KEY is required when SMS_DRIVER=termii");
   }
@@ -103,6 +116,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     databaseUrl: e.DATABASE_URL,
     fieldKeyId: e.WARDEN_FIELD_KEY_ID,
     fieldKey: e.WARDEN_FIELD_KEY,
+    fieldKeys,
     hmacKey: e.WARDEN_HMAC_KEY,
     cookieSecure: e.COOKIE_SECURE ?? e.NODE_ENV === "production",
     trustProxy: e.TRUST_PROXY,
@@ -127,4 +141,27 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
           }
         : { driver: "log", hourlyCap: e.SMS_HOURLY_CAP },
   };
+}
+
+function parseFieldKeys(currentId: string, current: Buffer, old: string | undefined): FieldKeys {
+  const keys = new Map<string, Buffer>([[currentId, current]]);
+  for (const entry of (old ?? "").split(/[,\s]+/)) {
+    if (!entry) continue;
+    const colon = entry.indexOf(":");
+    const id = entry.slice(0, colon);
+    const key = Buffer.from(entry.slice(colon + 1), "base64");
+    const problem =
+      colon < 1 || !/^[a-z0-9-]{1,32}$/.test(id)
+        ? "entries must look like k1:<base64 key>"
+        : key.length !== 32
+          ? `key ${id} must be 32 bytes, base64-encoded`
+          : keys.has(id)
+            ? `key id ${id} is used twice (the current key must have a new id)`
+            : null;
+    if (problem) {
+      throw new Error(`Invalid configuration:\n- WARDEN_OLD_FIELD_KEYS: ${problem}`);
+    }
+    keys.set(id, key);
+  }
+  return { currentKeyId: currentId, keys };
 }

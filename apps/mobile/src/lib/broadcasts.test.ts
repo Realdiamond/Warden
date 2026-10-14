@@ -2,7 +2,7 @@ import { createPrivateKey, createPublicKey, randomBytes, sign } from "node:crypt
 import { broadcastSigningText, type PublicAlert, type SignedBroadcast } from "@warden/shared";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ALERT_PREFS, EMPTY_ALERT_STATE, processAlerts } from "./alerts.ts";
-import { checkBroadcast, fromBase64 } from "./broadcasts.ts";
+import { checkBroadcast, fromBase64, parseTrustedKeys } from "./broadcasts.ts";
 
 // The same key handling as the server (apps/api/src/signing.ts).
 const seed = randomBytes(32);
@@ -61,6 +61,19 @@ describe("broadcast signatures", () => {
     expect(checkBroadcast({ ...b, radiusM: 50_000 }, publicKey)).toBe("invalid");
     expect(checkBroadcast(b, randomBytes(32).toString("base64"))).toBe("invalid");
     expect(checkBroadcast(b, null)).toBe("unverified");
+  });
+
+  it("trusts several keys by id, so the signing key can be changed", () => {
+    const b = signed(); // signed with key id "s1"
+    const other = randomBytes(32).toString("base64");
+    expect(checkBroadcast(b, `s1:${publicKey},s2:${other}`)).toBe("verified");
+    expect(checkBroadcast(b, `s0:${other}, s1:${publicKey}`)).toBe("verified");
+    // A key id the build does not know is dropped, never shown as official.
+    expect(checkBroadcast({ ...b, keyId: "s9" }, `s1:${publicKey}`)).toBe("invalid");
+    // The right key under the wrong id does not verify either.
+    expect(checkBroadcast(b, `s1:${other},s2:${publicKey}`)).toBe("invalid");
+    expect(parseTrustedKeys(" ")).toEqual(new Map());
+    expect(parseTrustedKeys(`s1:${publicKey}`).get("s1")).toBe(publicKey);
   });
 
   it("shows a broadcast once even though it arrives for several tiles, and drops forgeries", () => {
