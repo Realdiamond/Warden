@@ -14,6 +14,7 @@
     "trusted-reporter": "node --env-file-if-exists=.env src/cli/trusted-reporter.ts",
     "import-safe-stops": "node --env-file-if-exists=.env src/cli/import-safe-stops.ts",
     "fetch-news": "node --env-file-if-exists=.env src/cli/fetch-news.ts",
+    "api-client": "node --env-file-if-exists=.env src/cli/api-client.ts",
     "rotate-field-key": "node --env-file-if-exists=.env src/cli/rotate-field-key.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"

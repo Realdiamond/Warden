@@ -99,6 +99,15 @@ Known follow-ups from M1:
 - [ ] SOS sound tried on a few Android phones with the screen off (founder)
 - [ ] Lawyer's view on SOS sound recording and on keeping report media for 30 days (founder)
 
+## M9 — Fleet dashboard and risk-data API (built; see [ADR 0009](adr/0009-fleet-and-data-api.md))
+
+- [x] Fleet accounts in the console: watched places, public incidents around each in the last 24
+      hours, the area outlook and a route check; no access to moderation or responder screens
+- [x] Risk-data API with keys, daily quotas, per-day usage for invoices, and area counts that
+      leave out small numbers ([API guide](data-api.md))
+- [ ] Prices, contracts and terms of use for fleets and data customers (founder, with a lawyer)
+- [ ] First fleet and data customers onboarded (founder)
+
 ## Blocked on the founder (not on code)
 
 - [ ] Server and domain for a live backend

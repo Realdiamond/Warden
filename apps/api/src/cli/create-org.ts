@@ -1,4 +1,5 @@
-// Creates a verified responder organisation.
+// Creates a verified responder organisation, or a fleet company (--kind fleet) for the fleet
+// dashboard.
 //   pnpm --filter @warden/api create-org -- --name "Lagos State Police Command" --kind police \
 //     --area lagos
 // --area takes a built-in area (lagos, fct), --bbox minLng,minLat,maxLng,maxLat, or
@@ -83,7 +84,8 @@ try {
     new Date(),
   );
   console.log(`Created organisation ${id} (${values.name})`);
-  console.log(`Next: create-staff --email <email> --role responder --org ${id}`);
+  const role = kind === "fleet" ? "fleet" : "responder";
+  console.log(`Next: create-staff --email <email> --role ${role} --org ${id}`);
 } finally {
   await pool.end();
 }

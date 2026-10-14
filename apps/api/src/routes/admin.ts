@@ -5,12 +5,14 @@ import {
   BroadcastSchema,
   CommunityNoticeSchema,
   DeploymentSchema,
+  FleetZoneSchema,
   INCIDENT_STATES,
   type IncidentState,
   IncidentUpdateSchema,
   ModerationDecisionSchema,
   NewsDecisionSchema,
   PostDecisionSchema,
+  RouteCheckSchema,
   StaffLoginSchema,
   type StaffUser,
 } from "@warden/shared";
@@ -20,6 +22,7 @@ import { problem, tooMany } from "../http.ts";
 import { RateLimiter } from "../rateLimit.ts";
 import { createNotice, decidePost, postQueue } from "../services/community.ts";
 import type { ServiceDeps } from "../services/deps.ts";
+import { addZone, checkRoute, deleteZone, fleetOverview, listZones } from "../services/fleet.ts";
 import { incidentDetail, moderateIncident, moderationQueue } from "../services/incidents.ts";
 import { readReportMedia } from "../services/media.ts";
 import { decideLead, newsQueue } from "../services/news.ts";
@@ -115,11 +118,19 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
       "/v1/admin/news",
     ];
     const RESPONDER_PREFIX = "/v1/admin/responder/";
+    const FLEET_PREFIX = "/v1/admin/fleet/";
     admin.addHook("preHandler", async (request, reply) => {
       const staff = staffByRequest.get(request);
       if (!staff) return;
       const url = request.url.split("?")[0] ?? "";
-      if (url.startsWith(RESPONDER_PREFIX)) {
+      if (url.startsWith(FLEET_PREFIX)) {
+        if (staff.role !== "fleet" || !staff.organisation) {
+          return problem(reply, 403, "Only fleet accounts can use this.");
+        }
+      } else if (staff.role === "fleet" && url !== "/v1/admin/me") {
+        // Fleet accounts see only their own dashboard, never moderation or responder screens.
+        return problem(reply, 403, "Fleet accounts can only use the fleet dashboard.");
+      } else if (url.startsWith(RESPONDER_PREFIX)) {
         if (staff.role !== "responder" || !staff.organisation) {
           return problem(reply, 403, "Only responder accounts can use this.");
         }
@@ -157,6 +168,39 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
         return result;
       },
     );
+
+    // ---- Fleet dashboard (M9) ----------------------------------------------------------------
+    admin.get("/v1/admin/fleet/zones", async (request, reply) => {
+      reply.header("cache-control", "no-store");
+      return { items: await listZones(deps, currentStaff(request)) };
+    });
+
+    admin.post("/v1/admin/fleet/zones", async (request, reply) => {
+      const input = FleetZoneSchema.parse(request.body);
+      const result = await addZone(deps, currentStaff(request), input);
+      if (!result.ok) return problem(reply, result.status, result.message);
+      return reply.code(201).send(result.zone);
+    });
+
+    admin.delete<{ Params: { id: string } }>(
+      "/v1/admin/fleet/zones/:id",
+      async (request, reply) => {
+        if (!UUID.test(request.params.id)) return problem(reply, 404, "Place not found.");
+        const done = await deleteZone(deps, currentStaff(request), request.params.id.toLowerCase());
+        if (!done) return problem(reply, 404, "Place not found.");
+        return reply.code(204).send();
+      },
+    );
+
+    admin.get("/v1/admin/fleet/overview", async (request, reply) => {
+      reply.header("cache-control", "no-store");
+      return fleetOverview(deps, currentStaff(request));
+    });
+
+    admin.post("/v1/admin/fleet/route-check", async (request) => {
+      const { from, to } = RouteCheckSchema.parse(request.body);
+      return checkRoute(deps, from, to);
+    });
 
     // ---- Media and news (M8) ------------------------------------------------------------------
     const sendMedia = (reply: FastifyReply, file: { contentType: string; data: Buffer }) =>

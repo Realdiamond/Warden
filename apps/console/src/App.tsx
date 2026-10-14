@@ -1,6 +1,7 @@
 import type { StaffUser } from "@warden/shared";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, setUnauthorizedListener } from "./api.ts";
+import { FleetPage } from "./fleet/FleetPage.tsx";
 import { CommunityPage } from "./pages/CommunityPage.tsx";
 import { IncidentPage } from "./pages/IncidentPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
@@ -66,6 +67,27 @@ export function App() {
 
   if (user === "loading") return <p className="page-message">Loading…</p>;
   if (!user) return <LoginPage onSignedIn={setUser} />;
+
+  if (user.role === "fleet") {
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <a className="brand" href="#/">
+            Warden <span>{user.organisation?.name ?? "Fleet"}</span>
+          </a>
+          <div className="topbar-right">
+            <span className="who">{user.email}</span>
+            <button type="button" className="link-button" onClick={signOut}>
+              Sign out
+            </button>
+          </div>
+        </header>
+        <main className="content">
+          <FleetPage />
+        </main>
+      </div>
+    );
+  }
 
   if (user.role === "responder") {
     const current = isResponderRoute(route) ? route : ({ page: "r-incidents" } as const);

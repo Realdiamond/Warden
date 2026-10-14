@@ -494,3 +494,43 @@ select {
   align-items: center;
   gap: 8px;
 }
+
+.fleet-zones {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+
+.fleet-zone-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.fleet-zone-head h3 {
+  margin: 0;
+}
+
+.fleet-zone-head .link-button {
+  margin-left: auto;
+}
+
+.fleet-incidents {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: grid;
+  gap: 6px;
+}
+
+.route-calm {
+  color: #15803d;
+}
+
+.route-caution {
+  color: #c2410c;
+}
+
+.route-avoid {
+  color: #b42318;
+}
