@@ -52,6 +52,34 @@ Technical tab of the requirements).
   `https://api.yourdomain.ng/v1/ussd/<USSD_CALLBACK_SECRET>`. The area list covers Lagos and the
   FCT; check the area centres in `apps/api/src/ussd/areas.ts` before launch.
 
+## Changing keys
+
+Change a key if it may have leaked, or on a schedule (yearly is plenty for a pilot). Run the
+commands below on the server, in the `deploy` folder. They print new values; put them in `.env`,
+never in chat or git.
+
+**The data key** (`WARDEN_FIELD_KEY`, which locks exact locations, report text and trip details):
+
+1. `docker compose exec api node apps/api/src/cli/gen-keys.ts --new-field-key k2` (use `k3`
+   next time, and so on). Copy the three lines it prints into `.env`, then
+   `docker compose up -d`. New data uses the new key; old data stays readable.
+2. `docker compose exec api node apps/api/src/cli/rotate-field-key.ts` re-locks all the old data
+   with the new key while the server keeps running. Run it again if it says rows were busy.
+3. When it says everything is on the new key, empty `WARDEN_OLD_FIELD_KEYS` in `.env` and run
+   `docker compose up -d`. Backups made before step 2 still need the old key, so keep it with
+   those backups or delete them together.
+
+**The broadcast key** (`WARDEN_SIGNING_KEY`). Phones only trust keys built into the app, so the
+new key goes into an app build first:
+
+1. `docker compose exec api node apps/api/src/cli/gen-keys.ts --new-signing-key s2`.
+2. Set the printed `WARDEN_BROADCAST_PUBLIC_KEY` (it lists both keys) as the GitHub repository
+   variable, and send the new app build to testers. Keep the two printed server lines safe.
+3. Once most phones have that build, put the two server lines in `.env` and
+   `docker compose up -d`. Broadcasts are now signed with the new key; phones on older builds
+   drop them, which is why step 2 comes first.
+4. In a later build, remove the old `s1:...` entry from the repository variable.
+
 ## Keep safe
 
 - Back up the database every day and keep `WARDEN_FIELD_KEY` somewhere safe. Without that key,

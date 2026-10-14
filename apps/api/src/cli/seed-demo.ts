@@ -84,10 +84,7 @@ const pool = createPool(config.databaseUrl);
 const realNow = Date.now();
 const baseDeps = {
   pool,
-  cipher: new Cipher({
-    currentKeyId: config.fieldKeyId,
-    keys: new Map([[config.fieldKeyId, config.fieldKey]]),
-  }),
+  cipher: new Cipher(config.fieldKeys),
   hasher: new Hasher(config.hmacKey),
   random: Math.random,
   // Demo reports never send text messages.

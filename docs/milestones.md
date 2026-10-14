@@ -15,8 +15,8 @@ This file tracks the build, one milestone at a time. Tick items as they land.
 
 Known follow-ups from M1:
 
-- [ ] The test APK is about 57 MB because it carries two phone architectures; split it per
-      architecture (Play Store bundles do this automatically).
+- [x] The test APK is about 57 MB because it carries two phone architectures; split it per
+      architecture (done in M5).
 - [ ] First tests on real low-end Android phones on MTN, Airtel and Glo.
 
 ## M2 — Alerts (built; see [ADR 0002](adr/0002-alerts-without-push.md))
@@ -53,6 +53,14 @@ Known follow-ups from M1:
 - [x] USSD reporting for Lagos and the FCT (held for a moderator, coarse area only)
 - [ ] SMS reporting (needs the SMS provider's inbound number)
 - [ ] Real organisation onboarding and boundaries (founder: partnerships, official maps)
+
+## M5 — Ready for the pilot (built; see [ADR 0005](adr/0005-key-rotation.md))
+
+- [x] Smaller test app: one APK per phone processor family instead of one for both
+- [x] Field encryption key rotation: old keys kept for reading, `rotate-field-key` re-encrypts
+- [x] Broadcast signing key rotation: phones trust several keys by id
+- [ ] Route deviation checks (still needs real-world GPS testing first)
+- [ ] Pidgin and other languages (needs a native speaker to write and check the text)
 
 ## Blocked on the founder (not on code)
 

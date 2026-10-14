@@ -59,13 +59,17 @@ jobs:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: armeabi-v7a,arm64-v8a
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Name the APK
-        run: cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "warden-test-${{ github.run_number }}.apk"
+      - name: Name the APKs
+        run: |
+          out=apps/mobile/android/app/build/outputs/apk/release
+          cp "$out/app-arm64-v8a-release.apk" "warden-test-${{ github.run_number }}.apk"
+          cp "$out/app-armeabi-v7a-release.apk" "warden-test-${{ github.run_number }}-older-phones.apk"
+          ls -lh warden-test-*.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: warden-test-${{ github.run_number }}
-          path: warden-test-${{ github.run_number }}.apk
+          path: warden-test-${{ github.run_number }}*.apk
           retention-days: 14
 
       - name: Publish as a pre-release
@@ -74,7 +78,8 @@ jobs:
         run: |
           gh release create "test-build-${{ github.run_number }}" \
             "warden-test-${{ github.run_number }}.apk" \
+            "warden-test-${{ github.run_number }}-older-phones.apk" \
             --prerelease \
             --target "${{ github.sha }}" \
             --title "Test build ${{ github.run_number }} (${GITHUB_REF_NAME})" \
-            --notes "Test APK for Android phones, built from ${GITHUB_SHA::7}. It starts in demo mode with sample data until a server is set up. Signed with a development key: for testing only, not for the Play Store."
+            --notes "Test APK for Android phones, built from ${GITHUB_SHA::7}. Most phones need warden-test-${{ github.run_number }}.apk; if it will not install, use the older-phones file. It starts in demo mode with sample data until a server is set up. Signed with a development key: for testing only, not for the Play Store."

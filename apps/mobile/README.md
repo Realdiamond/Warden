@@ -15,7 +15,9 @@ Android app (Expo SDK 57, React Native 0.86) with MapLibre maps.
 ## Getting a test build
 
 GitHub Actions builds an APK on every push that touches the app and publishes it as a pre-release on
-the repository's Releases page. Download it on an Android phone and install it.
+the repository's Releases page. Each build has two APKs, one per phone processor family
+(`app.config.ts` turns on Gradle's ABI splits): `warden-test-<n>.apk` for 64-bit phones (nearly
+all phones from the last several years) and `warden-test-<n>-older-phones.apk` for 32-bit ones.
 
 ## For developers
 
@@ -27,3 +29,7 @@ pnpm prebuild && cd android && ./gradlew assembleRelease   # needs the Android S
 
 `WARDEN_API_URL` (build time) bakes a server address into a build; otherwise testers can set one
 in Settings. Demo data comes from `scripts/gen-demo.mts`.
+
+`WARDEN_BROADCAST_PUBLIC_KEY` (build time) is the key the app uses to check responder broadcasts.
+It is one bare key, or a list such as `s1:<key>,s2:<key>` while the server's signing key is being
+changed (`docs/deploy.md`, "Changing keys").

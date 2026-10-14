@@ -1,4 +1,29 @@
 import type { ExpoConfig } from "expo/config";
+import { type ConfigPlugin, withAppBuildGradle } from "expo/config-plugins";
+
+// Real phones use one of two processor families. Building one APK per family instead of one
+// for both roughly halves the download. Play Store bundles (.aab) ignore this and split anyway.
+const ABI_SPLITS = `
+// Added by app.config.ts (withAbiSplits): one APK per phone processor family.
+android {
+    splits {
+        abi {
+            enable true
+            reset()
+            include "arm64-v8a", "armeabi-v7a"
+            universalApk false
+        }
+    }
+}
+`;
+
+const withAbiSplits: ConfigPlugin = (expoConfig) =>
+  withAppBuildGradle(expoConfig, (gradle) => {
+    if (!gradle.modResults.contents.includes("withAbiSplits")) {
+      gradle.modResults.contents += ABI_SPLITS;
+    }
+    return gradle;
+  });
 
 // WARDEN_API_URL is baked into a build. Leave it empty to ship a build that starts in demo mode;
 // testers can still point the app at a server from Settings.
@@ -41,10 +66,11 @@ const config: ExpoConfig = {
   ],
   extra: {
     apiUrl: process.env.WARDEN_API_URL ?? "",
-    // Public half of the server's broadcast signing key (from gen-keys). Not secret.
+    // Public half of the server's broadcast signing key (from gen-keys). Not secret. During a
+    // key change this is a list such as "s1:<key>,s2:<key>" (docs/deploy.md).
     broadcastPublicKey: process.env.WARDEN_BROADCAST_PUBLIC_KEY ?? "",
     mapStyleUrl: process.env.WARDEN_MAP_STYLE_URL ?? "https://tiles.openfreemap.org/styles/liberty",
   },
 };
 
-export default config;
+export default withAbiSplits(config);

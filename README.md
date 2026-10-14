@@ -21,8 +21,9 @@ in any language, verified alerts, trip safety and SOS.
 
 Every push builds an Android APK and publishes it on the repository's
 [Releases page](https://github.com/Realdiamond/Warden/releases) as a pre-release. Open that page
-on your Android phone, download the newest `warden-*.apk`, and allow installs from your browser
-when Android asks. Until a server is set up, the app runs in demo mode with sample data.
+on your Android phone, download the newest `warden-test-<number>.apk`, and allow installs from
+your browser when Android asks. If it will not install, the phone is an older 32-bit one: use the
+`-older-phones.apk` file from the same release instead. Until a server is set up, the app runs in demo mode with sample data.
 
 ## For developers
 

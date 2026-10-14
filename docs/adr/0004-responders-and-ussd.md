@@ -40,4 +40,4 @@ way to report. Each of these widens who can see or publish information, so each 
 - Onboarding real organisations, their official boundaries and the USSD short code are founder
   tasks. The built-in Lagos and FCT boxes and area centres are approximate.
 - A compromised server signing key could sign false broadcasts; rotating it needs a new app build.
-  Key rotation with more than one trusted key is a follow-up.
+  Key rotation with more than one trusted key is a follow-up (done in M5, ADR 0005).
