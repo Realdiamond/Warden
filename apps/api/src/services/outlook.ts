@@ -13,7 +13,7 @@ import {
 import { cellBoundary, cellCenter, cellsFor } from "@warden/shared/geo";
 import type { ServiceDeps } from "./deps.ts";
 
-const COUNTED_STATES = ["unconfirmed", "verified", "resolved"];
+export const COUNTED_STATES = ["unconfirmed", "verified", "resolved"];
 
 export async function outlookFor(deps: ServiceDeps, bbox: BBox): Promise<PublicAreaOutlook[]> {
   const now = deps.now();

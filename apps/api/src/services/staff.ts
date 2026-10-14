@@ -42,8 +42,24 @@ export async function createStaff(
   if (input.password.length < MIN_STAFF_PASSWORD_LENGTH) {
     throw new Error(`Password must be at least ${MIN_STAFF_PASSWORD_LENGTH} characters`);
   }
-  if (input.role === "responder" && !input.organisationId) {
-    throw new Error("A responder must belong to an organisation");
+  if ((input.role === "responder" || input.role === "fleet") && !input.organisationId) {
+    throw new Error(`A ${input.role} account must belong to an organisation`);
+  }
+  if (input.organisationId) {
+    // Fleet companies get fleet accounts only, and responders never act for a fleet company.
+    const { rows } = await pool.query<{ kind: string }>(
+      "SELECT kind FROM organisations WHERE id = $1",
+      [input.organisationId],
+    );
+    const kind = rows[0]?.kind;
+    if (!kind) throw new Error("Organisation not found");
+    if ((kind === "fleet") !== (input.role === "fleet")) {
+      throw new Error(
+        kind === "fleet"
+          ? "Accounts for a fleet company must have the fleet role"
+          : "Fleet accounts must belong to a fleet company (create-org --kind fleet)",
+      );
+    }
   }
   const id = randomUUID();
   const passwordHash = await hash(input.password, ARGON2_OPTIONS);

@@ -3,6 +3,9 @@ import type {
   BroadcastSummary,
   CommunityNotice,
   DeploymentInput,
+  FleetOverview,
+  FleetZone,
+  FleetZoneInput,
   IncidentDetail,
   IncidentState,
   IncidentUpdateInput,
@@ -15,6 +18,7 @@ import type {
   ResponderDeployment,
   ResponderInboxItem,
   ResponderIncidentDetail,
+  RouteCheckResult,
   SignedBroadcast,
   SosBoardItem,
   StaffUser,
@@ -83,6 +87,19 @@ export const api = {
       request<{ id: string }>("/v1/admin/community/notices", {
         method: "POST",
         body: JSON.stringify(input),
+      }),
+  },
+
+  fleet: {
+    overview: () => request<FleetOverview>("/v1/admin/fleet/overview"),
+    addZone: (input: FleetZoneInput) =>
+      request<FleetZone>("/v1/admin/fleet/zones", { method: "POST", body: JSON.stringify(input) }),
+    removeZone: (id: string) =>
+      request<void>(`/v1/admin/fleet/zones/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    routeCheck: (from: { lat: number; lng: number }, to: { lat: number; lng: number }) =>
+      request<RouteCheckResult>("/v1/admin/fleet/route-check", {
+        method: "POST",
+        body: JSON.stringify({ from, to }),
       }),
   },
 

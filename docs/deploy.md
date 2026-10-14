@@ -76,6 +76,20 @@ Technical tab of the requirements).
   Headlines that mention a place Warden covers appear on the console's News page. Nothing goes
   on the map until a moderator reads the story and adds it. Only headlines and summaries from
   the feeds are kept; Warden never copies whole articles or scrapes web pages.
+- **Fleet customers** (M9): once a transport or logistics company has signed up, create it and
+  give its operations desk an account. They sign in at the same console address:
+  ```bash
+  docker compose exec api node apps/api/src/cli/create-org.ts --name "Example Haulage Ltd" --kind fleet
+  docker compose exec api node apps/api/src/cli/create-staff.ts --email ops@example.ng --role fleet --org <id printed above>
+  ```
+- **Risk-data API customers** (M9): give each customer a key and send them
+  [the API guide](data-api.md). The key is printed once; send it securely. At the end of the
+  month print their usage for the invoice:
+  ```bash
+  docker compose exec api node apps/api/src/cli/api-client.ts --add "Example Insurance" --quota 5000
+  docker compose exec api node apps/api/src/cli/api-client.ts --usage <id> --month 2026-10
+  docker compose exec api node apps/api/src/cli/api-client.ts --revoke <id> --reason "Contract ended"
+  ```
 - **Support services** for private reports: send Claude the organisations and numbers you have
   confirmed; they go in `packages/shared/src/support.ts` and ship with the next app build.
 

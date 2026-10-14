@@ -1,6 +1,7 @@
-// Creates a moderator, admin or responder account.
+// Creates a moderator, admin, responder or fleet account.
 //   pnpm --filter @warden/api create-staff -- --email you@example.com --role admin
 //   pnpm --filter @warden/api create-staff -- --email desk@police.example --role responder --org <id>
+//   pnpm --filter @warden/api create-staff -- --email ops@haulage.example --role fleet --org <id>
 // The password comes from STAFF_PASSWORD, or a strong one is generated and printed once.
 
 import { parseArgs } from "node:util";
@@ -18,11 +19,13 @@ const { values } = parseArgs({
 
 const url = process.env.DATABASE_URL;
 const role = values.role;
-const validRole = role === "moderator" || role === "admin" || role === "responder";
-if (!url || !values.email || !validRole || (role === "responder" && !values.org)) {
+const validRole =
+  role === "moderator" || role === "admin" || role === "responder" || role === "fleet";
+const needsOrg = role === "responder" || role === "fleet";
+if (!url || !values.email || !validRole || (needsOrg && !values.org)) {
   console.error(
-    "Usage: create-staff --email <email> [--role moderator|admin|responder] [--org <organisation id>]\n" +
-      "Responders need --org (see create-org). Needs DATABASE_URL.",
+    "Usage: create-staff --email <email> [--role moderator|admin|responder|fleet] [--org <organisation id>]\n" +
+      "Responder and fleet accounts need --org (see create-org). Needs DATABASE_URL.",
   );
   process.exit(1);
 }

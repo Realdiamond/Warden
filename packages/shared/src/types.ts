@@ -51,8 +51,8 @@ export interface ReportStatus {
 export interface StaffUser {
   id: string;
   email: string;
-  role: "moderator" | "admin" | "responder";
-  /** Set for responders: the organisation they act for. */
+  role: "moderator" | "admin" | "responder" | "fleet";
+  /** Set for responders and fleet accounts: the organisation they act for. */
   organisation: Organisation | null;
 }
 

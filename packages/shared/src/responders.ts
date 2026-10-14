@@ -15,6 +15,8 @@ export const ORGANISATION_KINDS = [
   "road_safety",
   "community",
   "other",
+  /** A transport or logistics company using the fleet dashboard (M9); not a responder. */
+  "fleet",
 ] as const;
 export type OrganisationKind = (typeof ORGANISATION_KINDS)[number];
 
@@ -65,7 +67,7 @@ export const DEPLOYMENT_VISIBILITY = [
 ] as const;
 export type DeploymentVisibility = (typeof DEPLOYMENT_VISIBILITY)[number];
 
-const NigeriaPoint = z
+export const NigeriaPoint = z
   .strictObject({
     lat: z.number().min(-90).max(90),
     lng: z.number().min(-180).max(180),
