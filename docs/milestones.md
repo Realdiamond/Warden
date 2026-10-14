@@ -40,7 +40,7 @@ Known follow-ups from M1:
 - [x] Safety PIN and duress PIN (looks like a normal stop, alarms contacts)
 - [x] Live page for contacts at `/live#...`; the secret never reaches server logs
 - [x] Stops and alarms are queued on the phone when there is no signal
-- [ ] Route deviation checks (needs real-world testing of GPS noise first)
+- [x] Route deviation checks (M6)
 - [ ] Text messages actually sent: needs the SMS provider account (founder)
 
 ## M4 — Responders and channels (built; see [ADR 0004](adr/0004-responders-and-ussd.md))
@@ -59,8 +59,22 @@ Known follow-ups from M1:
 - [x] Smaller test app: one APK per phone processor family instead of one for both
 - [x] Field encryption key rotation: old keys kept for reading, `rotate-field-key` re-encrypts
 - [x] Broadcast signing key rotation: phones trust several keys by id
-- [ ] Route deviation checks (still needs real-world GPS testing first)
-- [ ] Pidgin and other languages (needs a native speaker to write and check the text)
+- [x] Route deviation checks (built in M6; thresholds still need real-world tuning)
+- [x] Pidgin (draft built in M6; other languages need translators)
+
+## M6 — Safer trips and languages (built; see [ADR 0006](adr/0006-safer-trips-and-languages.md))
+
+- [x] Off-route check on trips: the phone asks "Are you OK?", contacts are told only if there is
+      no answer (PIN to answer, duress PIN raises the alarm quietly)
+- [x] Trusted reporters: anonymous codes, their reports show sooner, revocable, audited
+- [x] Safe places near you (police, hospitals, clinics, fuel, fire stations) on the trip screen,
+      imported from OpenStreetMap or partner files
+- [x] Pidgin (draft) for alerts, spoken alerts, SOS, trips, safe places and private-report help
+- [x] Help after a private report: 112 and confirmed support services only
+- [ ] Pidgin checked by a native speaker (founder)
+- [ ] Real support services and phone numbers confirmed with each organisation (founder)
+- [ ] Safe places imported for Lagos and Abuja on the live server, and spot checked
+- [ ] Off-route thresholds tuned after real trips in Lagos traffic
 
 ## Blocked on the founder (not on code)
 

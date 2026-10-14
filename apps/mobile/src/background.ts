@@ -12,7 +12,12 @@ import { checkBroadcast } from "./lib/broadcasts.ts";
 import { showNotifications } from "./lib/notify.ts";
 import { getInstallId, loadSettings } from "./lib/settings.ts";
 import { createSource } from "./lib/source.ts";
-import { LOCATION_TASK, recordLocations, sendPendingEnds } from "./safetyRuntime.ts";
+import {
+  checkActiveCheckIn,
+  LOCATION_TASK,
+  recordLocations,
+  sendPendingEnds,
+} from "./safetyRuntime.ts";
 
 export const ALERT_TASK = "warden-alert-check";
 const INTERVAL_MINUTES = 15;
@@ -36,6 +41,7 @@ export async function runStoredAlertCheck(options: { notify: boolean }) {
       alert.broadcast
         ? checkBroadcast(alert.broadcast, extra.broadcastPublicKey || null)
         : "invalid",
+    language: settings.language,
   });
   if (options.notify) await showNotifications(result.notifications);
   return result;
@@ -45,6 +51,7 @@ export async function runStoredAlertCheck(options: { notify: boolean }) {
 TaskManager.defineTask(ALERT_TASK, async () => {
   try {
     await sendPendingEnds().catch(() => undefined);
+    await checkActiveCheckIn().catch(() => undefined);
     await runStoredAlertCheck({ notify: true });
     return BackgroundTask.BackgroundTaskResult.Success;
   } catch {

@@ -3,6 +3,7 @@
 import {
   type AlertsResponse,
   type BBox,
+  DEMO_SAFE_STOPS,
   type PublicAlert,
   type PublicIncident,
   type PublicPresence,
@@ -10,7 +11,9 @@ import {
   type ReactionResult,
   type ReportStatus,
   type ReportSubmission,
+  type SafeStop,
   SESSION_MAX_MS,
+  type SessionFlag,
   type SessionPoint,
   type SessionStart,
   TIME_WINDOW_MS,
@@ -47,6 +50,9 @@ export interface DataSource {
     outcome: "arrived" | "safe" | "cancelled",
     duress: boolean,
   ): Promise<boolean>;
+  /** True once the server has it (or the session is already over). */
+  flagSession(sessionId: string, controlToken: string, reason: SessionFlag): Promise<boolean>;
+  safeStops(bbox: BBox): Promise<SafeStop[]>;
 }
 
 export function liveSource(api: WardenApi): DataSource {
@@ -63,6 +69,8 @@ export function liveSource(api: WardenApi): DataSource {
     sessionPoints: (id, token, points) => api.sessionPoints(id, token, points),
     extendSession: (id, token, minutes) => api.extendSession(id, token, minutes),
     endSession: (id, token, outcome, duress) => api.endSession(id, token, outcome, duress),
+    flagSession: (id, token, reason) => api.flagSession(id, token, reason),
+    safeStops: (bbox) => api.safeStops(bbox),
   };
 }
 
@@ -188,13 +196,19 @@ export function demoSource(now: () => number = Date.now): DataSource {
     async endSession() {
       return true;
     },
+    async flagSession() {
+      return true;
+    },
+    async safeStops(bbox) {
+      return DEMO_SAFE_STOPS.filter((stop) => insideBBox(stop, bbox));
+    },
   };
 }
 
 export function createSource(
-  settings: { apiUrl: string; demoMode: boolean },
+  settings: { apiUrl: string; demoMode: boolean; reporterCode?: string },
   installId: string,
 ): DataSource {
   if (settings.demoMode || !settings.apiUrl) return demoSource();
-  return liveSource(new WardenApi(settings.apiUrl, installId));
+  return liveSource(new WardenApi(settings.apiUrl, installId, fetch, settings.reporterCode ?? ""));
 }

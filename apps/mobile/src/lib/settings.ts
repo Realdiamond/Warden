@@ -1,8 +1,12 @@
+import { isLanguage, type Language } from "./i18n.ts";
 import type { KeyValueStore } from "./outbox.ts";
 
 export interface Settings {
   apiUrl: string;
   demoMode: boolean;
+  language: Language;
+  /** Given by Warden to checked community reporters; empty for everyone else. */
+  reporterCode: string;
 }
 
 const SETTINGS_KEY = "warden.settings.v1";
@@ -19,7 +23,12 @@ export function isValidServerUrl(value: string): boolean {
 }
 
 export async function loadSettings(store: KeyValueStore, builtInApiUrl: string): Promise<Settings> {
-  const fallback: Settings = { apiUrl: builtInApiUrl, demoMode: builtInApiUrl === "" };
+  const fallback: Settings = {
+    apiUrl: builtInApiUrl,
+    demoMode: builtInApiUrl === "",
+    language: "en",
+    reporterCode: "",
+  };
   const raw = await store.getItem(SETTINGS_KEY);
   if (!raw) return fallback;
   try {
@@ -27,10 +36,22 @@ export async function loadSettings(store: KeyValueStore, builtInApiUrl: string):
     return {
       apiUrl: typeof parsed.apiUrl === "string" ? parsed.apiUrl : fallback.apiUrl,
       demoMode: typeof parsed.demoMode === "boolean" ? parsed.demoMode : fallback.demoMode,
+      language: isLanguage(parsed.language) ? parsed.language : fallback.language,
+      reporterCode: typeof parsed.reporterCode === "string" ? parsed.reporterCode : "",
     };
   } catch {
     return fallback;
   }
+}
+
+/** Same rule as the server: letters and digits only, 20 of them, typed any way. */
+export function normaliseReporterCode(value: string): string {
+  return value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+}
+
+export function isValidReporterCode(value: string): boolean {
+  const code = normaliseReporterCode(value);
+  return code === "" || /^[A-Z2-9]{20}$/.test(code);
 }
 
 export async function saveSettings(store: KeyValueStore, settings: Settings): Promise<void> {

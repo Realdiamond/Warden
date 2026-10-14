@@ -5,6 +5,7 @@ import * as Notifications from "expo-notifications";
 import * as Speech from "expo-speech";
 import { Platform } from "react-native";
 import type { NotificationChannel, PlannedNotification } from "./alerts.ts";
+import { speechLanguage } from "./i18n.ts";
 
 const CHANNELS: Record<
   NotificationChannel,
@@ -107,7 +108,7 @@ export async function showNotifications(planned: PlannedNotification[]): Promise
 
 export function speakAlerts(planned: PlannedNotification[]): void {
   for (const item of planned) {
-    if (item.speech) Speech.speak(item.speech, { language: "en", rate: 0.95 });
+    if (item.speech) Speech.speak(item.speech, { language: speechLanguage(undefined), rate: 0.95 });
   }
 }
 

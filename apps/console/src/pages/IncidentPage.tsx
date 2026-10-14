@@ -125,6 +125,7 @@ export function IncidentPage({ id }: { id: string }) {
                 <p className="report-meta">
                   {timeAgo(report.receivedAt)} via {report.channel} ·{" "}
                   {PROXIMITY_LABEL[report.proximity]}
+                  {report.trusted && <span className="tag">Trusted reporter</span>}
                 </p>
                 <p>{report.description ?? <span className="muted">No description</span>}</p>
                 <p className="muted mono">

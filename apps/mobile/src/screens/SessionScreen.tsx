@@ -1,15 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { SafeStop } from "@warden/shared";
 import * as SMS from "expo-sms";
 import { useEffect, useState } from "react";
 import { ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { SafePlaces } from "../components/SafePlaces.tsx";
 import { Button, EmergencyCallButton, ModalHeader, Note } from "../components/ui.tsx";
 import { loadProfile, type SafetyProfile } from "../lib/contacts.ts";
+import { type Language, strings } from "../lib/i18n.ts";
+import type { Position } from "../lib/location.ts";
 import { checkPin, loadPins, type PinSettings } from "../lib/pin.ts";
 import { type ActiveSession, minutesLeft, shareText } from "../lib/safety.ts";
 import { COLORS } from "../lib/ui.ts";
 import { sha256Hex } from "./SafetyScreen.tsx";
 
 type Outcome = "arrived" | "safe" | "cancelled";
+/** What the PIN is being asked for: stopping, or answering "Are you OK?". */
+type PinFor = Outcome | "checkIn";
 
 function clock(iso: string): string {
   const d = new Date(iso);
@@ -19,20 +25,28 @@ function clock(iso: string): string {
 export function SessionScreen({
   session,
   demo,
+  language,
   onExtend,
   onFinish,
+  onAnswerCheckIn,
+  findStops,
   onClose,
 }: {
   session: ActiveSession;
   demo: boolean;
+  language: Language;
   onExtend: (minutes: number) => Promise<void>;
   /** Resolves once the phone has stopped sharing. */
   onFinish: (outcome: Outcome, duress: boolean) => Promise<void>;
+  /** The person said they are OK; with the duress PIN, contacts are quietly told otherwise. */
+  onAnswerCheckIn: (duress: boolean) => Promise<void>;
+  findStops: (around: Position) => Promise<SafeStop[]>;
   onClose: () => void;
 }) {
+  const t = strings(language);
   const [profile, setProfile] = useState<SafetyProfile | null>(null);
   const [pins, setPins] = useState<PinSettings | null>(null);
-  const [stopping, setStopping] = useState<Outcome | null>(null);
+  const [stopping, setStopping] = useState<PinFor | null>(null);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,7 +63,11 @@ export function SessionScreen({
 
   const sos = session.kind === "sos";
   const left = minutesLeft(session, now);
-  const message = shareText(session.kind, profile?.personName ?? "", session.viewUrl);
+  const message = shareText(session.kind, profile?.personName ?? "", session.viewUrl, language);
+  const checkIn = session.checkIn ?? null;
+  const checkInMinutes = checkIn
+    ? Math.max(0, Math.ceil((new Date(checkIn.dueAt).getTime() - now.getTime()) / 60_000))
+    : 0;
 
   const textContacts = async () => {
     const phones = profile?.contacts.map((c) => c.phone) ?? [];
@@ -60,10 +78,15 @@ export function SessionScreen({
     }
   };
 
-  const stop = async (outcome: Outcome, duress: boolean) => {
+  const stop = async (outcome: PinFor, duress: boolean) => {
     setBusy(true);
     try {
-      await onFinish(outcome, duress);
+      if (outcome === "checkIn") {
+        await onAnswerCheckIn(duress);
+        setStopping(null);
+      } else {
+        await onFinish(outcome, duress);
+      }
     } finally {
       setBusy(false);
     }
@@ -73,15 +96,15 @@ export function SessionScreen({
     if (!stopping) return;
     const result = await checkPin(pins, pin, sha256Hex);
     if (result === "wrong") {
-      setPinError("Wrong PIN. Try again.");
+      setPinError(t.wrongPin);
       setPin("");
       return;
     }
-    // A duress PIN stops exactly like the real one on this screen.
+    // A duress PIN behaves exactly like the real one on this screen.
     await stop(stopping, result === "duress");
   };
 
-  const askToStop = (outcome: Outcome) => {
+  const askToStop = (outcome: PinFor) => {
     if (pins?.pinHash) {
       setStopping(outcome);
       setPin("");
@@ -94,9 +117,11 @@ export function SessionScreen({
   if (stopping) {
     return (
       <View style={styles.screen}>
-        <ModalHeader title="Enter your PIN" onClose={onClose} onBack={() => setStopping(null)} />
+        <ModalHeader title={t.enterPin} onClose={onClose} onBack={() => setStopping(null)} />
         <View style={styles.body}>
-          <Text style={styles.help}>Enter your Warden PIN to stop sharing.</Text>
+          <Text style={styles.help}>
+            {stopping === "checkIn" ? t.enterPinToAnswer : t.enterPinToStop}
+          </Text>
           <TextInput
             style={styles.pinInput}
             value={pin}
@@ -108,7 +133,7 @@ export function SessionScreen({
           />
           {pinError && <Text style={styles.error}>{pinError}</Text>}
           <Button
-            label={busy ? "Stopping..." : "Stop"}
+            label={busy ? t.stopping : stopping === "checkIn" ? t.imOk : t.stop}
             variant="primary"
             disabled={busy || pin.length < 4}
             onPress={() => void confirmPin()}
@@ -120,47 +145,61 @@ export function SessionScreen({
 
   return (
     <View style={styles.screen}>
-      <ModalHeader title={sos ? "SOS is on" : "Sharing your trip"} onClose={onClose} />
+      <ModalHeader title={sos ? t.sosOn : t.sharingTrip} onClose={onClose} />
       <ScrollView contentContainerStyle={styles.body}>
+        {checkIn && (
+          <View style={[styles.status, styles.statusSos]}>
+            <Text style={[styles.statusTitle, styles.statusTitleSos]}>{t.areYouOk}</Text>
+            <Text style={styles.statusText}>{t.awayFromRoute(session.destinationLabel)}</Text>
+            <Text style={styles.statusText}>
+              {checkIn.flagged ? t.contactsTold : t.contactsToldIn(checkInMinutes)}
+            </Text>
+            <Button
+              label={t.imOk}
+              variant="primary"
+              icon="check-circle"
+              disabled={busy}
+              onPress={() => askToStop("checkIn")}
+            />
+          </View>
+        )}
         <View style={[styles.status, sos && styles.statusSos]}>
           <Text style={[styles.statusTitle, sos && styles.statusTitleSos]}>
             {sos
-              ? "Your trusted contacts are being alerted"
+              ? t.contactsAlerted
               : left !== null && left < 0
-                ? `You are ${-left} min late`
-                : `Expected by ${session.expectedArrivalAt ? clock(session.expectedArrivalAt) : "--"}`}
+                ? t.late(-left)
+                : t.expectedBy(session.expectedArrivalAt ? clock(session.expectedArrivalAt) : "--")}
           </Text>
           <Text style={styles.statusText}>
             {sos
-              ? "Warden is sharing your live location with them until you say you are safe."
+              ? t.sharingUntilSafe
               : left !== null && left < -10
-                ? "Your contacts have been told you are late. Add time or say you have arrived."
+                ? t.toldLate
                 : left !== null && left >= 0
-                  ? `${left} min left${session.destinationLabel ? ` to ${session.destinationLabel}` : ""}.`
-                  : "Add time or say you have arrived, or your contacts will be told."}
+                  ? t.minLeft(left, session.destinationLabel)
+                  : t.addTimeOr}
           </Text>
           {session.pending.length > 0 && (
-            <Text style={styles.statusText}>
-              {session.pending.length} location update(s) waiting for signal.
-            </Text>
+            <Text style={styles.statusText}>{t.waitingForSignal(session.pending.length)}</Text>
           )}
         </View>
 
         {sos && <EmergencyCallButton />}
 
         {demo ? (
-          <Note tone="warning">Demo mode: no one was alerted and no link was made.</Note>
+          <Note tone="warning">{t.demoNoAlert}</Note>
         ) : (
           <>
             <Button
-              label={sos ? "Text my contacts now" : "Send the link to my contacts"}
+              label={sos ? t.textContactsNow : t.sendLink}
               variant={sos ? "danger" : "secondary"}
               icon="message-text"
               onPress={() => void textContacts()}
             />
             {session.viewUrl && (
               <Button
-                label="Share the link another way"
+                label={t.shareOtherWay}
                 icon="share-variant"
                 onPress={() => void Share.share({ message })}
               />
@@ -180,7 +219,7 @@ export function SessionScreen({
         )}
 
         <Button
-          label={sos ? "I'm safe now" : "I've arrived"}
+          label={sos ? t.imSafe : t.arrived}
           variant="primary"
           icon="check-circle"
           disabled={busy}
@@ -188,18 +227,16 @@ export function SessionScreen({
         />
         {!sos && (
           <Button
-            label="Cancel trip"
+            label={t.cancelTrip}
             icon="close"
             disabled={busy}
             onPress={() => askToStop("cancelled")}
           />
         )}
         {sos && profile && profile.contacts.length === 0 && (
-          <Note tone="warning">
-            You have no trusted contacts, so Warden cannot alert anyone. Call 112, or share the link
-            with someone you trust.
-          </Note>
+          <Note tone="warning">{t.noContacts}</Note>
         )}
+        <SafePlaces findStops={findStops} language={language} />
       </ScrollView>
     </View>
   );

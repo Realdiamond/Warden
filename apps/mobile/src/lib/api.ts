@@ -11,6 +11,8 @@ import type {
   ReportReceipt,
   ReportStatus,
   ReportSubmission,
+  SafeStop,
+  SessionFlag,
   SessionPoint,
   SessionReceipt,
   SessionStart,
@@ -31,11 +33,18 @@ export class WardenApi {
   readonly baseUrl: string;
   readonly #installId: string;
   readonly #fetch: typeof fetch;
+  readonly #reporterCode: string;
 
-  constructor(baseUrl: string, installId: string, fetchImpl: typeof fetch = fetch) {
+  constructor(
+    baseUrl: string,
+    installId: string,
+    fetchImpl: typeof fetch = fetch,
+    reporterCode = "",
+  ) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     this.#installId = installId;
     this.#fetch = fetchImpl;
+    this.#reporterCode = reporterCode;
   }
 
   async #request(path: string, init: RequestInit = {}): Promise<Response> {
@@ -76,6 +85,7 @@ export class WardenApi {
           "content-type": "application/json",
           "x-warden-install": this.#installId,
           "idempotency-key": idempotencyKey,
+          ...(this.#reporterCode ? { "x-warden-reporter-code": this.#reporterCode } : {}),
         },
         body: JSON.stringify(body),
       });
@@ -94,6 +104,15 @@ export class WardenApi {
       retry,
       message: problem?.title ?? `The server refused the report (${response.status}).`,
     };
+  }
+
+  async safeStops(bbox: BBox): Promise<SafeStop[]> {
+    const box = [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat]
+      .map((n) => n.toFixed(4))
+      .join(",");
+    const response = await this.#request(`/v1/safe-stops?bbox=${box}`);
+    if (!response.ok) throw new Error(`Safe stops request failed (${response.status})`);
+    return ((await response.json()) as { stops: SafeStop[] }).stops;
   }
 
   async status(reportId: string, statusToken: string): Promise<ReportStatus | null> {
@@ -187,6 +206,20 @@ export class WardenApi {
     try {
       const response = await this.#control(sessionId, controlToken, "end", { outcome, duress });
       // 404 and 409 mean it is already over, which is what was asked for.
+      return response.ok || response.status === 404 || response.status === 409;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Off route without an answer, or the duress PIN at a check: the trip goes on. */
+  async flagSession(
+    sessionId: string,
+    controlToken: string,
+    reason: SessionFlag,
+  ): Promise<boolean> {
+    try {
+      const response = await this.#control(sessionId, controlToken, "flag", { reason });
       return response.ok || response.status === 404 || response.status === 409;
     } catch {
       return false;

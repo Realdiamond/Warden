@@ -1,8 +1,28 @@
 // The trip or SOS running on this phone. Locations are queued on the phone and sent in batches,
 // so a weak signal delays them but does not lose them.
 
-import { MAX_POINTS_PER_UPLOAD, type SessionKind, type SessionPoint } from "@warden/shared";
+import {
+  answerCheckIn,
+  CHECK_IN_WINDOW_MS,
+  distanceMeters,
+  MAX_POINTS_PER_UPLOAD,
+  newRouteWatch,
+  type RouteWatch,
+  type SessionKind,
+  type SessionPoint,
+  updateRouteWatch,
+} from "@warden/shared";
+import { type Language, strings } from "./i18n.ts";
 import type { KeyValueStore } from "./outbox.ts";
+
+/** "Are you OK?" after the person left their route (see packages/shared/src/route.ts). */
+export interface CheckIn {
+  askedAt: string;
+  /** Contacts are told at this time unless the person answers. */
+  dueAt: string;
+  /** The server has been told. */
+  flagged: boolean;
+}
 
 export interface ActiveSession {
   /** Null in demo mode, where nothing is sent. */
@@ -17,6 +37,60 @@ export interface ActiveSession {
   destinationLabel: string | null;
   pending: SessionPoint[];
   lastSentAt: string | null;
+  /** Trips with a destination only; missing in sessions saved by older versions. */
+  route?: RouteWatch | null;
+  checkIn?: CheckIn | null;
+}
+
+/** Starts the off-route check for a trip that has a destination. */
+export function routeWatchFor(
+  kind: SessionKind,
+  destination: { lat: number; lng: number } | undefined,
+): RouteWatch | null {
+  return kind === "trip" && destination ? newRouteWatch(destination) : null;
+}
+
+/**
+ * Feeds new positions into the off-route check. Returns ask=true once, when the phone should
+ * ask "Are you OK?"; the answer is due CHECK_IN_WINDOW_MS later.
+ */
+export function watchRoute(
+  session: ActiveSession,
+  points: SessionPoint[],
+  now: Date,
+): { session: ActiveSession; ask: boolean } {
+  if (!session.route || session.kind !== "trip") return { session, ask: false };
+  let route = session.route;
+  let ask = false;
+  for (const point of points) {
+    const result = updateRouteWatch(route, point);
+    route = result.watch;
+    if (result.status === "ask") ask = true;
+  }
+  const checkIn: CheckIn | null = ask
+    ? {
+        askedAt: now.toISOString(),
+        dueAt: new Date(now.getTime() + CHECK_IN_WINDOW_MS).toISOString(),
+        flagged: false,
+      }
+    : (session.checkIn ?? null);
+  return { session: { ...session, route, checkIn }, ask };
+}
+
+/** True when the person did not answer in time and the server has not been told yet. */
+export function checkInOverdue(session: ActiveSession, now: Date): boolean {
+  const checkIn = session.checkIn;
+  return !!checkIn && !checkIn.flagged && new Date(checkIn.dueAt).getTime() <= now.getTime();
+}
+
+/** The person answered "I'm OK": the detour is accepted from where they are now. */
+export function answerRouteCheck(
+  session: ActiveSession,
+  here: { lat: number; lng: number } | null,
+): ActiveSession {
+  if (!session.route) return { ...session, checkIn: null };
+  const distance = here ? distanceMeters(here, session.route.destination) : null;
+  return { ...session, route: answerCheckIn(session.route, distance), checkIn: null };
 }
 
 export type PointsResult = { ok: true } | { ok: false; ended: boolean };
@@ -86,13 +160,15 @@ export function minutesLeft(session: ActiveSession, now: Date): number | null {
 }
 
 /** The message a person sends their contacts from their own phone. */
-export function shareText(kind: SessionKind, personName: string, viewUrl: string | null): string {
+export function shareText(
+  kind: SessionKind,
+  personName: string,
+  viewUrl: string | null,
+  language?: Language,
+): string {
+  const t = strings(language);
   const link = viewUrl ? ` ${viewUrl}` : "";
-  return kind === "sos"
-    ? `SOS: I need help. My live location:${link} If you cannot reach me, call 112.`
-    : `I'm sharing my trip with you on Warden. Follow my live location:${link}`.concat(
-        personName ? ` - ${personName}` : "",
-      );
+  return kind === "sos" ? t.sosShare(link) : t.tripShare(link, personName);
 }
 
 /** A stop the server has not heard about yet (no signal); retried until it gets through. */

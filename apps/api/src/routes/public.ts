@@ -17,6 +17,8 @@ import { mapIncidents } from "../services/incidents.ts";
 import { reactToIncident } from "../services/reactions.ts";
 import { createReport, getReportStatus } from "../services/reports.ts";
 import { publicPresence } from "../services/responders.ts";
+import { safeStopsIn } from "../services/safeStops.ts";
+import { isTrustedReporterCode, normaliseReporterCode } from "../services/trustedReporters.ts";
 
 const INSTALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{8,128}$/;
@@ -26,11 +28,14 @@ const UUID = INSTALL_ID;
 const REPORTS_PER_HOUR = 10;
 const STATUS_CHECKS_PER_HOUR = 120;
 const REACTIONS_PER_HOUR = 30;
+/** Trusted reporters may report more, but a stolen code still cannot flood the map. */
+const TRUSTED_REPORTS_PER_HOUR = 30;
 
 export function registerPublicRoutes(app: FastifyInstance, deps: ServiceDeps): void {
   const reportLimiter = new RateLimiter(REPORTS_PER_HOUR, 3_600_000);
   const statusLimiter = new RateLimiter(STATUS_CHECKS_PER_HOUR, 3_600_000);
   const reactionLimiter = new RateLimiter(REACTIONS_PER_HOUR, 3_600_000);
+  const trustedLimiter = new RateLimiter(TRUSTED_REPORTS_PER_HOUR, 3_600_000);
 
   app.post("/v1/reports", async (request, reply) => {
     const installId = headerValue(request.headers["x-warden-install"]);
@@ -46,18 +51,28 @@ export function registerPublicRoutes(app: FastifyInstance, deps: ServiceDeps): v
       );
     }
 
-    const limit = reportLimiter.hit(
-      deps.hasher.hmacHex("rl-report", installId.toLowerCase()),
-      deps.now().getTime(),
-    );
+    const reporterCode = headerValue(request.headers["x-warden-reporter-code"]);
+    const limit = reporterCode
+      ? trustedLimiter.hit(
+          deps.hasher.hmacHex("rl-trusted", normaliseReporterCode(reporterCode)),
+          deps.now().getTime(),
+        )
+      : reportLimiter.hit(
+          deps.hasher.hmacHex("rl-report", installId.toLowerCase()),
+          deps.now().getTime(),
+        );
     if (!limit.allowed) return tooMany(reply, limit.retryAfterMs);
 
     const submission = ReportSubmissionSchema.parse(request.body);
+    if (reporterCode && !(await isTrustedReporterCode(deps, reporterCode))) {
+      return problem(reply, 403, "This trusted reporter code is not valid any more.");
+    }
     const result = await createReport(deps, {
       submission,
       installId: installId.toLowerCase(),
       idempotencyKey,
       channel: "app",
+      trusted: Boolean(reporterCode),
     });
     if (!result.ok) return problem(reply, result.status, result.message);
     if (result.replayed) reply.header("idempotent-replayed", "true");
@@ -125,5 +140,13 @@ export function registerPublicRoutes(app: FastifyInstance, deps: ServiceDeps): v
     const presence = await publicPresence(deps, bbox);
     reply.header("cache-control", "public, max-age=30");
     return { presence, generatedAt: deps.now().toISOString() };
+  });
+
+  /** Police stations, hospitals and other public places to head for. */
+  app.get("/v1/safe-stops", async (request, reply) => {
+    const { bbox } = z.object({ bbox: BBoxSchema }).parse(request.query);
+    const stops = await safeStopsIn(deps.pool, bbox);
+    reply.header("cache-control", "public, max-age=3600");
+    return { stops };
   });
 }

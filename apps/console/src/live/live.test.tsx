@@ -20,6 +20,7 @@ const view: SessionView = {
   state: "active",
   alarm: false,
   duress: false,
+  offRouteAt: null,
   personName: "Ada",
   note: "Blue Toyota",
   destination: { lat: 6.45, lng: 3.4, label: "Lekki" },
@@ -37,6 +38,9 @@ describe("live page", () => {
     expect(headline({ ...view, state: "overdue", alarm: true }).tone).toBe("alarm");
     expect(headline({ ...view, kind: "sos", alarm: true }).text).toContain("SOS");
     expect(headline({ ...view, duress: true, alarm: true }).text).toContain("may be in danger");
+    expect(headline({ ...view, offRouteAt: "2026-10-05T12:20:00Z", alarm: true }).text).toContain(
+      "moved away from their route",
+    );
     expect(headline({ ...view, state: "ended", outcome: "arrived", endedAt: null }).text).toBe(
       "Ada arrived safely.",
     );

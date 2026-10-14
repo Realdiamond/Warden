@@ -7,15 +7,22 @@ import * as Battery from "expo-battery";
 import Constants from "expo-constants";
 import { randomUUID } from "expo-crypto";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import { loadProfile } from "./lib/contacts.ts";
+import { strings } from "./lib/i18n.ts";
+import { setUpNotifications } from "./lib/notify.ts";
 import {
   type ActiveSession,
   addPendingEnd,
+  answerRouteCheck,
+  checkInOverdue,
   flushPoints,
   loadActive,
   queuePoints,
   retryPendingEnds,
+  routeWatchFor,
   saveActive,
+  watchRoute,
 } from "./lib/safety.ts";
 import { getInstallId, loadSettings } from "./lib/settings.ts";
 import { createSource, type DataSource } from "./lib/source.ts";
@@ -49,6 +56,77 @@ export function toPoint(location: Location.LocationObject, battery?: number): Se
   };
 }
 
+const CHECK_IN_NOTIFICATION = "warden-route-check";
+
+/** Asks "Are you OK?" with a notification the person sees even if the app is closed. */
+async function askAreYouOk(session: ActiveSession): Promise<void> {
+  const settings = await loadSettings(AsyncStorage, extra.apiUrl ?? "");
+  const t = strings(settings.language);
+  try {
+    await setUpNotifications();
+    await Notifications.scheduleNotificationAsync({
+      identifier: CHECK_IN_NOTIFICATION,
+      content: {
+        title: t.areYouOk,
+        body: `${t.awayFromRoute(session.destinationLabel)} ${t.contactsToldIn(5)}`,
+        data: { checkIn: true },
+      },
+      trigger: { channelId: "critical" },
+    });
+  } catch {
+    // The screen shows the question too.
+  }
+}
+
+/**
+ * Tells contacts when an "Are you OK?" went unanswered. Runs on every location update, in the
+ * background check and while the trip screen is open. Returns the updated session.
+ */
+export async function runCheckIn(
+  session: ActiveSession,
+  source?: DataSource,
+): Promise<ActiveSession> {
+  if (!checkInOverdue(session, new Date()) || !session.checkIn) return session;
+  if (!session.sessionId || !session.controlToken) {
+    const demo = { ...session, checkIn: { ...session.checkIn, flagged: true } };
+    await saveActive(AsyncStorage, demo);
+    return demo;
+  }
+  const from = source ?? (await storedSource());
+  const told = await from
+    .flagSession(session.sessionId, session.controlToken, "off_route")
+    .catch(() => false);
+  if (!told) return session;
+  const flagged = { ...session, checkIn: { ...session.checkIn, flagged: true } };
+  await saveActive(AsyncStorage, flagged);
+  return flagged;
+}
+
+/** Background and app-start hook: checks an unanswered "Are you OK?". */
+export async function checkActiveCheckIn(): Promise<void> {
+  const active = await loadActive(AsyncStorage);
+  if (active) await runCheckIn(active);
+}
+
+/**
+ * The person answered the check. With the duress PIN the screen behaves exactly the same, but
+ * contacts are told the person may be in danger.
+ */
+export async function answerCheckInActive(duress: boolean): Promise<ActiveSession | null> {
+  const active = await loadActive(AsyncStorage);
+  if (!active) return null;
+  const last = await Location.getLastKnownPositionAsync().catch(() => null);
+  const here = last ? { lat: last.coords.latitude, lng: last.coords.longitude } : null;
+  const answered = answerRouteCheck(active, here);
+  await saveActive(AsyncStorage, answered);
+  await Notifications.dismissNotificationAsync(CHECK_IN_NOTIFICATION).catch(() => undefined);
+  if (duress && active.sessionId && active.controlToken) {
+    const source = await storedSource();
+    await source.flagSession(active.sessionId, active.controlToken, "duress").catch(() => false);
+  }
+  return answered;
+}
+
 /** Adds points to the queue and sends what it can. Stops sharing if the server says it is over. */
 export async function recordPoints(points: SessionPoint[]): Promise<ActiveSession | null> {
   const active = await loadActive(AsyncStorage);
@@ -57,7 +135,9 @@ export async function recordPoints(points: SessionPoint[]): Promise<ActiveSessio
     return null;
   }
   const source = await storedSource();
-  const queued = queuePoints(active, points);
+  const watched = watchRoute(active, points, new Date());
+  if (watched.ask) await askAreYouOk(watched.session);
+  const queued = queuePoints(watched.session, points);
   await saveActive(AsyncStorage, queued);
   const { session, ended } = await flushPoints(
     queued,
@@ -70,7 +150,7 @@ export async function recordPoints(points: SessionPoint[]): Promise<ActiveSessio
     return null;
   }
   await saveActive(AsyncStorage, session);
-  return session;
+  return runCheckIn(session, source);
 }
 
 export async function recordLocations(locations: Location.LocationObject[]): Promise<void> {
@@ -155,6 +235,8 @@ export async function startSafetySession(
     destinationLabel: trip.destination?.label ?? null,
     pending: [],
     lastSentAt: null,
+    route: routeWatchFor(kind, trip.destination),
+    checkIn: null,
   };
   await saveActive(AsyncStorage, session);
   const sharing = await startSharingLocation(kind);

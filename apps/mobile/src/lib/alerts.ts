@@ -12,6 +12,7 @@ import {
   publicLabelOf,
   tilesAround,
 } from "@warden/shared";
+import { categoryName, type Language, strings } from "./i18n.ts";
 import type { KeyValueStore } from "./outbox.ts";
 
 export interface AlertPlace {
@@ -167,56 +168,60 @@ function tierEnabled(prefs: AlertPrefs, tier: AlertTier): boolean {
   return tier === "critical" || prefs.tiers[tier];
 }
 
-export function describeDistance(meters: number): string {
-  if (meters < 1_000) return `about ${Math.max(100, Math.round(meters / 100) * 100)} m`;
-  return `about ${(meters / 1_000).toFixed(1)} km`;
+export function describeDistance(meters: number, language?: Language): string {
+  const t = strings(language);
+  if (meters < 1_000) return t.aboutMeters(Math.max(100, Math.round(meters / 100) * 100));
+  return t.aboutKm((meters / 1_000).toFixed(1));
 }
 
-function minutesAgo(iso: string, now: Date): string {
+function minutesAgo(iso: string, now: Date, language?: Language): string {
+  const t = strings(language);
   const minutes = Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 60_000));
-  if (minutes < 2) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  return `${Math.round(minutes / 60)} h ago`;
+  if (minutes < 2) return t.justNow;
+  if (minutes < 60) return t.minAgo(minutes);
+  return t.hoursAgo(Math.round(minutes / 60));
 }
 
-export function alertTitle(alert: PublicAlert): string {
-  if (alert.kind === "broadcast") return `Message from ${alert.source ?? "a responder"}`;
+export function alertTitle(alert: PublicAlert, language?: Language): string {
+  const t = strings(language);
+  if (alert.kind === "broadcast") return t.messageFrom(alert.source ?? t.aResponder);
   const category = alert.categoryId ? getCategory(alert.categoryId) : undefined;
-  const name = category ? publicLabelOf(category) : "Incident";
+  const name = category ? categoryName(category.id, publicLabelOf(category), language) : t.incident;
   switch (alert.kind) {
     case "resolved":
-      return `Over: ${name}`;
+      return t.over(name);
     case "correction":
-      return `Update: ${name}`;
+      return t.update(name);
     case "upgraded":
-      return `Verified: ${name}`;
+      return t.verifiedTitle(name);
     default:
       return alert.tier === "critical"
-        ? `Danger: ${name}`
+        ? t.danger(name)
         : alert.tier === "warning"
-          ? `Warning: ${name}`
+          ? t.warning(name)
           : name;
   }
 }
 
-function alertBody(alert: PublicAlert, entry: InboxEntry, now: Date): string {
-  const demo = alert.source === "demo" ? "Demo, not real. " : "";
-  const where = `Near ${entry.placeName} (${describeDistance(entry.distanceM)})`;
+function alertBody(alert: PublicAlert, entry: InboxEntry, now: Date, language?: Language): string {
+  const t = strings(language);
+  const demo = alert.source === "demo" ? t.demoNotReal : "";
+  const where = t.near(entry.placeName, describeDistance(entry.distanceM, language));
   if (alert.kind === "broadcast") {
-    const check = entry.verified ? "" : " (not verified)";
-    return `${demo}${alert.message ?? ""}${check} · Covers ${entry.placeName}`;
+    const check = entry.verified ? "" : t.notVerified;
+    return `${demo}${alert.message ?? ""}${check}${t.covers(entry.placeName)}`;
   }
   const what =
     alert.kind === "resolved"
-      ? "Reported as over."
+      ? t.reportedOver
       : alert.kind === "correction"
-        ? "Some people say this is wrong. Being checked."
+        ? t.beingChecked
         : alert.label === "Verified"
-          ? "Confirmed."
+          ? t.confirmed
           : alert.label === "Corroborated"
-            ? "Reported by more than one person."
-            : "One report, not yet confirmed.";
-  return `${demo}${where}, ${minutesAgo(alert.visibleAt, now)}. ${what}`;
+            ? t.corroborated
+            : t.oneReport;
+  return `${demo}${where}, ${minutesAgo(alert.visibleAt, now, language)}. ${what}`;
 }
 
 const FOLLOW_UPS = new Set<PublicAlert["kind"]>(["resolved", "correction"]);
@@ -232,6 +237,7 @@ export function processAlerts(
   prefs: AlertPrefs,
   now: Date,
   checkBroadcast: BroadcastChecker = () => "unverified",
+  language: Language = "en",
 ): { state: AlertState; notifications: PlannedNotification[] } {
   // A broadcast arrives once per tile; one entry per broadcast is enough.
   const keyOf = (alert: PublicAlert) =>
@@ -279,8 +285,8 @@ export function processAlerts(
       : quiet && alert.tier !== "critical"
         ? "quiet"
         : alert.tier;
-    const title = alertTitle(alert);
-    const body = alertBody(alert, entry, now);
+    const title = alertTitle(alert, language);
+    const body = alertBody(alert, entry, now, language);
     planned.push({
       alertId: alert.id,
       incidentId: alert.incidentId,
@@ -297,7 +303,7 @@ export function processAlerts(
     inbox: [...added.reverse(), ...state.inbox].slice(0, MAX_INBOX),
     toldAbout: [...toldAbout].slice(-MAX_TOLD_ABOUT),
   };
-  return { state: nextState, notifications: limitNotifications(planned) };
+  return { state: nextState, notifications: limitNotifications(planned, language) };
 }
 
 const CHANNEL_RANK: Record<NotificationChannel, number> = {
@@ -309,7 +315,10 @@ const CHANNEL_RANK: Record<NotificationChannel, number> = {
 };
 
 /** Shows the most serious few and folds the rest into one summary, so a busy hour is not a flood. */
-export function limitNotifications(planned: PlannedNotification[]): PlannedNotification[] {
+export function limitNotifications(
+  planned: PlannedNotification[],
+  language: Language = "en",
+): PlannedNotification[] {
   if (planned.length <= MAX_NOTIFICATIONS_PER_CHECK) return planned;
   const sorted = [...planned].sort((a, b) => CHANNEL_RANK[a.channel] - CHANNEL_RANK[b.channel]);
   const shown = sorted.slice(0, MAX_NOTIFICATIONS_PER_CHECK - 1);
@@ -321,8 +330,8 @@ export function limitNotifications(planned: PlannedNotification[]): PlannedNotif
     alertId: `summary_${rest.map((n) => n.alertId).join("+")}`,
     incidentId: null,
     channel: loudest.channel,
-    title: `${rest.length} more alerts near your places`,
-    body: "Open Warden to see them.",
+    title: strings(language).moreAlerts(rest.length),
+    body: strings(language).openToSee,
     speech: null,
   });
   return shown;

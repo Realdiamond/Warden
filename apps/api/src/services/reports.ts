@@ -44,6 +44,8 @@ export interface NewReport {
   installId: string;
   idempotencyKey: string;
   channel: ReportChannel;
+  /** Sent with a valid trusted reporter code (checked by the route). */
+  trusted?: boolean;
 }
 
 export type CreateReportResult =
@@ -67,6 +69,7 @@ export async function createReport(
   input: NewReport,
 ): Promise<CreateReportResult> {
   const { submission, installId, idempotencyKey, channel } = input;
+  const trusted = input.trusted === true;
   const { lat, lng, accuracyM } = submission.location;
   const now = deps.now();
 
@@ -116,6 +119,7 @@ export async function createReport(
       cells,
       now,
       approximate: channel === "ussd",
+      trusted,
     });
 
     const reportId = randomUUID();
@@ -123,8 +127,9 @@ export async function createReport(
     await client.query(
       `INSERT INTO reports
          (id, incident_id, channel, category_id, key_id, location_enc, description_enc,
-          cell_r7, cell_r8, cell_r9, proximity, device_tag, status_token_hash, occurred_at, received_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+          cell_r7, cell_r8, cell_r9, proximity, device_tag, status_token_hash, occurred_at, received_at,
+          trusted)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
       [
         reportId,
         incidentId,
@@ -143,6 +148,7 @@ export async function createReport(
         sha256(statusToken),
         occurredAt,
         now,
+        trusted,
       ],
     );
 
@@ -169,9 +175,11 @@ async function mergeOrCreateIncident(
     cells: ReturnType<typeof cellsFor>;
     now: Date;
     approximate: boolean;
+    trusted: boolean;
   },
 ): Promise<string> {
-  const { categoryId, installId, cells, now, approximate } = args;
+  const { categoryId, installId, cells, now, approximate, trusted } = args;
+  const reporterTrust = trusted ? "high" : "low";
   const category = requireCategory(categoryId);
   const activeUntil = new Date(now.getTime() + ACTIVE_TTL_MS[category.severity]);
 
@@ -199,7 +207,7 @@ async function mergeOrCreateIncident(
     const decision = approximate
       ? USSD_DECISION
       : decidePublication(
-          { category, independentReports: independent, reporterTrust: "low" },
+          { category, independentReports: independent, reporterTrust },
           deps.random,
         );
     const nextState = stateAfterMerge(candidate.state, decision);
@@ -239,7 +247,7 @@ async function mergeOrCreateIncident(
 
   const decision = approximate
     ? USSD_DECISION
-    : decidePublication({ category, independentReports: 1, reporterTrust: "low" }, deps.random);
+    : decidePublication({ category, independentReports: 1, reporterTrust }, deps.random);
   const id = randomUUID();
   const publicCell = approximate ? cells.r7 : publicCellFor(cells, category.severity);
   const center = cellCenter(publicCell);

@@ -4,6 +4,7 @@
 import {
   SessionEndSchema,
   SessionExtendSchema,
+  SessionFlagSchema,
   SessionPointsSchema,
   SessionStartSchema,
 } from "@warden/shared";
@@ -15,6 +16,7 @@ import {
   addPoints,
   endSession,
   extendSession,
+  flagSession,
   startSession,
   viewSession,
 } from "../services/sessions.ts";
@@ -112,6 +114,16 @@ export function registerSessionRoutes(app: FastifyInstance, deps: ServiceDeps): 
     kickSms();
     // The same answer with or without duress, so the phone's screen cannot give it away.
     return { ended: true };
+  });
+
+  app.post<{ Params: { id: string } }>("/v1/sessions/:id/flag", async (request, reply) => {
+    const token = tokenFor(request, reply, CONTROL_HEADER);
+    if (!token || limited(updateLimiter, "rl-session-update", request, reply)) return reply;
+    const { reason } = SessionFlagSchema.parse(request.body);
+    const result = await flagSession(deps, request.params.id.toLowerCase(), token, reason);
+    if (!result.ok) return problem(reply, result.status, result.message);
+    kickSms();
+    return { flagged: true };
   });
 
   app.get<{ Params: { id: string } }>("/v1/sessions/:id/view", async (request, reply) => {

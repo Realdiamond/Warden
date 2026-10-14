@@ -76,6 +76,8 @@ export interface ModeratorReport {
   occurredAt: string | null;
   channel: string;
   proximity: ProximityBand;
+  /** Sent with a trusted reporter code (which one is never recorded). */
+  trusted: boolean;
   description: string | null;
   /** Exact location, decrypted for moderators only. */
   location: { lat: number; lng: number; accuracyM: number | null };

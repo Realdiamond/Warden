@@ -109,6 +109,14 @@ export const SessionEndSchema = z.strictObject({
   duress: z.boolean().default(false),
 });
 
+/**
+ * Sent by the phone when something is wrong but the trip goes on: the person did not answer
+ * "Are you OK?" after leaving their route, or answered it with their duress PIN.
+ */
+export const SESSION_FLAGS = ["off_route", "duress"] as const;
+export type SessionFlag = (typeof SESSION_FLAGS)[number];
+export const SessionFlagSchema = z.strictObject({ reason: z.enum(SESSION_FLAGS) });
+
 export const SessionExtendSchema = z.strictObject({
   minutes: z.number().int().min(5).max(MAX_EXTEND_MINUTES),
 });
@@ -127,9 +135,11 @@ export interface SessionReceipt {
 export interface SessionView {
   kind: SessionKind;
   state: SessionState;
-  /** True when contacts should act now: SOS, overdue trip, or duress. */
+  /** True when contacts should act now: SOS, overdue trip, off route without answer, or duress. */
   alarm: boolean;
   duress: boolean;
+  /** When the person left their route and did not answer "Are you OK?". */
+  offRouteAt: string | null;
   personName: string;
   note: string | null;
   destination: { lat: number; lng: number; label?: string } | null;

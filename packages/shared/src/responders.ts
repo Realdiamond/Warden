@@ -183,6 +183,7 @@ export interface ResponderIncidentDetail extends ResponderInboxItem {
     occurredAt: string | null;
     channel: string;
     proximity: string;
+    trusted: boolean;
     description: string | null;
     location: { lat: number; lng: number; accuracyM: number | null };
   }[];
