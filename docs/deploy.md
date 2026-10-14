@@ -66,6 +66,16 @@ Technical tab of the requirements).
   docker compose exec api node apps/api/src/cli/import-safe-stops.ts --file /tmp/lagos.geojson --source osm
   ```
   Run it again with `--verified` once you have spot checked the list.
+- **News leads**: choose Nigerian news outlets that publish an RSS or Atom feed and allow it to be
+  read, and list them in `.env` as `WARDEN_NEWS_FEEDS`. Then have the server read them every
+  30 minutes with a cron job on the host (`crontab -e`, with your own path to the `deploy`
+  folder):
+  ```
+  */30 * * * * cd /path/to/warden/deploy && docker compose exec -T api node apps/api/src/cli/fetch-news.ts >> /var/log/warden-news.log 2>&1
+  ```
+  Headlines that mention a place Warden covers appear on the console's News page. Nothing goes
+  on the map until a moderator reads the story and adds it. Only headlines and summaries from
+  the feeds are kept; Warden never copies whole articles or scrapes web pages.
 - **Support services** for private reports: send Claude the organisations and numbers you have
   confirmed; they go in `packages/shared/src/support.ts` and ship with the next app build.
 

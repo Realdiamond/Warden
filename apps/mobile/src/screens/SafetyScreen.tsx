@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MAX_CONTACTS, MAX_PERSON_NAME } from "@warden/shared";
+import { requestRecordingPermissionsAsync } from "expo-audio";
 import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from "expo-crypto";
 import * as SMS from "expo-sms";
 import { useCallback, useEffect, useState } from "react";
@@ -47,10 +48,28 @@ export function SafetyScreen({ onClose }: { onClose: () => void }) {
     })();
   }, []);
 
+  const [micMessage, setMicMessage] = useState<string | null>(null);
+
   const store = useCallback(async (next: SafetyProfile) => {
     setProfile(next);
     await saveProfile(AsyncStorage, next);
   }, []);
+
+  const setSosSound = useCallback(
+    async (on: boolean) => {
+      if (!profile) return;
+      setMicMessage(null);
+      if (on) {
+        const permission = await requestRecordingPermissionsAsync().catch(() => null);
+        if (!permission?.granted) {
+          setMicMessage("Warden needs the microphone for this. Allow it in your phone's settings.");
+          return;
+        }
+      }
+      await store({ ...profile, recordSosSound: on });
+    },
+    [profile, store],
+  );
 
   const addContact = useCallback(async () => {
     if (!profile) return;
@@ -225,6 +244,23 @@ export function SafetyScreen({ onClose }: { onClose: () => void }) {
             trackColor={{ true: COLORS.primary }}
           />
         </View>
+        <View style={styles.toggleRow}>
+          <View style={styles.flex}>
+            <Text style={styles.contactName}>Record sound during SOS</Text>
+            <Text style={styles.help}>
+              When you press SOS, your phone records sound in short clips and sends them to Warden,
+              so your contacts can hear what is happening on their private link. Android shows a
+              "recording" notice while it runs. Clips are deleted after 30 days.
+            </Text>
+          </View>
+          <Switch
+            value={profile.recordSosSound}
+            onValueChange={(value) => void setSosSound(value)}
+            accessibilityLabel="Record sound during SOS"
+            trackColor={{ true: COLORS.primary }}
+          />
+        </View>
+        {micMessage && <Text style={styles.error}>{micMessage}</Text>}
 
         <Text style={styles.section}>Safety PIN</Text>
         <Text style={styles.help}>

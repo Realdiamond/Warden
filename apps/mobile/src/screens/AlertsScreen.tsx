@@ -1,5 +1,6 @@
 import { getCategory } from "@warden/shared";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { BroadcastAudio } from "../components/BroadcastAudio.tsx";
 import { Button, Icon, ModalHeader, Note } from "../components/ui.tsx";
 import { type AlertState, alertTitle, describeDistance, type InboxEntry } from "../lib/alerts.ts";
 import { timeAgo } from "../lib/format.ts";
@@ -21,7 +22,10 @@ export function AlertsScreen({
   onOpen,
   onSettings,
   onClose,
+  downloadAudio,
 }: {
+  /** Fetches a broadcast's spoken version (M8). */
+  downloadAudio: (broadcastId: string) => Promise<Uint8Array | null>;
   state: AlertState;
   placeCount: number;
   onOpen: (entry: InboxEntry) => void;
@@ -78,6 +82,9 @@ export function AlertsScreen({
                 </Text>
                 {item.alert.message ? (
                   <Text style={styles.message}>{item.alert.message}</Text>
+                ) : null}
+                {item.alert.broadcast && item.verified ? (
+                  <BroadcastAudio broadcast={item.alert.broadcast} download={downloadAudio} />
                 ) : null}
               </View>
               {!item.read && <View style={styles.dot} />}

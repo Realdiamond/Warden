@@ -37,6 +37,8 @@ function sendBytes(
 
 export function registerMediaRoutes(app: FastifyInstance, deps: ServiceDeps): void {
   const uploadLimiter = new RateLimiter(60, 3_600_000);
+  // An SOS sends a 30-second clip at a time: 120 an hour, with room for retries.
+  const clipLimiter = new RateLimiter(180, 3_600_000);
 
   app.register(async (scope) => {
     scope.addContentTypeParser(
@@ -45,8 +47,8 @@ export function registerMediaRoutes(app: FastifyInstance, deps: ServiceDeps): vo
       (_request, body, done) => done(null, body),
     );
 
-    const limited = (key: string, reply: FastifyReply) => {
-      const result = uploadLimiter.hit(deps.hasher.hmacHex("rl-media", key), deps.now().getTime());
+    const limited = (key: string, reply: FastifyReply, limiter = uploadLimiter) => {
+      const result = limiter.hit(deps.hasher.hmacHex("rl-media", key), deps.now().getTime());
       if (result.allowed) return false;
       tooMany(reply, result.retryAfterMs);
       return true;
@@ -78,7 +80,7 @@ export function registerMediaRoutes(app: FastifyInstance, deps: ServiceDeps): vo
       if (!UUID.test(request.params.id) || !token || !TOKEN.test(token)) {
         return problem(reply, 404, "Session not found.");
       }
-      if (limited(request.params.id.toLowerCase(), reply)) return reply;
+      if (limited(request.params.id.toLowerCase(), reply, clipLimiter)) return reply;
       if (!Buffer.isBuffer(request.body)) return problem(reply, 415, "Send audio bytes.");
       const at = Date.parse(headerValue(request.headers["x-warden-recorded-at"]) ?? "");
       const result = await addSessionClip(deps, {

@@ -63,6 +63,24 @@ const config: ExpoConfig = {
     ],
     ["expo-notifications", { icon: "./assets/notification-icon.png", color: "#0F5C4D" }],
     "expo-background-task",
+    [
+      "expo-audio",
+      {
+        microphonePermission:
+          "Warden uses the microphone for voice notes and, if you turn it on, to record sound during an SOS.",
+        // SOS sound keeps recording with the screen off, under Android's visible notification.
+        enableBackgroundRecording: true,
+        enableBackgroundPlayback: false,
+      },
+    ],
+    [
+      "expo-image-picker",
+      {
+        cameraPermission: "Warden uses the camera when you add a photo or video to a report.",
+        microphonePermission: "Warden uses the microphone when you record a video for a report.",
+        photosPermission: "Warden opens your photos when you add one to a report.",
+      },
+    ],
   ],
   extra: {
     apiUrl: process.env.WARDEN_API_URL ?? "",

@@ -85,6 +85,20 @@ Known follow-ups from M1:
 - [x] Route safety score on the trip screen, worked out on the phone
 - [ ] Moderator rota for tips before launch (founder)
 
+## M8 — Media, voice and insights (built; see [ADR 0008](adr/0008-media-voice-and-insights.md))
+
+- [x] Voice notes, photos and short videos with reports, sent after the report, staff only,
+      encrypted, deleted after 30 days, photo GPS details removed
+- [x] Opening a file in the console is written to the audit log
+- [x] Sound recorded during an SOS (opt-in in Safety settings), playable by contacts on their link
+- [x] Spoken broadcasts recorded in the console, signed, checked on the phone before playing
+- [x] Area outlook in the app (counts from the last 3 months, not a prediction)
+- [x] News page in the console: headlines from chosen RSS feeds, added to the map only by a
+      moderator
+- [ ] News outlets chosen and their feed terms checked (founder)
+- [ ] SOS sound tried on a few Android phones with the screen off (founder)
+- [ ] Lawyer's view on SOS sound recording and on keeping report media for 30 days (founder)
+
 ## Blocked on the founder (not on code)
 
 - [ ] Server and domain for a live backend

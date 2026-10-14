@@ -1,8 +1,14 @@
-import { createPrivateKey, createPublicKey, randomBytes, sign } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, randomBytes, sign } from "node:crypto";
 import { broadcastSigningText, type PublicAlert, type SignedBroadcast } from "@warden/shared";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ALERT_PREFS, EMPTY_ALERT_STATE, processAlerts } from "./alerts.ts";
-import { checkBroadcast, fromBase64, parseTrustedKeys } from "./broadcasts.ts";
+import {
+  checkBroadcast,
+  fromBase64,
+  parseTrustedKeys,
+  sha256Hex,
+  verifiedBroadcastAudio,
+} from "./broadcasts.ts";
 
 // The same key handling as the server (apps/api/src/signing.ts).
 const seed = randomBytes(32);
@@ -121,5 +127,37 @@ describe("broadcast signatures", () => {
       NOW,
     );
     expect(expired.state.inbox).toHaveLength(0);
+  });
+});
+
+describe("spoken broadcasts", () => {
+  const audio = new Uint8Array([0, 0, 0, 0x20, 0x66, 0x74, 0x79, 0x70, 1, 2, 3]);
+  const hash = createHash("sha256").update(audio).digest("hex");
+
+  it("hashes like the server", () => {
+    expect(sha256Hex(audio)).toBe(hash);
+  });
+
+  it("covers the recording's hash with the signature", () => {
+    const b = signed({ audioSha256: hash });
+    expect(checkBroadcast(b, publicKey)).toBe("verified");
+    expect(checkBroadcast({ ...b, audioSha256: "0".repeat(64) }, publicKey)).toBe("invalid");
+    expect(checkBroadcast({ ...b, audioSha256: null }, publicKey)).toBe("invalid");
+  });
+
+  it("plays only the recording that was signed", async () => {
+    const b = signed({ audioSha256: hash });
+    expect(await verifiedBroadcastAudio(b, async () => audio)).toEqual(audio);
+    expect(await verifiedBroadcastAudio(b, async () => new Uint8Array([9, 9, 9]))).toBeNull();
+    expect(await verifiedBroadcastAudio(b, async () => null)).toBeNull();
+    let asked = false;
+    const silent = signed();
+    expect(
+      await verifiedBroadcastAudio(silent, async () => {
+        asked = true;
+        return audio;
+      }),
+    ).toBeNull();
+    expect(asked).toBe(false);
   });
 });

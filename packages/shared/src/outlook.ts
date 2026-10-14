@@ -133,3 +133,9 @@ export function describeOutlook(outlook: AreaOutlook): string {
         : "";
   return `${level}${when}.${trend}`;
 }
+
+/** GET /v1/areas/outlook */
+export interface AreaOutlooksResponse {
+  outlooks: PublicAreaOutlook[];
+  generatedAt: string;
+}

@@ -3,6 +3,7 @@
 
 import type { CategoryId, ReportSubmission } from "@warden/shared";
 import type { SendResult } from "./api.ts";
+import { type Attachment, type MediaQueue, uploadsForReport } from "./media.ts";
 
 export interface KeyValueStore {
   getItem(key: string): Promise<string | null>;
@@ -16,6 +17,8 @@ export interface PendingReport {
   createdAt: string;
   attempts: number;
   lastError?: string;
+  /** Files to send once the report is accepted (M8). */
+  attachments?: Attachment[];
 }
 
 export interface SavedReport {
@@ -51,10 +54,15 @@ async function readList<T>(store: KeyValueStore, key: string): Promise<T[]> {
 
 export class Outbox {
   readonly #store: KeyValueStore;
+  readonly #media: MediaQueue | null;
+  readonly #makeId: () => string;
   #flushing: Promise<FlushResult> | null = null;
 
-  constructor(store: KeyValueStore) {
+  /** With a media queue, a sent report's files are handed to it to send. */
+  constructor(store: KeyValueStore, media: MediaQueue | null = null, makeId = randomId) {
     this.#store = store;
+    this.#media = media;
+    this.#makeId = makeId;
   }
 
   pending(): Promise<PendingReport[]> {
@@ -69,9 +77,20 @@ export class Outbox {
     return readList<RejectedReport>(this.#store, REJECTED_KEY);
   }
 
-  async add(body: ReportSubmission, idempotencyKey: string, now: Date): Promise<void> {
+  async add(
+    body: ReportSubmission,
+    idempotencyKey: string,
+    now: Date,
+    attachments: Attachment[] = [],
+  ): Promise<void> {
     const pending = await this.pending();
-    pending.push({ idempotencyKey, body, createdAt: now.toISOString(), attempts: 0 });
+    pending.push({
+      idempotencyKey,
+      body,
+      createdAt: now.toISOString(),
+      attempts: 0,
+      ...(attachments.length > 0 ? { attachments } : {}),
+    });
     await this.#store.setItem(OUTBOX_KEY, JSON.stringify(pending));
   }
 
@@ -99,6 +118,9 @@ export class Outbox {
           categoryId: item.body.categoryId,
           createdAt: item.createdAt,
         });
+        if (item.attachments?.length) {
+          await this.#media?.add(uploadsForReport(item.attachments, outcome.receipt, this.#makeId));
+        }
         result.sent += 1;
       } else if (outcome.retry) {
         keep.push({ ...item, attempts: item.attempts + 1, lastError: outcome.message });
@@ -109,6 +131,7 @@ export class Outbox {
           createdAt: item.createdAt,
           message: outcome.message,
         });
+        await this.#media?.discard((item.attachments ?? []).map((file) => file.uri));
         result.rejected += 1;
       }
     }
@@ -124,6 +147,10 @@ export class Outbox {
     await this.#store.removeItem(SENT_KEY);
     await this.#store.removeItem(REJECTED_KEY);
   }
+}
+
+function randomId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export interface FlushResult {
