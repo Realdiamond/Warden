@@ -4,12 +4,13 @@
 
 import { randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
-import { ReportSubmissionSchema } from "@warden/shared";
+import { DEMO_SAFE_STOPS, ReportSubmissionSchema } from "@warden/shared";
 import { loadConfig } from "../config.ts";
 import { Cipher, Hasher } from "../crypto.ts";
 import { createPool } from "../db/pool.ts";
 import type { ServiceDeps } from "../services/deps.ts";
 import { createReport } from "../services/reports.ts";
+import { importSafeStops } from "../services/safeStops.ts";
 import { LogSmsSender } from "../sms/sender.ts";
 
 const { values } = parseArgs({ options: { force: { type: "boolean", default: false } } });
@@ -130,6 +131,13 @@ try {
     [reportIds],
   );
   console.log(`Seeded ${reportIds.length} demo reports into ${rowCount} incidents.`);
+  const stops = await importSafeStops(
+    { pool, now: () => new Date() },
+    "demo",
+    DEMO_SAFE_STOPS.map((stop) => ({ ...stop, sourceRef: stop.id })),
+    { verified: false, actor: "seed-demo" },
+  );
+  console.log(`Seeded ${stops} demo safe stops.`);
 } finally {
   await pool.end();
 }

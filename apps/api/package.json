@@ -11,6 +11,8 @@
     "create-org": "node --env-file-if-exists=.env src/cli/create-org.ts",
     "seed-demo": "node --env-file-if-exists=.env src/cli/seed-demo.ts",
     "gen-keys": "node src/cli/gen-keys.ts",
+    "trusted-reporter": "node --env-file-if-exists=.env src/cli/trusted-reporter.ts",
+    "import-safe-stops": "node --env-file-if-exists=.env src/cli/import-safe-stops.ts",
     "rotate-field-key": "node --env-file-if-exists=.env src/cli/rotate-field-key.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"

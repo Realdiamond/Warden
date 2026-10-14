@@ -157,10 +157,17 @@ describe("geo helpers", () => {
 
 describe("settings", () => {
   it("starts in demo mode when no server is built in", async () => {
-    expect(await loadSettings(memoryStore(), "")).toEqual({ apiUrl: "", demoMode: true });
+    expect(await loadSettings(memoryStore(), "")).toEqual({
+      apiUrl: "",
+      demoMode: true,
+      language: "en",
+      reporterCode: "",
+    });
     expect(await loadSettings(memoryStore(), "https://api.warden.ng")).toEqual({
       apiUrl: "https://api.warden.ng",
       demoMode: false,
+      language: "en",
+      reporterCode: "",
     });
   });
 

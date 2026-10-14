@@ -38,6 +38,12 @@ export function headline(view: SessionView): { tone: "alarm" | "calm" | "done"; 
   if (view.kind === "sos") return { tone: "alarm", text: `${name} has asked for help (SOS).` };
   if (view.state === "overdue")
     return { tone: "alarm", text: `${name} has not arrived as planned.` };
+  if (view.offRouteAt) {
+    return {
+      tone: "alarm",
+      text: `${name} has moved away from their route and did not answer when Warden checked.`,
+    };
+  }
   return { tone: "calm", text: `${name} is sharing their trip with you.` };
 }
 

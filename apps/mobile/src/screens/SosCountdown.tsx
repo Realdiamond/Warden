@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, Vibration, View } from "react-native";
+import { type Language, strings } from "../lib/i18n.ts";
 import { COLORS } from "../lib/ui.ts";
 
 const SECONDS = 5;
 
 /** A short countdown so a pocket press can be undone; "Send now" skips it. */
-export function SosCountdown({ onSend, onCancel }: { onSend: () => void; onCancel: () => void }) {
+export function SosCountdown({
+  onSend,
+  onCancel,
+  language,
+}: {
+  onSend: () => void;
+  onCancel: () => void;
+  language: Language;
+}) {
+  const t = strings(language);
   const [left, setLeft] = useState(SECONDS);
   const sent = useRef(false);
 
@@ -31,29 +41,27 @@ export function SosCountdown({ onSend, onCancel }: { onSend: () => void; onCance
   return (
     <View style={styles.screen} accessibilityViewIsModal>
       <Text style={styles.title} accessibilityRole="header">
-        Sending SOS
+        {t.sendingSos}
       </Text>
       <Text style={styles.count} accessibilityLiveRegion="assertive">
         {Math.max(0, left)}
       </Text>
-      <Text style={styles.text}>
-        Your trusted contacts will get your live location. Then you can call 112.
-      </Text>
+      <Text style={styles.text}>{t.sosWillSend}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Send SOS now"
+        accessibilityLabel={t.sendNow}
         onPress={sendNow}
         style={[styles.button, styles.send]}
       >
-        <Text style={styles.sendText}>Send now</Text>
+        <Text style={styles.sendText}>{t.sendNow}</Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Cancel SOS"
+        accessibilityLabel={t.cancel}
         onPress={onCancel}
         style={[styles.button, styles.cancel]}
       >
-        <Text style={styles.cancelText}>Cancel</Text>
+        <Text style={styles.cancelText}>{t.cancel}</Text>
       </Pressable>
     </View>
   );

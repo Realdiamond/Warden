@@ -11,11 +11,13 @@ import {
   type ProximityBand,
   proximityBand,
   type ReportSubmission,
+  supportFor,
 } from "@warden/shared";
 import { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,6 +26,7 @@ import {
   View,
 } from "react-native";
 import { Button, EmergencyCallButton, Icon, ModalHeader, Note } from "../components/ui.tsx";
+import { categoryName, type Language, strings } from "../lib/i18n.ts";
 import { currentPosition, type Position } from "../lib/location.ts";
 import { COLORS, GROUP_ICONS } from "../lib/ui.ts";
 import { PickLocation } from "./PickLocation.tsx";
@@ -41,9 +44,11 @@ interface Props {
   mapCenter: { lat: number; lng: number };
   onClose: () => void;
   onSubmit: (body: ReportSubmission) => Promise<SendOutcome>;
+  language: Language;
 }
 
-export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit }: Props) {
+export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, language }: Props) {
+  const t = strings(language);
   const [step, setStep] = useState<Step>("group");
   const [group, setGroup] = useState<CategoryGroup | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
@@ -106,7 +111,7 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="height">
-      <ModalHeader title="Report" onClose={onClose} onBack={canGoBack ? back : undefined} />
+      <ModalHeader title={t.report} onClose={onClose} onBack={canGoBack ? back : undefined} />
 
       {step === "pick" ? (
         <PickLocation
@@ -149,7 +154,7 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit }: Props) {
                   <Pressable
                     key={item.id}
                     accessibilityRole="button"
-                    accessibilityLabel={item.label}
+                    accessibilityLabel={categoryName(item.id, item.label, language)}
                     style={({ pressed }) => [styles.listItem, pressed && styles.pressed]}
                     onPress={() => {
                       setCategory(item);
@@ -157,7 +162,9 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit }: Props) {
                     }}
                   >
                     <Icon name={item.icon} />
-                    <Text style={styles.listText}>{item.label}</Text>
+                    <Text style={styles.listText}>
+                      {categoryName(item.id, item.label, language)}
+                    </Text>
                     <Icon name="chevron-right" color={COLORS.muted} />
                   </Pressable>
                 ))}
@@ -192,7 +199,9 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit }: Props) {
 
           {step === "details" && category && (
             <>
-              <Text style={styles.question}>{category.label}</Text>
+              <Text style={styles.question}>
+                {categoryName(category.id, category.label, language)}
+              </Text>
               {category.handling === "private" ? (
                 <Note tone="warning">
                   This report goes only to trained staff. It will never appear on the map.
@@ -242,6 +251,9 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit }: Props) {
                 />
               </View>
               <Text style={styles.doneText}>{outcome.message}</Text>
+              {category?.handling === "private" && outcome.tone !== "error" && (
+                <SupportReferral categoryId={category.id} language={language} />
+              )}
               <Button label="Back to the map" variant="primary" onPress={onClose} />
               <EmergencyCallButton />
             </>
@@ -249,6 +261,27 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit }: Props) {
         </ScrollView>
       )}
     </KeyboardAvoidingView>
+  );
+}
+
+/** After a private report: where to get help. Only services Warden has confirmed are listed. */
+function SupportReferral({ categoryId, language }: { categoryId: string; language: Language }) {
+  const t = strings(language);
+  const services = supportFor(categoryId);
+  return (
+    <View style={styles.support}>
+      <Text style={styles.supportTitle}>{t.thankYouPrivate}</Text>
+      <Text style={styles.supportText}>{t.privateHelp}</Text>
+      {services.map((service) => (
+        <Button
+          key={service.id}
+          label={`${service.name}: ${t.call(service.phone)}`}
+          icon="phone"
+          onPress={() => void Linking.openURL(`tel:${service.phone.replace(/[^\d+]/g, "")}`)}
+        />
+      ))}
+      {services.length === 0 && <Text style={styles.supportText}>{t.supportBeingConfirmed}</Text>}
+    </View>
   );
 }
 
@@ -312,5 +345,15 @@ const styles = StyleSheet.create({
   },
   counter: { alignSelf: "flex-end", color: COLORS.muted, fontSize: 12 },
   doneIcon: { alignItems: "center", marginTop: 24 },
+  support: {
+    padding: 16,
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  supportTitle: { fontSize: 17, fontWeight: "700", color: COLORS.text },
+  supportText: { color: COLORS.text },
   doneText: { fontSize: 18, textAlign: "center", color: COLORS.text, marginBottom: 8 },
 });

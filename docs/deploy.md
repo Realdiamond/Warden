@@ -51,6 +51,23 @@ Technical tab of the requirements).
 - **USSD**: with a USSD provider (for example Africa's Talking), set the callback address to
   `https://api.yourdomain.ng/v1/ussd/<USSD_CALLBACK_SECRET>`. The area list covers Lagos and the
   FCT; check the area centres in `apps/api/src/ussd/areas.ts` before launch.
+- **Trusted reporters**: after checking a person (for example a CDA chair or a journalist), give
+  them a code. Keep the printed id with your own records; Warden itself never links reports to
+  the person.
+  ```bash
+  docker compose exec api node apps/api/src/cli/trusted-reporter.ts --add "Ikeja CDA chair"
+  docker compose exec api node apps/api/src/cli/trusted-reporter.ts --revoke <id> --reason "Left the role"
+  ```
+  They type the code in the app under Settings, "Trusted reporter code".
+- **Safe places**: export police stations, hospitals, clinics, pharmacies, fuel and fire stations
+  for a city from OpenStreetMap as GeoJSON (for example with overpass-turbo.eu), then:
+  ```bash
+  docker compose cp lagos.geojson api:/tmp/lagos.geojson
+  docker compose exec api node apps/api/src/cli/import-safe-stops.ts --file /tmp/lagos.geojson --source osm
+  ```
+  Run it again with `--verified` once you have spot checked the list.
+- **Support services** for private reports: send Claude the organisations and numbers you have
+  confirmed; they go in `packages/shared/src/support.ts` and ship with the next app build.
 
 ## Changing keys
 

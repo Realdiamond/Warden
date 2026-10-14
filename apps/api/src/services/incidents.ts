@@ -167,6 +167,7 @@ interface ReportRow {
   key_id: string;
   channel: string;
   proximity: ProximityBand;
+  trusted: boolean;
   location_enc: Buffer;
   description_enc: Buffer | null;
   occurred_at: Date | null;
@@ -194,7 +195,8 @@ export async function decryptReports(
   incidentId: string,
 ): Promise<ModeratorReport[]> {
   const reports = await client.query<ReportRow>(
-    `SELECT id, key_id, channel, proximity, location_enc, description_enc, occurred_at, received_at
+    `SELECT id, key_id, channel, proximity, trusted, location_enc, description_enc, occurred_at,
+            received_at
        FROM reports WHERE incident_id = $1 ORDER BY received_at ASC`,
     [incidentId],
   );
@@ -210,6 +212,7 @@ export async function decryptReports(
       occurredAt: report.occurred_at?.toISOString() ?? null,
       channel: report.channel,
       proximity: report.proximity,
+      trusted: report.trusted,
       description: report.description_enc
         ? deps.cipher.decrypt("report.description", report.key_id, report.description_enc)
         : null,

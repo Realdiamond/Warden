@@ -9,6 +9,7 @@ import {
   OVERDUE_GRACE_MS,
   SESSION_MAX_MS,
   SESSION_RETENTION_MS,
+  type SessionFlag,
   type SessionKind,
   type SessionOutcome,
   type SessionPoint,
@@ -36,6 +37,7 @@ interface SessionRow {
   kind: SessionKind;
   state: SessionState;
   duress: boolean;
+  off_route_at: Date | null;
   outcome: SessionOutcome | null;
   view_token_hash: Buffer;
   control_token_hash: Buffer;
@@ -80,7 +82,15 @@ function hhmm(date: Date): string {
 
 /** Message texts are short, plain and work on any phone. */
 export function smsText(
-  event: "sos.started" | "trip.overdue" | "duress" | "safe" | "arrived" | "extended",
+  event:
+    | "sos.started"
+    | "trip.overdue"
+    | "off_route"
+    | "back_on_route"
+    | "duress"
+    | "safe"
+    | "arrived"
+    | "extended",
   d: SessionDetails,
   link: string | null,
   extra: { minutes?: number; expectedAt?: Date } = {},
@@ -94,6 +104,12 @@ export function smsText(
       const time = extra.expectedAt ? ` by ${hhmm(extra.expectedAt)}` : "";
       return `Warden: ${d.personName} has not arrived${place}${time} as planned.${where} Please try to call them.`;
     }
+    case "off_route": {
+      const place = d.destination?.label ? ` to ${d.destination.label}` : "";
+      return `Warden: ${d.personName} has moved away from their route${place} and did not answer when Warden checked on them.${where} Please try to call them.`;
+    }
+    case "back_on_route":
+      return `Warden: ${d.personName} says they are OK and is carrying on with their trip.`;
     case "duress":
       return `Warden URGENT: ${d.personName} may be in danger and unable to say so.${where} Call 112 if you cannot safely reach them.`;
     case "safe":
@@ -322,8 +338,58 @@ export async function endSession(
       [row.id, end.outcome, now],
     );
     // Tell contacts who were alarmed that it is over.
-    if (row.kind === "sos" || row.state === "overdue" || row.duress) {
+    if (row.kind === "sos" || row.state === "overdue" || row.duress || row.off_route_at) {
       await queueForContacts(client, deps, row, end.outcome === "arrived" ? "arrived" : "safe");
+    }
+    return { ok: true };
+  });
+}
+
+/**
+ * Something is wrong but the trip goes on: the person left their route and did not answer
+ * "Are you OK?", or answered it with their duress PIN. Contacts are told once for each.
+ */
+export async function flagSession(
+  deps: ServiceDeps,
+  sessionId: string,
+  controlToken: string,
+  reason: SessionFlag,
+): Promise<{ ok: true } | SessionFailure> {
+  const now = deps.now();
+  return withTransaction(deps.pool, async (client) => {
+    const row = await lockForControl(client, sessionId, controlToken);
+    if (!row) return NOT_FOUND;
+    if (row.state === "ended") return ENDED;
+    if (reason === "duress") {
+      if (!row.duress) {
+        await client.query(
+          "UPDATE safety_sessions SET duress = true, updated_at = $2 WHERE id = $1",
+          [row.id, now],
+        );
+        await queueForContacts(client, deps, row, "duress");
+      }
+      return { ok: true };
+    }
+    if (row.kind !== "trip") {
+      return { ok: false, status: 409, message: "Only trips have a route." };
+    }
+    if (reason === "ok") {
+      // The person answered "I'm OK" after contacts had been told: tell them and stop the alarm.
+      if (row.off_route_at) {
+        await client.query(
+          "UPDATE safety_sessions SET off_route_at = NULL, updated_at = $2 WHERE id = $1",
+          [row.id, now],
+        );
+        await queueForContacts(client, deps, row, "back_on_route");
+      }
+      return { ok: true };
+    }
+    if (!row.off_route_at) {
+      await client.query(
+        "UPDATE safety_sessions SET off_route_at = $2, updated_at = $2 WHERE id = $1",
+        [row.id, now],
+      );
+      await queueForContacts(client, deps, row, "off_route");
     }
     return { ok: true };
   });
@@ -362,8 +428,11 @@ export async function viewSession(
   return {
     kind: row.kind,
     state: row.state,
-    alarm: row.state !== "ended" && (row.kind === "sos" || row.state === "overdue" || row.duress),
+    alarm:
+      row.state !== "ended" &&
+      (row.kind === "sos" || row.state === "overdue" || row.duress || row.off_route_at !== null),
     duress: row.duress,
+    offRouteAt: row.off_route_at?.toISOString() ?? null,
     personName: d.personName,
     note: d.note,
     destination: d.destination ?? null,

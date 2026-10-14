@@ -28,6 +28,7 @@ import { ensureBackgroundChecks, runStoredAlertCheck } from "./background.ts";
 import { IncidentCard } from "./components/IncidentCard.tsx";
 import { DEFAULT_CENTER, IncidentMap } from "./components/IncidentMap.tsx";
 import { PresenceCard } from "./components/PresenceCard.tsx";
+import { areaAround } from "./components/SafePlaces.tsx";
 import { Button, EmergencyCallButton, Icon, ModalHeader, Note } from "./components/ui.tsx";
 import {
   type AlertState,
@@ -40,6 +41,8 @@ import {
   unreadCount,
 } from "./lib/alerts.ts";
 import { boundsToBBox } from "./lib/geo.ts";
+import { strings } from "./lib/i18n.ts";
+import type { Position } from "./lib/location.ts";
 import { currentPosition } from "./lib/location.ts";
 import { alertIdFromResponse, setUpNotifications, speakAlerts } from "./lib/notify.ts";
 import { Outbox } from "./lib/outbox.ts";
@@ -50,6 +53,8 @@ import { getInstallId, loadSettings, type Settings, saveSettings } from "./lib/s
 import { createSource } from "./lib/source.ts";
 import { COLORS } from "./lib/ui.ts";
 import {
+  answerCheckInActive,
+  checkActiveCheckIn,
   extendActive,
   finishActive,
   sendPendingEnds,
@@ -263,7 +268,11 @@ function Root() {
   useEffect(() => {
     if (!active) return;
     const timer = setInterval(() => {
-      void loadActive(AsyncStorage).then(setActive);
+      // Also tells contacts about an unanswered "Are you OK?" while the app is open.
+      void checkActiveCheckIn()
+        .catch(() => undefined)
+        .then(() => loadActive(AsyncStorage))
+        .then(setActive);
     }, 30_000);
     return () => clearInterval(timer);
   }, [active]);
@@ -308,6 +317,16 @@ function Root() {
         : "Stopped. Your contacts will be told when you are back online.",
     );
   }, []);
+
+  const answerCheckIn = useCallback(async (duress: boolean) => {
+    const answered = await answerCheckInActive(duress);
+    if (answered) setActive(answered);
+  }, []);
+
+  const findStops = useCallback(
+    (around: Position) => (source ? source.safeStops(areaAround(around)) : Promise.resolve([])),
+    [source],
+  );
 
   const extend = useCallback(async (minutes: number) => {
     const updated = await extendActive(minutes);
@@ -364,6 +383,8 @@ function Root() {
     },
     [source, outbox, refresh],
   );
+
+  const t = strings(settings?.language);
 
   const saveNewSettings = useCallback(async (next: Settings) => {
     await saveSettings(AsyncStorage, next);
@@ -462,7 +483,11 @@ function Root() {
               color="#FFFFFF"
             />
             <Text style={styles.sessionBannerText}>
-              {active.kind === "sos" ? "SOS is on. Tap to manage." : tripBanner(active)}
+              {active.checkIn
+                ? t.areYouOk
+                : active.kind === "sos"
+                  ? "SOS is on. Tap to manage."
+                  : tripBanner(active)}
             </Text>
           </Pressable>
         )}
@@ -482,15 +507,15 @@ function Root() {
         <View style={styles.actions}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="SOS: alert my trusted contacts"
+            accessibilityLabel={`${t.sos}: alert my trusted contacts`}
             onPress={() => setSheet(active ? "session" : "sos")}
             style={styles.sosButton}
           >
-            <Text style={styles.sosText}>SOS</Text>
+            <Text style={styles.sosText}>{t.sos}</Text>
           </Pressable>
           <View style={styles.reportButton}>
             <Button
-              label="Report"
+              label={t.report}
               variant="primary"
               icon="plus"
               onPress={() => setSheet("report")}
@@ -524,6 +549,7 @@ function Root() {
                 mapCenter={mapCenter}
                 onClose={() => setSheet(null)}
                 onSubmit={submit}
+                language={settings.language}
               />
             )}
             {sheet === "mine" && (
@@ -590,15 +616,22 @@ function Root() {
               />
             )}
             {sheet === "sos" && (
-              <SosCountdown onSend={() => void sendSos()} onCancel={() => setSheet(null)} />
+              <SosCountdown
+                onSend={() => void sendSos()}
+                onCancel={() => setSheet(null)}
+                language={settings.language}
+              />
             )}
             {sheet === "session" &&
               (active ? (
                 <SessionScreen
                   session={active}
                   demo={active.feedId === "demo"}
+                  language={settings.language}
                   onExtend={extend}
                   onFinish={finish}
+                  onAnswerCheckIn={answerCheckIn}
+                  findStops={findStops}
                   onClose={() => setSheet(null)}
                 />
               ) : (

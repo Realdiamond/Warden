@@ -14,6 +14,7 @@ import {
   saveAlertState,
   tilesForPlaces,
 } from "./alerts.ts";
+import type { Language } from "./i18n.ts";
 import type { KeyValueStore } from "./outbox.ts";
 import { loadLastArea, loadPlaces } from "./places.ts";
 
@@ -24,6 +25,7 @@ export interface AlertCheckDeps {
   fetchAlerts(tiles: string[], after: string | null): Promise<AlertsResponse>;
   now(): Date;
   checkBroadcast?: BroadcastChecker;
+  language?: Language;
 }
 
 export interface AlertCheckResult {
@@ -73,7 +75,15 @@ async function runCheck(deps: AlertCheckDeps): Promise<AlertCheckResult> {
     cursor = feed.cursor;
     if (feed.alerts.length < FEED_PAGE) break;
   }
-  const result = processAlerts(state, fetched, places, prefs, deps.now(), deps.checkBroadcast);
+  const result = processAlerts(
+    state,
+    fetched,
+    places,
+    prefs,
+    deps.now(),
+    deps.checkBroadcast,
+    deps.language,
+  );
   state = { ...result.state, cursor };
   // Saved before notifying: a crash may lose a notification but never repeats one.
   await saveAlertState(deps.store, state);
