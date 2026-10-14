@@ -4,6 +4,7 @@ import { ApiError, api, setUnauthorizedListener } from "./api.ts";
 import { CommunityPage } from "./pages/CommunityPage.tsx";
 import { IncidentPage } from "./pages/IncidentPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
+import { NewsPage } from "./pages/NewsPage.tsx";
 import { QueuePage } from "./pages/QueuePage.tsx";
 import { BroadcastsPage } from "./responder/BroadcastsPage.tsx";
 import { DeploymentsPage } from "./responder/DeploymentsPage.tsx";
@@ -114,6 +115,7 @@ export function App() {
         <div className="topbar-right">
           <a href={routeHref({ page: "queue", state: "held" })}>Incidents</a>
           <a href={routeHref({ page: "community" })}>Community</a>
+          <a href={routeHref({ page: "news" })}>News</a>
           <span className="who">{user.email}</span>
           <button type="button" className="link-button" onClick={signOut}>
             Sign out
@@ -125,6 +127,8 @@ export function App() {
           <IncidentPage id={route.id} />
         ) : route.page === "community" ? (
           <CommunityPage />
+        ) : route.page === "news" ? (
+          <NewsPage />
         ) : (
           <QueuePage state={route.page === "queue" ? route.state : "held"} />
         )}

@@ -586,8 +586,10 @@ export async function listBroadcasts(
     created_at: Date;
     expires_at: Date;
     withdrawn_at: Date | null;
+    spoken: boolean;
   }>(
-    `SELECT id, tier, message, radius_m, created_at, expires_at, withdrawn_at
+    `SELECT id, tier, message, radius_m, created_at, expires_at, withdrawn_at,
+            audio_data IS NOT NULL AS spoken
        FROM broadcasts WHERE organisation_id = $1 ORDER BY created_at DESC LIMIT 50`,
     [orgId(staff)],
   );
@@ -599,6 +601,7 @@ export async function listBroadcasts(
     createdAt: row.created_at.toISOString(),
     expiresAt: row.expires_at.toISOString(),
     withdrawn: row.withdrawn_at !== null,
+    spoken: row.spoken,
   }));
 }
 

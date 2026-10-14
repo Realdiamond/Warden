@@ -39,7 +39,7 @@ const M4A = Buffer.concat([
 const WEBM = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(300, 1)]);
 
 function as(cookie: string, url: string) {
-  return ctx.app.inject({ method: "GET", url, headers: { cookie } });
+  return ctx.app.inject({ method: "GET", url, headers: { cookie, "x-warden-console": "1" } });
 }
 
 async function reportWithReceipt() {
@@ -91,6 +91,13 @@ describe("report media", () => {
     expect(file.statusCode).toBe(200);
     expect(file.headers["content-type"]).toBe("image/jpeg");
     expect(file.rawPayload.equals(JPEG)).toBe(true);
+    // Without the console header (a link from another site) nothing is opened or audited.
+    const linked = await ctx.app.inject({
+      method: "GET",
+      url: `/v1/admin/media/${photo.json().id}`,
+      headers: { cookie },
+    });
+    expect(linked.statusCode).toBe(403);
     const audit = await ctx.pool.query(
       "SELECT action FROM audit_events WHERE action = 'report_media.read'",
     );

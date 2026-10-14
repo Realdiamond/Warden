@@ -166,7 +166,10 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
         .header("x-content-type-options", "nosniff")
         .send(file.data);
 
+    // Opening a file is audited, so it needs the console header like a change would: another
+    // site cannot make a signed-in moderator's browser open files by linking to them.
     admin.get<{ Params: { id: string } }>("/v1/admin/media/:id", async (request, reply) => {
+      if (!requireConsoleHeader(request, reply)) return reply;
       if (!UUID.test(request.params.id)) return problem(reply, 404, "Not found.");
       const file = await readReportMedia(deps, currentStaff(request), request.params.id);
       if (!file) return problem(reply, 404, "Not found.");
@@ -176,6 +179,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
     admin.get<{ Params: { id: string; mediaId: string } }>(
       "/v1/admin/responder/incidents/:id/media/:mediaId",
       async (request, reply) => {
+        if (!requireConsoleHeader(request, reply)) return reply;
         const { id, mediaId } = request.params;
         if (!UUID.test(id) || !UUID.test(mediaId)) return problem(reply, 404, "Not found.");
         const staff = currentStaff(request);

@@ -4,6 +4,7 @@ export type Route =
   | { page: "queue"; state: IncidentState }
   | { page: "incident"; id: string }
   | { page: "community" }
+  | { page: "news" }
   | { page: "r-incidents" }
   | { page: "r-incident"; id: string }
   | { page: "r-deployments" }
@@ -17,6 +18,7 @@ export function parseRoute(hash: string): Route {
   if (page === "incident" && value) return { page: "incident", id: decodeURIComponent(value) };
   if (page === "r-incident" && value) return { page: "r-incident", id: decodeURIComponent(value) };
   if (page === "community") return { page: "community" };
+  if (page === "news") return { page: "news" };
   const responderPage = RESPONDER_PAGES.find((p) => p === page);
   if (responderPage) return { page: responderPage };
   const state = (value ?? "held") as IncidentState;

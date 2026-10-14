@@ -1,6 +1,7 @@
 import { type BroadcastSummary, MAX_BROADCAST_MESSAGE } from "@warden/shared";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { api } from "../api.ts";
+import { type Recording, VoiceRecorder } from "../components/VoiceRecorder.tsx";
 import { timeAgo } from "../format.ts";
 import type { Point } from "./PointPicker.tsx";
 
@@ -25,6 +26,7 @@ export function BroadcastsPage() {
   const [point, setPoint] = useState<Point | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
+  const [voice, setVoice] = useState<Recording | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -51,8 +53,10 @@ export function BroadcastsPage() {
         center: point,
         radiusM: radius,
         expiresInMinutes: expiry,
+        ...(voice ? { audio: { contentType: voice.contentType, data: voice.data } } : {}),
       });
       setMessage("");
+      setVoice(null);
       setSent("Sent. Phones with saved places in the area will show it within a few minutes.");
       await load();
     } catch (err) {
@@ -92,6 +96,13 @@ export function BroadcastsPage() {
             placeholder="Flooding on Third Mainland Bridge. Use Carter Bridge instead."
           />
         </label>
+        <div className="span-all">
+          <p className="muted">
+            Optional: record the message read aloud (up to 60 seconds) for people who cannot read it
+            easily. Say only what the written message says.
+          </p>
+          <VoiceRecorder value={voice} onChange={setVoice} />
+        </div>
         <label>
           Level
           <select value={tier} onChange={(e) => setTier(e.target.value as Tier)}>
@@ -151,7 +162,10 @@ export function BroadcastsPage() {
               const live = !item.withdrawn && new Date(item.expiresAt).getTime() > Date.now();
               return (
                 <tr key={item.id}>
-                  <td>{item.message}</td>
+                  <td>
+                    {item.message}
+                    {item.spoken && <span className="tag">Spoken</span>}
+                  </td>
                   <td>{item.tier}</td>
                   <td>{timeAgo(item.createdAt)}</td>
                   <td>

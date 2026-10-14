@@ -9,6 +9,7 @@ import {
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { SeverityBadge } from "../components/Badges.tsx";
+import { MediaList } from "../components/MediaList.tsx";
 import { formatCoordinate, timeAgo } from "../format.ts";
 import { routeHref } from "../router.ts";
 
@@ -156,6 +157,12 @@ export function ResponderIncidentPage({ id }: { id: string }) {
                 {report.channel === "ussd" ? "USSD (area only)" : report.channel}
               </p>
               {report.description && <p>{report.description}</p>}
+              <MediaList
+                media={report.media ?? []}
+                urlFor={(mediaId) =>
+                  `/v1/admin/responder/incidents/${encodeURIComponent(incident.id)}/media/${mediaId}`
+                }
+              />
               <p className="mono">
                 {formatCoordinate(report.location.lat)}, {formatCoordinate(report.location.lng)}
                 {report.location.accuracyM !== null &&

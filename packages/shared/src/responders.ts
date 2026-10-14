@@ -214,6 +214,8 @@ export interface BroadcastSummary {
   createdAt: string;
   expiresAt: string;
   withdrawn: boolean;
+  /** Has a spoken version (M8). */
+  spoken: boolean;
 }
 
 export interface ResponderDeployment {
