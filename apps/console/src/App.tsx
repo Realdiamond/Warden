@@ -1,6 +1,7 @@
 import type { StaffUser } from "@warden/shared";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, setUnauthorizedListener } from "./api.ts";
+import { CommunityPage } from "./pages/CommunityPage.tsx";
 import { IncidentPage } from "./pages/IncidentPage.tsx";
 import { LoginPage } from "./pages/LoginPage.tsx";
 import { QueuePage } from "./pages/QueuePage.tsx";
@@ -111,6 +112,8 @@ export function App() {
           Warden <span>Moderation</span>
         </a>
         <div className="topbar-right">
+          <a href={routeHref({ page: "queue", state: "held" })}>Incidents</a>
+          <a href={routeHref({ page: "community" })}>Community</a>
           <span className="who">{user.email}</span>
           <button type="button" className="link-button" onClick={signOut}>
             Sign out
@@ -120,6 +123,8 @@ export function App() {
       <main className="content">
         {route.page === "incident" ? (
           <IncidentPage id={route.id} />
+        ) : route.page === "community" ? (
+          <CommunityPage />
         ) : (
           <QueuePage state={route.page === "queue" ? route.state : "held"} />
         )}

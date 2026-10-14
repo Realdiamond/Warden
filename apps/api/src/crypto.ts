@@ -22,7 +22,8 @@ export type Purpose =
   | "session.details"
   | "session.viewToken"
   | "session.point"
-  | "sms.message";
+  | "sms.message"
+  | "community.body";
 
 export interface FieldKeys {
   /** Key id written next to each ciphertext, so keys can be rotated. */

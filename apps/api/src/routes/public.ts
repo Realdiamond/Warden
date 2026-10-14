@@ -3,6 +3,7 @@
 import {
   AlertsQuerySchema,
   BBoxSchema,
+  CommunityTipSchema,
   MapQuerySchema,
   ReactionSchema,
   ReportSubmissionSchema,
@@ -12,6 +13,7 @@ import { z } from "zod";
 import { headerValue, problem, tooMany } from "../http.ts";
 import { RateLimiter } from "../rateLimit.ts";
 import { alertFeed } from "../services/alerts.ts";
+import { communityFeed, flagPost, submitTip } from "../services/community.ts";
 import type { ServiceDeps } from "../services/deps.ts";
 import { mapIncidents } from "../services/incidents.ts";
 import { reactToIncident } from "../services/reactions.ts";
@@ -32,6 +34,8 @@ const REACTIONS_PER_HOUR = 30;
 const TRUSTED_REPORTS_PER_HOUR = 30;
 /** Checking a code reads the database, so one phone cannot try codes without limit. */
 const CODE_CHECKS_PER_HOUR = TRUSTED_REPORTS_PER_HOUR;
+/** Tips are read by a person, so keep the queue small. */
+const TIPS_PER_HOUR = 3;
 
 export function registerPublicRoutes(app: FastifyInstance, deps: ServiceDeps): void {
   const reportLimiter = new RateLimiter(REPORTS_PER_HOUR, 3_600_000);
@@ -39,6 +43,7 @@ export function registerPublicRoutes(app: FastifyInstance, deps: ServiceDeps): v
   const reactionLimiter = new RateLimiter(REACTIONS_PER_HOUR, 3_600_000);
   const trustedLimiter = new RateLimiter(TRUSTED_REPORTS_PER_HOUR, 3_600_000);
   const codeCheckLimiter = new RateLimiter(CODE_CHECKS_PER_HOUR, 3_600_000);
+  const tipLimiter = new RateLimiter(TIPS_PER_HOUR, 3_600_000);
 
   app.post("/v1/reports", async (request, reply) => {
     const installId = headerValue(request.headers["x-warden-install"]);
@@ -158,5 +163,46 @@ export function registerPublicRoutes(app: FastifyInstance, deps: ServiceDeps): v
     const stops = await safeStopsIn(deps.pool, bbox);
     reply.header("cache-control", "public, max-age=3600");
     return { stops };
+  });
+
+  // ---- Community feed (M7) ----------------------------------------------------------------
+
+  app.get("/v1/community/feed", async (request, reply) => {
+    const { bbox } = z.object({ bbox: BBoxSchema }).parse(request.query);
+    const posts = await communityFeed(deps, bbox);
+    reply.header("cache-control", "public, max-age=60");
+    return { posts, generatedAt: deps.now().toISOString() };
+  });
+
+  /** An anonymous tip; a moderator reads it before anyone else sees it. */
+  app.post("/v1/community/tips", async (request, reply) => {
+    const installId = headerValue(request.headers["x-warden-install"]);
+    if (!installId || !INSTALL_ID.test(installId)) {
+      return problem(reply, 400, "The X-Warden-Install header must be a UUID.");
+    }
+    const limit = tipLimiter.hit(
+      deps.hasher.hmacHex("rl-tip", installId.toLowerCase()),
+      deps.now().getTime(),
+    );
+    if (!limit.allowed) return tooMany(reply, limit.retryAfterMs);
+    const tip = CommunityTipSchema.parse(request.body);
+    const { id } = await submitTip(deps, tip);
+    return reply.code(202).send({ id, state: "pending" });
+  });
+
+  app.post<{ Params: { id: string } }>("/v1/community/posts/:id/flag", async (request, reply) => {
+    const installId = headerValue(request.headers["x-warden-install"]);
+    if (!installId || !INSTALL_ID.test(installId)) {
+      return problem(reply, 400, "The X-Warden-Install header must be a UUID.");
+    }
+    if (!UUID.test(request.params.id)) return problem(reply, 404, "Post not found.");
+    const limit = reactionLimiter.hit(
+      deps.hasher.hmacHex("rl-reaction", installId.toLowerCase()),
+      deps.now().getTime(),
+    );
+    if (!limit.allowed) return tooMany(reply, limit.retryAfterMs);
+    const found = await flagPost(deps, request.params.id.toLowerCase(), installId.toLowerCase());
+    if (!found) return problem(reply, 404, "Post not found.");
+    return reply.code(204).send();
   });
 }

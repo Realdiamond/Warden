@@ -3,6 +3,8 @@
 import {
   type AlertsResponse,
   type BBox,
+  type CommunityPost,
+  type CommunityTip,
   DEMO_SAFE_STOPS,
   type PublicAlert,
   type PublicIncident,
@@ -53,6 +55,10 @@ export interface DataSource {
   /** True once the server has it (or the session is already over). */
   flagSession(sessionId: string, controlToken: string, reason: SessionFlag): Promise<boolean>;
   safeStops(bbox: BBox): Promise<SafeStop[]>;
+  communityFeed(bbox: BBox): Promise<CommunityPost[]>;
+  /** Null when accepted; otherwise a message to show. */
+  sendTip(tip: CommunityTip): Promise<string | null>;
+  flagPost(postId: string): Promise<boolean>;
 }
 
 export function liveSource(api: WardenApi): DataSource {
@@ -71,6 +77,9 @@ export function liveSource(api: WardenApi): DataSource {
     endSession: (id, token, outcome, duress) => api.endSession(id, token, outcome, duress),
     flagSession: (id, token, reason) => api.flagSession(id, token, reason),
     safeStops: (bbox) => api.safeStops(bbox),
+    communityFeed: (bbox) => api.communityFeed(bbox),
+    sendTip: (tip) => api.sendTip(tip),
+    flagPost: (id) => api.flagPost(id),
   };
 }
 
@@ -118,6 +127,44 @@ export function demoAlerts(tiles: string[], after: string | null, now: number): 
       broadcast: null,
     }));
   return { alerts, cursor: DEMO_CURSOR };
+}
+
+/** Sample feed items around the sample incidents. */
+export function demoPosts(now: number): CommunityPost[] {
+  const at = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
+  const until = new Date(now + 24 * 3_600_000).toISOString();
+  return [
+    {
+      id: "demo-post-1",
+      kind: "notice",
+      body: "Demo: Expect heavy traffic and crowds around Ikeja Under Bridge this evening.",
+      source: "Warden team",
+      areaLabel: "Ikeja",
+      center: { lat: 6.6018, lng: 3.3515 },
+      publishedAt: at(40),
+      expiresAt: until,
+    },
+    {
+      id: "demo-post-2",
+      kind: "tip",
+      body: "Demo: Street lights are out on the service lane near the bus stop. Walk in groups after dark.",
+      source: null,
+      areaLabel: null,
+      center: { lat: 6.5, lng: 3.37 },
+      publishedAt: at(95),
+      expiresAt: until,
+    },
+    {
+      id: "demo-post-3",
+      kind: "tip",
+      body: "Demo: Phone snatchers on okadas around the junction. Keep phones inside when walking.",
+      source: null,
+      areaLabel: null,
+      center: { lat: 9.06, lng: 7.49 },
+      publishedAt: at(180),
+      expiresAt: until,
+    },
+  ];
 }
 
 export function demoSource(now: () => number = Date.now): DataSource {
@@ -201,6 +248,15 @@ export function demoSource(now: () => number = Date.now): DataSource {
     },
     async safeStops(bbox) {
       return DEMO_SAFE_STOPS.filter((stop) => insideBBox(stop, bbox));
+    },
+    async communityFeed(bbox) {
+      return demoPosts(now()).filter((post) => insideBBox(post.center, bbox));
+    },
+    async sendTip() {
+      return null;
+    },
+    async flagPost() {
+      return true;
     },
   };
 }

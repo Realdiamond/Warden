@@ -3,11 +3,13 @@
 
 import {
   BroadcastSchema,
+  CommunityNoticeSchema,
   DeploymentSchema,
   INCIDENT_STATES,
   type IncidentState,
   IncidentUpdateSchema,
   ModerationDecisionSchema,
+  PostDecisionSchema,
   StaffLoginSchema,
   type StaffUser,
 } from "@warden/shared";
@@ -15,6 +17,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Config } from "../config.ts";
 import { problem, tooMany } from "../http.ts";
 import { RateLimiter } from "../rateLimit.ts";
+import { createNotice, decidePost, postQueue } from "../services/community.ts";
 import type { ServiceDeps } from "../services/deps.ts";
 import { incidentDetail, moderateIncident, moderationQueue } from "../services/incidents.ts";
 import {
@@ -100,7 +103,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
     admin.get("/v1/admin/me", async (request) => currentStaff(request));
 
     // Moderation is for Warden's own staff; responders have their own screens below.
-    const MODERATOR_PATHS = ["/v1/admin/queue", "/v1/admin/incidents/"];
+    const MODERATOR_PATHS = ["/v1/admin/queue", "/v1/admin/incidents/", "/v1/admin/community/"];
     const RESPONDER_PREFIX = "/v1/admin/responder/";
     admin.addHook("preHandler", async (request, reply) => {
       const staff = staffByRequest.get(request);
@@ -144,6 +147,29 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
         return result;
       },
     );
+
+    // ---- Community feed (moderators only) ----------------------------------------------------
+    admin.get("/v1/admin/community/queue", async (_request, reply) => {
+      reply.header("cache-control", "no-store");
+      return { items: await postQueue(deps) };
+    });
+
+    admin.post<{ Params: { id: string } }>(
+      "/v1/admin/community/posts/:id/actions",
+      async (request, reply) => {
+        if (!UUID.test(request.params.id)) return problem(reply, 404, "Post not found.");
+        const decision = PostDecisionSchema.parse(request.body);
+        const result = await decidePost(deps, currentStaff(request), request.params.id, decision);
+        if (!result.ok) return problem(reply, result.status, result.message);
+        return { state: result.state };
+      },
+    );
+
+    admin.post("/v1/admin/community/notices", async (request, reply) => {
+      const notice = CommunityNoticeSchema.parse(request.body);
+      const { id } = await createNotice(deps, currentStaff(request), notice);
+      return reply.code(201).send({ id });
+    });
 
     // ---- Responders -----------------------------------------------------------------------
     const noStore = (reply: FastifyReply) => reply.header("cache-control", "no-store");

@@ -45,6 +45,11 @@ export const ENCRYPTED_TABLES: readonly EncryptedTable[] = [
     primaryKey: "id",
     columns: [{ name: "message_enc", purpose: "sms.message" }],
   },
+  {
+    table: "community_posts",
+    primaryKey: "id",
+    columns: [{ name: "body_enc", purpose: "community.body" }],
+  },
 ];
 
 /** Rows per table still locked with a key other than the current one. */

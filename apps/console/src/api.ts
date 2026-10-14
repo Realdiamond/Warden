@@ -1,11 +1,14 @@
 import type {
   BroadcastInput,
   BroadcastSummary,
+  CommunityNotice,
   DeploymentInput,
   IncidentDetail,
   IncidentState,
   IncidentUpdateInput,
   ModerationAction,
+  ModeratorPost,
+  PostState,
   QueueItem,
   ResponderDeployment,
   ResponderInboxItem,
@@ -66,6 +69,20 @@ export const api = {
       `/v1/admin/incidents/${encodeURIComponent(id)}/actions`,
       { method: "POST", body: JSON.stringify(reason ? { action, reason } : { action }) },
     ),
+
+  community: {
+    queue: () => request<{ items: ModeratorPost[] }>("/v1/admin/community/queue"),
+    decide: (id: string, action: "publish" | "reject" | "remove", reason?: string) =>
+      request<{ state: PostState }>(`/v1/admin/community/posts/${encodeURIComponent(id)}/actions`, {
+        method: "POST",
+        body: JSON.stringify(reason ? { action, reason } : { action }),
+      }),
+    notice: (input: CommunityNotice) =>
+      request<{ id: string }>("/v1/admin/community/notices", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+  },
 
   responder: {
     incidents: () => request<{ items: ResponderInboxItem[] }>("/v1/admin/responder/incidents"),

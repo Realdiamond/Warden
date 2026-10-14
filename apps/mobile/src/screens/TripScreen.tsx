@@ -1,9 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MAX_SESSION_NOTE } from "@warden/shared";
+import { type BBox, MAX_SESSION_NOTE, type PublicIncident } from "@warden/shared";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { RouteSafety } from "../components/RouteSafety.tsx";
 import { Button, ModalHeader, Note } from "../components/ui.tsx";
 import { loadProfile, type SafetyProfile } from "../lib/contacts.ts";
+import type { Language } from "../lib/i18n.ts";
 import { loadPlaces, type SavedPlace } from "../lib/places.ts";
 import { COLORS } from "../lib/ui.ts";
 import { PickLocation } from "./PickLocation.tsx";
@@ -28,9 +30,14 @@ export function TripScreen({
   onStart,
   onContacts,
   onClose,
+  findIncidents,
+  language,
 }: {
   styleUrl: string;
   mapCenter: { lat: number; lng: number };
+  /** Public map incidents for the route score. */
+  findIncidents: (bbox: BBox) => Promise<PublicIncident[]>;
+  language: Language;
   onStart: (plan: TripPlan) => Promise<string | null>;
   onContacts: () => void;
   onClose: () => void;
@@ -134,6 +141,14 @@ export function TripScreen({
             </Text>
           </Pressable>
         </View>
+
+        {destination && (
+          <RouteSafety
+            destination={destination}
+            findIncidents={findIncidents}
+            language={language}
+          />
+        )}
 
         <Text style={styles.section}>Note for your contacts (optional)</Text>
         <TextInput

@@ -76,6 +76,15 @@ Known follow-ups from M1:
 - [ ] Safe places imported for Lagos and Abuja on the live server, and spot checked
 - [ ] Off-route thresholds tuned after real trips in Lagos traffic
 
+## M7 — Community feed and route score (built; see [ADR 0007](adr/0007-community-feed-and-route-score.md))
+
+- [x] Community feed in the app: checked tips, Warden team notices and live broadcasts for the
+      area, with "Report this" on tips and notices
+- [x] Anonymous tips, read by a moderator first (Community page in the console), area only
+- [x] Three reports hide a post until a moderator looks again
+- [x] Route safety score on the trip screen, worked out on the phone
+- [ ] Moderator rota for tips before launch (founder)
+
 ## Blocked on the founder (not on code)
 
 - [ ] Server and domain for a live backend

@@ -93,6 +93,25 @@ export interface Strings {
   privateHelp: string;
   supportBeingConfirmed: string;
   call: (number: string) => string;
+  // Community feed
+  community: string;
+  communityHelp: string;
+  noPosts: string;
+  wardenTeam: string;
+  anonymousTip: string;
+  shareTip: string;
+  tipPlaceholder: string;
+  tipRules: string;
+  sendTip: string;
+  tipSent: string;
+  flag: string;
+  flagged: string;
+  // Route safety
+  routeCalm: string;
+  routeCaution: string;
+  routeAvoid: string;
+  routeBasis: (n: number) => string;
+  routeNothing: string;
   // Main screen
   report: string;
   sos: string;
@@ -177,6 +196,25 @@ const en: Strings = {
   supportBeingConfirmed:
     "Warden is confirming support services (counselling, medical and legal help) for your area. They will be listed here.",
   call: (n) => `Call ${n}`,
+  community: "Community",
+  communityHelp: "Tips from people nearby, checked by Warden before they appear, and notices.",
+  noPosts: "Nothing posted for this area yet.",
+  wardenTeam: "Warden team",
+  anonymousTip: "Anonymous tip",
+  shareTip: "Share a safety tip",
+  tipPlaceholder: "For example: street lights are out on the service lane, walk in groups",
+  tipRules:
+    "Do not name or describe anyone. Warden checks every tip before it appears, and shows only the area, never your location.",
+  sendTip: "Send tip",
+  tipSent: "Thank you. Warden will check your tip before it appears.",
+  flag: "Report this",
+  flagged: "Thank you. Warden will look at it.",
+  routeCalm: "Route looks calm",
+  routeCaution: "Take care on this route",
+  routeAvoid: "Think about another route or time",
+  routeBasis: (n) =>
+    `Based on ${n} incident(s) reported near the straight line to your destination in the last week.`,
+  routeNothing: "No incidents reported near the straight line to your destination this week.",
   report: "Report",
   sos: "SOS",
   safety: "Safety",
@@ -263,6 +301,25 @@ const pcm: Strings = {
   supportBeingConfirmed:
     "Warden dey confirm people wey fit help (counselling, hospital and legal help) for your area. We go put dem here.",
   call: (n) => `Call ${n}`,
+  community: "Community",
+  communityHelp: "Tori from people wey dey near, Warden check am before e show, plus notice.",
+  noPosts: "Nobody never post anything for this area.",
+  wardenTeam: "Warden team",
+  anonymousTip: "Tip wey nobody know who send am",
+  shareTip: "Share safety tip",
+  tipPlaceholder: "Like: light no dey for the service lane, waka together",
+  tipRules:
+    "No call anybody name or describe person. Warden go check every tip before e show, and na only the area we go show, no be where you dey.",
+  sendTip: "Send the tip",
+  tipSent: "Thank you. Warden go check your tip before e show.",
+  flag: "Report am",
+  flagged: "Thank you. Warden go look am.",
+  routeCalm: "The road be like say e calm",
+  routeCaution: "Shine your eye for this road",
+  routeAvoid: "Think about another road or another time",
+  routeBasis: (n) =>
+    `Na ${n} wahala wey people report near the straight line to where you dey go for this one week.`,
+  routeNothing: "Nobody report wahala near the straight line to where you dey go this week.",
   report: "Report",
   sos: "SOS",
   safety: "Safety",
