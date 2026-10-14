@@ -2,6 +2,7 @@ import { createHash, createPublicKey, randomUUID, verify } from "node:crypto";
 import { broadcastSigningText, type SignedBroadcast } from "@warden/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runHousekeeping } from "../src/services/incidents.ts";
+import { stripJpegMetadata } from "../src/services/media.ts";
 import {
   categoryFromText,
   decideLead,
@@ -30,7 +31,22 @@ afterEach(async () => {
   await ctx.close();
 });
 
-const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 7)]);
+/** A minimal well-formed JPEG: start, a JFIF header, then the scan to the end. */
+const JPEG = Buffer.concat([
+  Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]),
+  Buffer.from("JFIF\0", "latin1"),
+  Buffer.alloc(9, 1),
+  Buffer.from([0xff, 0xda, 0x00, 0x08]),
+  Buffer.alloc(200, 7),
+  Buffer.from([0xff, 0xd9]),
+]);
+/** The same picture with an EXIF block holding a made-up GPS position. */
+function withExif(jpeg: Buffer): Buffer {
+  const exif = Buffer.from("Exif\0\0GPS 6.5244N 3.3792E serial 12345", "latin1");
+  const header = Buffer.from([0xff, 0xe1, 0, 0]);
+  header.writeUInt16BE(exif.length + 2, 2);
+  return Buffer.concat([jpeg.subarray(0, 2), header, exif, jpeg.subarray(2)]);
+}
 const M4A = Buffer.concat([
   Buffer.from([0, 0, 0, 0x20]),
   Buffer.from("ftypM4A ", "latin1"),
@@ -125,6 +141,19 @@ describe("report media", () => {
       expect((await upload(reportId, statusToken, "image/jpeg", JPEG)).statusCode).toBe(201);
     }
     expect((await upload(reportId, statusToken, "image/jpeg", JPEG)).statusCode).toBe(409);
+  });
+
+  it("removes hidden photo details such as the GPS position before storing", async () => {
+    expect(stripJpegMetadata(withExif(JPEG))?.equals(JPEG)).toBe(true);
+    expect(stripJpegMetadata(Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0xff, 0xff, 0]))).toBeNull();
+
+    const { reportId, statusToken } = await reportWithReceipt();
+    const sent = await upload(reportId, statusToken, "image/jpeg", withExif(JPEG));
+    expect(sent.statusCode).toBe(201);
+    const { cookie } = await signInStaff(ctx);
+    const file = await as(cookie, `/v1/admin/media/${sent.json().id}`);
+    expect(file.rawPayload.equals(JPEG)).toBe(true);
+    expect(file.rawPayload.toString("latin1")).not.toContain("GPS");
   });
 
   it("deletes media after 30 days", async () => {

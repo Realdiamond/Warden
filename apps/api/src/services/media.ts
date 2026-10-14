@@ -35,6 +35,38 @@ export function looksLike(kind: MediaKind, contentType: string, data: Buffer): b
   return data.subarray(4, 8).toString("latin1") === "ftyp";
 }
 
+/**
+ * Removes the metadata segments of a JPEG (EXIF with GPS position and camera serial number, XMP,
+ * IPTC and comments) and keeps the picture itself. Returns null when the file is not a
+ * well-formed JPEG, so a broken file is refused rather than stored with its metadata.
+ */
+export function stripJpegMetadata(data: Buffer): Buffer | null {
+  if (data[0] !== 0xff || data[1] !== 0xd8) return null;
+  const kept: Buffer[] = [data.subarray(0, 2)];
+  let at = 2;
+  while (at + 4 <= data.length) {
+    if (data[at] !== 0xff) return null;
+    const marker = data[at + 1] ?? 0;
+    // Fill bytes between segments.
+    if (marker === 0xff) {
+      at += 1;
+      continue;
+    }
+    // Start of scan: the image data runs to the end of the file.
+    if (marker === 0xda) {
+      kept.push(data.subarray(at));
+      return Buffer.concat(kept);
+    }
+    const length = data.readUInt16BE(at + 2);
+    if (length < 2 || at + 2 + length > data.length) return null;
+    // APP1 (EXIF, XMP), APP13 (IPTC) and COM (comments) carry who, where and with what.
+    const drop = marker === 0xe1 || marker === 0xed || marker === 0xfe;
+    if (!drop) kept.push(data.subarray(at, at + 2 + length));
+    at += 2 + length;
+  }
+  return null;
+}
+
 function check(
   contentType: string | undefined,
   data: Buffer,
@@ -67,6 +99,8 @@ export async function attachReportMedia(
     () => true,
   );
   if (!checked.ok) return checked;
+  const data = checked.kind === "photo" ? stripJpegMetadata(input.data) : input.data;
+  if (!data) return { ok: false, status: 415, message: "The file does not match its type." };
   const now = deps.now();
   return withTransaction(deps.pool, async (client) => {
     const { rows } = await client.query<{ status_token_hash: Buffer; count: number }>(
@@ -91,9 +125,9 @@ export async function attachReportMedia(
         input.reportId,
         checked.kind,
         checked.type,
-        input.data.length,
+        data.length,
         deps.cipher.currentKeyId,
-        deps.cipher.encrypt("report.media", input.data.toString("base64")),
+        deps.cipher.encrypt("report.media", data.toString("base64")),
         now,
       ],
     );

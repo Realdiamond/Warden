@@ -65,7 +65,11 @@ async function storeSomePrivateData() {
     method: "POST",
     url: `/v1/reports/${reportId}/media`,
     headers: { "x-warden-status-token": statusToken, "content-type": "image/jpeg" },
-    payload: Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64, 1)]),
+    // A minimal JPEG: start of image, then the scan.
+    payload: Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, 0xda, 0x00, 0x04, 1, 1]),
+      Buffer.alloc(64, 1),
+    ]),
   });
   expect(photo.statusCode).toBe(201);
   const clip = await ctx.app.inject({
