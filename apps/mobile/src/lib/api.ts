@@ -4,6 +4,9 @@
 import type {
   AlertsResponse,
   BBox,
+  CommunityFeedResponse,
+  CommunityPost,
+  CommunityTip,
   PublicIncident,
   PublicPresence,
   ReactionKind,
@@ -104,6 +107,36 @@ export class WardenApi {
       retry,
       message: problem?.title ?? `The server refused the report (${response.status}).`,
     };
+  }
+
+  async communityFeed(bbox: BBox): Promise<CommunityPost[]> {
+    const box = [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat]
+      .map((n) => n.toFixed(4))
+      .join(",");
+    const response = await this.#request(`/v1/community/feed?bbox=${box}`);
+    if (!response.ok) throw new Error(`Community feed request failed (${response.status})`);
+    return ((await response.json()) as CommunityFeedResponse).posts;
+  }
+
+  /** Null when it was accepted; otherwise a message to show. */
+  async sendTip(tip: CommunityTip): Promise<string | null> {
+    const response = await this.#request("/v1/community/tips", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-warden-install": this.#installId },
+      body: JSON.stringify(tip),
+    });
+    if (response.ok) return null;
+    if (response.status === 429) return "You have sent several tips already. Try again later.";
+    const problem = (await response.json().catch(() => null)) as { title?: string } | null;
+    return problem?.title ?? `The tip was not sent (${response.status}).`;
+  }
+
+  async flagPost(postId: string): Promise<boolean> {
+    const response = await this.#request(`/v1/community/posts/${encodeURIComponent(postId)}/flag`, {
+      method: "POST",
+      headers: { "x-warden-install": this.#installId },
+    });
+    return response.ok || response.status === 404;
   }
 
   async safeStops(bbox: BBox): Promise<SafeStop[]> {

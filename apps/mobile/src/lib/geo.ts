@@ -59,3 +59,15 @@ export function presenceToGeoJSON(presence: readonly PublicPresence[]): GeoJSON.
     })),
   };
 }
+
+/** The community feed covers about 15 km around the middle of the map. */
+const FEED_DEG = 0.14;
+
+export function feedArea(center: { lat: number; lng: number }) {
+  return {
+    minLat: center.lat - FEED_DEG,
+    maxLat: center.lat + FEED_DEG,
+    minLng: center.lng - FEED_DEG,
+    maxLng: center.lng + FEED_DEG,
+  };
+}

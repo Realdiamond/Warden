@@ -24,7 +24,7 @@ const BASE_ENV = {
   WARDEN_HMAC_KEY: randomBytes(32).toString("base64"),
 };
 
-/** Some of every kind of encrypted row: a report, a retried request, a trip with a point. */
+/** Some of every kind of encrypted row: a report, a retried request, a trip with a point, a tip. */
 async function storeSomePrivateData() {
   const install = randomUUID();
   const report = await submitReport(
@@ -52,6 +52,13 @@ async function storeSomePrivateData() {
     payload: { points: [{ ...LAGOS, at: ctx.now().toISOString() }] },
   });
   expect(point.statusCode).toBeLessThan(300);
+  const tip = await ctx.app.inject({
+    method: "POST",
+    url: "/v1/community/tips",
+    headers: { "x-warden-install": install },
+    payload: { body: "Avoid the junction after dark this week.", location: LAGOS },
+  });
+  expect(tip.statusCode).toBe(202);
 }
 
 describe("changing the field encryption key", () => {

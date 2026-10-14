@@ -3,6 +3,7 @@ import { INCIDENT_STATES, type IncidentState } from "@warden/shared";
 export type Route =
   | { page: "queue"; state: IncidentState }
   | { page: "incident"; id: string }
+  | { page: "community" }
   | { page: "r-incidents" }
   | { page: "r-incident"; id: string }
   | { page: "r-deployments" }
@@ -15,6 +16,7 @@ export function parseRoute(hash: string): Route {
   const [, page, value] = hash.replace(/^#/, "").split("/");
   if (page === "incident" && value) return { page: "incident", id: decodeURIComponent(value) };
   if (page === "r-incident" && value) return { page: "r-incident", id: decodeURIComponent(value) };
+  if (page === "community") return { page: "community" };
   const responderPage = RESPONDER_PAGES.find((p) => p === page);
   if (responderPage) return { page: responderPage };
   const state = (value ?? "held") as IncidentState;

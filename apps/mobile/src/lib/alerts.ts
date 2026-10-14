@@ -174,7 +174,7 @@ export function describeDistance(meters: number, language?: Language): string {
   return t.aboutKm((meters / 1_000).toFixed(1));
 }
 
-function minutesAgo(iso: string, now: Date, language?: Language): string {
+export function minutesAgo(iso: string, now: Date, language?: Language): string {
   const t = strings(language);
   const minutes = Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 60_000));
   if (minutes < 2) return t.justNow;

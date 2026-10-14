@@ -61,6 +61,7 @@ import {
   startSafetySession,
 } from "./safetyRuntime.ts";
 import { AlertsScreen } from "./screens/AlertsScreen.tsx";
+import { CommunityScreen } from "./screens/CommunityScreen.tsx";
 import { MyReports } from "./screens/MyReports.tsx";
 import { PlacesScreen } from "./screens/PlacesScreen.tsx";
 import { ReportFlow, type SendOutcome } from "./screens/ReportFlow.tsx";
@@ -100,6 +101,7 @@ type Sheet =
   | "session"
   | "sos"
   | "sosFailed"
+  | "community"
   | null;
 
 /** How often the open app checks for alerts. */
@@ -322,6 +324,11 @@ function Root() {
     const answered = await answerCheckInActive(duress);
     if (answered) setActive(answered);
   }, []);
+
+  const findRouteIncidents = useCallback(
+    (bbox: BBox) => (source ? source.incidents(bbox, "7d") : Promise.resolve([])),
+    [source],
+  );
 
   const findStops = useCallback(
     (around: Position) => (source ? source.safeStops(areaAround(around)) : Promise.resolve([])),
@@ -600,6 +607,11 @@ function Root() {
                     icon="map-marker-path"
                     onPress={() => setSheet(active ? "session" : "trip")}
                   />
+                  <Button
+                    label={t.community}
+                    icon="account-group-outline"
+                    onPress={() => setSheet("community")}
+                  />
                   <Button label="Settings" icon="cog" onPress={() => setSheet("settings")} />
                   <EmergencyCallButton />
                 </View>
@@ -613,6 +625,8 @@ function Root() {
                 onStart={startTrip}
                 onContacts={() => setSheet("safety")}
                 onClose={() => setSheet(null)}
+                findIncidents={findRouteIncidents}
+                language={settings.language}
               />
             )}
             {sheet === "sos" && (
@@ -656,6 +670,14 @@ function Root() {
                   />
                 </View>
               </View>
+            )}
+            {sheet === "community" && (
+              <CommunityScreen
+                source={source}
+                around={mapCenter}
+                language={settings.language}
+                onClose={() => setSheet(null)}
+              />
             )}
             {sheet === "settings" && (
               <SettingsScreen
