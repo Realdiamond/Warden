@@ -1,13 +1,14 @@
 import type { CameraRef } from "@maplibre/maplibre-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
-import type {
-  BBox,
-  PublicIncident,
-  PublicPresence,
-  ReactionKind,
-  ReportSubmission,
-  TimeWindow,
+import {
+  type BBox,
+  LEGAL_VERSION,
+  type PublicIncident,
+  type PublicPresence,
+  type ReactionKind,
+  type ReportSubmission,
+  type TimeWindow,
 } from "@warden/shared";
 import Constants from "expo-constants";
 import { randomUUID } from "expo-crypto";
@@ -70,7 +71,7 @@ import { NEAR_RADIUS_M, nearSummary } from "./lib/mapFeatures.ts";
 import type { Attachment } from "./lib/media.ts";
 import { removeLeftovers } from "./lib/mediaFiles.ts";
 import { alertIdFromResponse, setUpNotifications, speakAlerts } from "./lib/notify.ts";
-import { isOnboarded, markOnboarded } from "./lib/onboarding.ts";
+import { acceptedLegalVersion, acceptLegal, isOnboarded, markOnboarded } from "./lib/onboarding.ts";
 import { Outbox } from "./lib/outbox.ts";
 import { loadPins } from "./lib/pin.ts";
 import { loadPlaces, type SavedPlace, saveLastArea } from "./lib/places.ts";
@@ -90,6 +91,7 @@ import {
 } from "./safetyRuntime.ts";
 import { AlertsScreen } from "./screens/AlertsScreen.tsx";
 import { CommunityScreen } from "./screens/CommunityScreen.tsx";
+import { type LegalDocumentId, LegalScreen } from "./screens/LegalScreen.tsx";
 import { MyReports } from "./screens/MyReports.tsx";
 import { Onboarding } from "./screens/Onboarding.tsx";
 import { OutlookScreen } from "./screens/OutlookScreen.tsx";
@@ -153,6 +155,7 @@ type Sheet =
   | "sosFailed"
   | "community"
   | "outlook"
+  | "legal"
   | null;
 
 /** How often the open app checks for alerts. */
@@ -182,6 +185,9 @@ function Root({ onTheme }: { onTheme: (setting: ThemeSetting) => void }) {
   const [reactions, setReactions] = useState<ReactionMemory>({});
   const [active, setActive] = useState<ActiveSession | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /** The privacy notice and terms version accepted on this phone; undefined while loading. */
+  const [legalAccepted, setLegalAccepted] = useState<string | null | undefined>(undefined);
+  const [legalDoc, setLegalDoc] = useState<LegalDocumentId>("privacy");
   // Start with the area around the default map centre so incidents load before the first pan.
   const bboxRef = useRef<BBox>(
     boundsToBBox([
@@ -233,6 +239,7 @@ function Root({ onTheme }: { onTheme: (setting: ThemeSetting) => void }) {
       if (done) await markOnboarded(AsyncStorage);
       setOnboarded(done);
       setReactions(await loadReactions(AsyncStorage));
+      setLegalAccepted(await acceptedLegalVersion(AsyncStorage));
       setActive(await loadActive(AsyncStorage));
       void sendPendingEnds().catch(() => undefined);
       await setUpNotifications().catch(() => undefined);
@@ -541,6 +548,7 @@ function Root({ onTheme }: { onTheme: (setting: ThemeSetting) => void }) {
   const finishOnboarding = useCallback(async () => {
     await markOnboarded(AsyncStorage);
     await reloadSafety();
+    setLegalAccepted(await acceptedLegalVersion(AsyncStorage));
     setOnboarded(true);
   }, [reloadSafety]);
 
@@ -712,6 +720,23 @@ function Root({ onTheme }: { onTheme: (setting: ThemeSetting) => void }) {
           </Pressable>
         )}
         {toast && <Text style={styles.banner}>{toast}</Text>}
+        {legalAccepted !== undefined && legalAccepted !== LEGAL_VERSION && (
+          // Never in the way of the map or SOS: a reminder until the person reads and agrees.
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setLegalDoc("privacy");
+              openSheet("legal");
+            }}
+          >
+            <Text style={styles.banner}>
+              {legalAccepted
+                ? "Our privacy notice has changed."
+                : "Please read our privacy notice."}{" "}
+              Tap to read.
+            </Text>
+          </Pressable>
+        )}
       </SafeAreaView>
 
       <SafeAreaView edges={["bottom"]} style={styles.bottom} pointerEvents="box-none">
@@ -1003,6 +1028,18 @@ function Root({ onTheme }: { onTheme: (setting: ThemeSetting) => void }) {
                 source={source}
                 bbox={bboxRef.current}
                 onClose={() => setSheet(null)}
+              />
+            )}
+            {sheet === "legal" && (
+              <LegalScreen
+                doc={legalDoc}
+                onClose={() => setSheet(null)}
+                onReadOther={() => setLegalDoc(legalDoc === "privacy" ? "terms" : "privacy")}
+                onAccept={() => {
+                  void acceptLegal(AsyncStorage, LEGAL_VERSION);
+                  setLegalAccepted(LEGAL_VERSION);
+                  setSheet(null);
+                }}
               />
             )}
             {sheet === "settings" && (

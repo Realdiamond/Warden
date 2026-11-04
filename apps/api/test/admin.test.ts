@@ -99,6 +99,44 @@ describe("staff sign-in", () => {
   });
 });
 
+describe("sign-in limits", () => {
+  const attempt = (email: string, remoteAddress: string) =>
+    ctx.app.inject({
+      method: "POST",
+      url: "/v1/admin/login",
+      headers: { "x-warden-console": "1" },
+      payload: { email, password: "wrong password, wrong" },
+      remoteAddress,
+    });
+
+  it("one sender flooding the login page does not lock other staff out", async () => {
+    const codes: number[] = [];
+    for (let i = 0; i < 35; i += 1) {
+      codes.push((await attempt(`nobody-${i}@warden.test`, "10.0.0.1")).statusCode);
+    }
+    expect(codes.slice(0, 30).every((code) => code === 401)).toBe(true);
+    expect(codes.at(-1)).toBe(429);
+    // Someone else, elsewhere, still signs in.
+    const { cookie } = await signInStaff(ctx);
+    expect(cookie).toMatch(/^warden_staff=/);
+  });
+
+  it("limits guessing one person's password, from one sender and from many", async () => {
+    const email = "target@warden.test";
+    const fromOne: number[] = [];
+    for (let i = 0; i < 6; i += 1) fromOne.push((await attempt(email, "10.0.0.2")).statusCode);
+    expect(fromOne.slice(0, 5).every((code) => code === 401)).toBe(true);
+    expect(fromOne[5]).toBe(429);
+    const fromMany: number[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      fromMany.push((await attempt(email, `10.0.1.${i}`)).statusCode);
+    }
+    // 5 counted above plus 25 more reach the hourly cap for this email.
+    expect(fromMany.slice(0, 25).every((code) => code === 401)).toBe(true);
+    expect(fromMany.slice(25).every((code) => code === 429)).toBe(true);
+  });
+});
+
 describe("moderation", () => {
   it("lists held incidents with a review deadline", async () => {
     const { cookie } = await signInStaff(ctx);

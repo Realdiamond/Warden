@@ -93,6 +93,127 @@ Technical tab of the requirements).
 - **Support services** for private reports: send Claude the organisations and numbers you have
   confirmed; they go in `packages/shared/src/support.ts` and ship with the next app build.
 
+## Backups
+
+Warden makes one encrypted copy of the whole database every night. Without backups, a broken
+disk or a mistake loses every report, account and audit entry.
+
+1. Make a backup passphrase and put it in `.env` as `BACKUP_PASSPHRASE`:
+   ```bash
+   openssl rand -base64 32
+   ```
+   **Also save it in your password manager**, away from the server. Every backup is locked with
+   it; without it no backup can be opened, by you or anyone else.
+2. Run one backup by hand to check it works:
+   ```bash
+   sudo ./backup.sh
+   ```
+   It prints where the file went (normally `/var/backups/warden/warden-<date>-<time>.dump.enc`)
+   and its size. It checks each new backup can be read back before keeping it.
+3. Run it every night at 02:15 with a cron job on the host (`sudo crontab -e`, with your own path
+   to the `deploy` folder):
+   ```
+   15 2 * * * /path/to/warden/deploy/backup.sh >> /var/log/warden-backup.log 2>&1
+   ```
+   The server keeps the newest 14 backups (`BACKUP_KEEP` in `.env`) and deletes older ones.
+   `tail /var/log/warden-backup.log` shows how the last runs went.
+
+**A copy away from the server (strongly recommended).** If the server itself is lost, backups on
+it go with it. `backup.sh` can also send each backup to online storage with
+[rclone](https://rclone.org). Any of these work; pick one:
+
+- **Backblaze B2**: cheap storage, rclone type `b2`.
+- **Cloudflare R2**: no charge for downloading backups again, rclone type `s3` with provider
+  `Cloudflare`.
+- **Any other S3-compatible storage** (Amazon S3, Wasabi, DigitalOcean Spaces), rclone type `s3`.
+
+Create a private bucket (for example `warden-backups`) and a key that can only use that bucket,
+then on the server:
+
+```bash
+sudo apt install -y rclone
+sudo rclone config          # make a "remote", for example named b2, with that key
+```
+
+Put `BACKUP_RCLONE_REMOTE=b2:warden-backups` (your remote name and bucket) in `.env` and run
+`sudo ./backup.sh` once; `sudo rclone ls b2:warden-backups` should list the file. Copies there are
+kept for 30 days (`BACKUP_REMOTE_KEEP_DAYS`). The files are encrypted before they leave the
+server, so the storage company cannot read them.
+
+## Restoring from a backup
+
+`restore.sh` restores into a new, empty database first and only swaps it in when that worked; the
+database it replaces is kept under another name, so a restore can be undone. The API stops for
+about a minute during the swap.
+
+1. See which backups exist:
+   ```bash
+   sudo ./restore.sh
+   ```
+2. Restore one, and type `RESTORE` when asked:
+   ```bash
+   sudo ./restore.sh /var/backups/warden/warden-20261104-021500.dump.enc
+   ```
+3. Check the console and the app. When all is well, delete the old copy it names at the end
+   (`docker compose exec db dropdb -U warden warden_before_restore_...`).
+
+**Onto a new server** (if the old one is gone): follow [Steps](#steps) on the new server, but
+in `.env` use the **same** `WARDEN_FIELD_KEY`, `WARDEN_OLD_FIELD_KEYS`, `WARDEN_HMAC_KEY`,
+`WARDEN_SIGNING_KEY` and `BACKUP_PASSPHRASE` as before, from your password manager. A new
+`POSTGRES_PASSWORD` is fine. Start it with `docker compose up -d`, set up rclone as above, copy
+the newest backup down and restore it:
+
+```bash
+sudo mkdir -p /var/backups/warden
+sudo rclone copy b2:warden-backups/warden-20261104-021500.dump.enc /var/backups/warden/
+sudo ./restore.sh /var/backups/warden/warden-20261104-021500.dump.enc
+```
+
+Practise this once before launch, and then every few months, on a spare server: a backup you
+have never restored is a hope, not a backup.
+
+## Knowing it is up
+
+Warden has two health addresses:
+
+- `https://api.yourdomain.ng/healthz` answers `{"ok":true}` while the server and database run.
+- `https://api.yourdomain.ng/readyz` also checks that the background work is running: ending
+  incidents, telling contacts about late trips and sending SOS texts. It answers with status
+  200 when all is well and **503** when the database does not answer, the background work has
+  not finished for over five minutes, or the hourly limit on texts to trusted contacts
+  (`SMS_HOURLY_CAP`, 500 by default) has been reached. It shows only yes/no answers and timings,
+  nothing about reports or people.
+- If the alert says `"texts":{"ok":false}`, real SOS texts may be waiting. It usually means
+  someone is starting fake trips or SOS ([security-review-2026-11.md](security-review-2026-11.md),
+  item 1). Raise `SMS_HOURLY_CAP` in `.env` for now (`docker compose up -d`) and ask Claude to
+  look at the sessions started in the last hour.
+
+Use a free uptime service so you hear about problems before users do. For example
+[UptimeRobot](https://uptimerobot.com) or [Better Stack](https://betterstack.com/uptime):
+
+1. Create a free account.
+2. Add an HTTP(S) monitor for `https://api.yourdomain.ng/readyz`, checking every 5 minutes (or as
+   often as the free plan allows), that alerts when the status is not 200.
+3. Add yourself (and a second person) as alert contacts by email, and install the service's phone
+   app for push alerts.
+
+On the server, `docker compose ps` shows each part and whether the API is `healthy`. Also keep an
+eye on disk space: `df -h /` (stay below 80% full) and `du -sh /var/backups/warden`.
+
+## Reading the logs
+
+```bash
+docker compose logs --tail=200 api     # the last 200 lines
+docker compose logs -f api             # follow live; Ctrl+C to stop
+docker compose logs --since 1h api     # the last hour
+```
+
+Lines to look for: `housekeeping failed` (background work broke), `sms delivery failed` (texts to
+trusted contacts are not going out), and `unhandled error`. The logs never contain IP addresses,
+phone numbers or report text, so you can send the last lines to Claude when asking for help.
+If the API is stuck, `docker compose restart api` restarts it; `docker compose up -d` starts
+anything that stopped.
+
 ## Changing keys
 
 Change a key if it may have leaked, or on a schedule (yearly is plenty for a pilot). Run the
@@ -123,6 +244,9 @@ new key goes into an app build first:
 
 ## Keep safe
 
-- Back up the database every day and keep `WARDEN_FIELD_KEY` somewhere safe. Without that key,
-  encrypted locations and report text cannot be read, even from a backup.
+- Keep these in a password manager, away from the server: `WARDEN_FIELD_KEY` (and any
+  `WARDEN_OLD_FIELD_KEYS`), `WARDEN_HMAC_KEY`, `WARDEN_SIGNING_KEY` and `BACKUP_PASSPHRASE`.
+  Backups hold exact locations and report text only in locked form: without `WARDEN_FIELD_KEY`
+  they cannot be read, even by you, and without `BACKUP_PASSPHRASE` a backup cannot be opened.
+- Make sure the nightly backup runs (see [Backups](#backups)) and that a copy leaves the server.
 - Never put `.env` in git or send it in chat.

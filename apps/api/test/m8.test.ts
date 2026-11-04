@@ -2,7 +2,7 @@ import { createHash, createPublicKey, randomUUID, verify } from "node:crypto";
 import { broadcastSigningText, type SignedBroadcast } from "@warden/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runHousekeeping } from "../src/services/incidents.ts";
-import { stripJpegMetadata } from "../src/services/media.ts";
+import { blankMp4Metadata, stripJpegMetadata } from "../src/services/media.ts";
 import {
   categoryFromText,
   decideLead,
@@ -47,9 +47,13 @@ function withExif(jpeg: Buffer): Buffer {
   header.writeUInt16BE(exif.length + 2, 2);
   return Buffer.concat([jpeg.subarray(0, 2), header, exif, jpeg.subarray(2)]);
 }
+// A minimal well-formed M4A: an "ftyp" box, then the sound in an "mdat" box.
 const M4A = Buffer.concat([
   Buffer.from([0, 0, 0, 0x20]),
   Buffer.from("ftypM4A ", "latin1"),
+  Buffer.alloc(20, 0),
+  Buffer.from([0, 0, 0x01, 0x34]),
+  Buffer.from("mdat", "latin1"),
   Buffer.alloc(300, 3),
 ]);
 const WEBM = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(300, 1)]);
@@ -154,6 +158,48 @@ describe("report media", () => {
     const file = await as(cookie, `/v1/admin/media/${sent.json().id}`);
     expect(file.rawPayload.equals(JPEG)).toBe(true);
     expect(file.rawPayload.toString("latin1")).not.toContain("GPS");
+  });
+
+  it("removes the GPS position and phone details from videos before storing", async () => {
+    const box = (type: string, ...children: Buffer[]) => {
+      const body = Buffer.concat(children);
+      const head = Buffer.alloc(8);
+      head.writeUInt32BE(8 + body.length, 0);
+      head.write(type, 4, "latin1");
+      return Buffer.concat([head, body]);
+    };
+    const gps = box("\u00a9xyz", Buffer.from("+06.6018+003.3515/", "latin1"));
+    const video = Buffer.concat([
+      box("ftyp", Buffer.from("isom\0\0\0\0isommp42", "latin1")),
+      box(
+        "moov",
+        box("mvhd", Buffer.alloc(20, 1)),
+        box("udta", gps, box("smta", Buffer.from("SM-A055F", "latin1"))),
+        box("trak", box("tkhd", Buffer.alloc(20, 2)), box("meta", Buffer.from("model", "latin1"))),
+      ),
+      box("uuid", Buffer.from("XMP GPSLatitude 6.6018", "latin1")),
+      box("mdat", Buffer.alloc(64, 7)),
+    ]);
+    const clean = blankMp4Metadata(video);
+    expect(clean?.length).toBe(video.length);
+    const text = clean?.toString("latin1") ?? "";
+    for (const secret of ["+06.6018", "SM-A055F", "model", "GPSLatitude"]) {
+      expect(text).not.toContain(secret);
+    }
+    // The picture and sound, and the boxes that describe them, are untouched.
+    expect(clean?.subarray(0, 24).equals(video.subarray(0, 24))).toBe(true);
+    expect(clean?.subarray(-64).equals(Buffer.alloc(64, 7))).toBe(true);
+    // A file whose boxes do not add up is refused.
+    const broken = Buffer.from(video);
+    broken.writeUInt32BE(9_999, 24);
+    expect(blankMp4Metadata(broken)).toBeNull();
+
+    const { reportId, statusToken } = await reportWithReceipt();
+    const sent = await upload(reportId, statusToken, "video/mp4", video);
+    expect(sent.statusCode).toBe(201);
+    const { cookie } = await signInStaff(ctx);
+    const file = await as(cookie, `/v1/admin/media/${sent.json().id}`);
+    expect(file.rawPayload.toString("latin1")).not.toContain("+06.6018");
   });
 
   it("deletes media after 30 days", async () => {

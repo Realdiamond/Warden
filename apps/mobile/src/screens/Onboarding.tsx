@@ -4,7 +4,7 @@
 
 import { Camera, Map as MapView } from "@maplibre/maplibre-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MAX_CONTACTS } from "@warden/shared";
+import { LEGAL_VERSION, MAX_CONTACTS } from "@warden/shared";
 import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from "expo-crypto";
 import * as Location from "expo-location";
 import * as SMS from "expo-sms";
@@ -38,6 +38,7 @@ import {
 import { LANGUAGE_NAMES, LANGUAGES, type Language } from "../lib/i18n.ts";
 import { currentPosition, type Position } from "../lib/location.ts";
 import {
+  acceptLegal,
   NUMBERED_STEPS,
   nextStep,
   type OnboardingStep,
@@ -55,6 +56,7 @@ import {
 } from "../lib/places.ts";
 import type { Settings } from "../lib/settings.ts";
 import { MONO, type Palette } from "../lib/theme.ts";
+import { type LegalDocumentId, LegalScreen } from "./LegalScreen.tsx";
 import { PickLocation } from "./PickLocation.tsx";
 
 const LAGOS: [number, number] = [3.37, 6.56];
@@ -76,6 +78,7 @@ export function Onboarding({ settings, onLanguage, onDone }: Props) {
   const [pinSet, setPinSet] = useState(false);
   const [home, setHome] = useState<{ kind: PlaceKind; position: Position } | null>(null);
   const [homeKind, setHomeKind] = useState<PlaceKind>("home");
+  const [reading, setReading] = useState<LegalDocumentId | null>(null);
 
   useEffect(() => {
     void loadProfile(AsyncStorage).then(setProfile);
@@ -84,6 +87,14 @@ export function Onboarding({ settings, onLanguage, onDone }: Props) {
   const go = (next: OnboardingStep) => setStep(next);
   const forward = () => go(nextStep(step));
   const number = NUMBERED_STEPS.indexOf(step);
+
+  if (reading) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <LegalScreen doc={reading} onClose={() => setReading(null)} />
+      </SafeAreaView>
+    );
+  }
 
   if (picking) {
     return (
@@ -131,7 +142,7 @@ export function Onboarding({ settings, onLanguage, onDone }: Props) {
         {step === "welcome" && (
           <Welcome settings={settings} onLanguage={onLanguage} onNext={forward} />
         )}
-        {step === "privacy" && <Privacy onNext={forward} />}
+        {step === "privacy" && <Privacy onNext={forward} onRead={setReading} />}
         {step === "location" && <LocationStep onNext={forward} />}
         {step === "contacts" && profile && (
           <Contacts profile={profile} onChange={setProfile} onNext={forward} />
@@ -364,10 +375,32 @@ function PromiseRow({
   );
 }
 
-function Privacy({ onNext }: { onNext: () => void }) {
+function Privacy({
+  onNext,
+  onRead,
+}: {
+  onNext: () => void;
+  onRead: (doc: LegalDocumentId) => void;
+}) {
+  const c = useTheme();
   const styles = useStyles(makeStyles);
+  const [agreed, setAgreed] = useState(false);
+  const accept = async () => {
+    await acceptLegal(AsyncStorage, LEGAL_VERSION);
+    onNext();
+  };
   return (
-    <StepLayout footer={<Button label="Continue" variant="primary" large onPress={onNext} />}>
+    <StepLayout
+      footer={
+        <Button
+          label="Continue"
+          variant="primary"
+          large
+          disabled={!agreed}
+          onPress={() => void accept()}
+        />
+      }
+    >
       <IconTile icon="eye-off-outline" size={72} />
       <Title lead="No sign-up. No name. No phone number.">Warden keeps you anonymous</Title>
       <Card>
@@ -389,6 +422,36 @@ function Privacy({ onNext }: { onNext: () => void }) {
           description="Warden's server never keeps your address book."
         />
       </Card>
+      <View style={styles.readRow}>
+        <Button
+          label="Privacy notice"
+          variant="text"
+          icon="file-document-outline"
+          onPress={() => onRead("privacy")}
+        />
+        <Button
+          label="Terms of use"
+          variant="text"
+          icon="file-document-outline"
+          onPress={() => onRead("terms")}
+        />
+      </View>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: agreed }}
+        accessibilityLabel="I have read the privacy notice and agree to the terms of use"
+        onPress={() => setAgreed((value) => !value)}
+        style={styles.agreeRow}
+      >
+        <Icon
+          name={agreed ? "checkbox-marked" : "checkbox-blank-outline"}
+          size={28}
+          color={agreed ? c.primary : c.muted}
+        />
+        <Text style={styles.agreeText}>
+          I have read the privacy notice and agree to the terms of use
+        </Text>
+      </Pressable>
       <Text style={styles.small}>
         Warden does not replace 112. In danger now, call 112 first if you can.
       </Text>
@@ -1040,6 +1103,19 @@ const makeStyles = (c: Palette) =>
     promiseText: { flex: 1, fontSize: 17, lineHeight: 22, color: c.text },
     languageRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     small: { fontSize: 15, lineHeight: 21, color: c.muted },
+    readRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: -6 },
+    agreeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      minHeight: 56,
+      padding: 14,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      backgroundColor: c.surface,
+    },
+    agreeText: { flex: 1, fontSize: 16, lineHeight: 22, fontWeight: "700", color: c.text },
     smallCenter: { fontSize: 14, color: c.muted, textAlign: "center" },
     ringWrap: {
       position: "absolute",

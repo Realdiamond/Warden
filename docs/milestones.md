@@ -7,9 +7,10 @@ the reasons behind each design choice are in the decision records in [`adr/`](ad
 
 ## Where things stand (4 November 2026)
 
-All nine feature milestones are built and merged into `main`, and the checks pass. M10 gives the
-Android app a new look and a first-run setup; it is built and waiting to be merged. A test Android
-app (APK) is published in the repository's GitHub Releases after every build.
+All ten milestones are built and merged into `main`, and the checks pass. M11 gets Warden ready
+to run for real: Play Store builds, backups and monitoring, a security review, and draft privacy
+and terms texts for the lawyer. A test Android app (APK) is published in the repository's GitHub
+Releases after every build.
 
 What is left is mostly not code. Warden needs a server, accounts with outside providers, real
 partner organisations, a native Pidgin speaker and a lawyer before it can launch. Those items are
@@ -27,7 +28,8 @@ end of this page.
 | M7 | Community feed and route safety score | [#4](https://github.com/Realdiamond/warden/pull/4) | 14 Oct 2026 |
 | M8 | Voice notes, photos, SOS sound, spoken broadcasts, news | [#5](https://github.com/Realdiamond/warden/pull/5) | 14 Oct 2026 |
 | M9 | Fleet dashboard and paid risk-data API | [#6](https://github.com/Realdiamond/warden/pull/6) | 14 Oct 2026 |
-| M10 | New look, night mode and a first-run setup | [#8](https://github.com/Realdiamond/warden/pull/8) | not yet |
+| M10 | New look, night mode and a first-run setup | [#8](https://github.com/Realdiamond/warden/pull/8) | 4 Nov 2026 |
+| M11 | Ready to go live: Play Store builds, backups, monitoring, security review, privacy texts | [#9](https://github.com/Realdiamond/warden/pull/9) | not yet |
 
 In the lists below, a ticked box is done and an empty box is still open.
 
@@ -195,6 +197,25 @@ contacts until they pressed SOS. M10 fixes that and gives every screen one consi
 - [x] Every text colour checked for readability in both themes by an automated test
 - [ ] New words checked in Pidgin by a native speaker (founder)
 - [ ] First-time use watched with five people in Lagos who have not seen the app (founder)
+
+## M11: Ready to go live
+
+Everything the code can do before the pilot, while the accounts, partners and legal work are in
+progress.
+
+- [x] Play Store builds: the "Make the Play upload key" and "Play Store release" buttons on
+      GitHub ([play-store.md](play-store.md)), with the store listing and data safety answers
+      drafted; a practice run checks the release setup on every change to it
+- [x] Daily encrypted backups with a tested restore, health checks and an uptime monitor
+      ([deploy.md](deploy.md)), and a load test sized for the pilot ([load-test.md](load-test.md))
+- [x] Security review with its fixes ([security-review-2026-11.md](security-review-2026-11.md))
+- [x] Draft privacy notice and terms of use in the app, in the first-run setup and at `/privacy`
+      and `/terms` ([legal/](legal/))
+- [ ] The lawyer's version of the privacy notice and terms (founder)
+- [ ] Decisions from the security review: report retention period, staff two-step sign-in,
+      Play Integrity before the public launch (founder, with Claude)
+- [ ] Upload key made and the first Play Store build uploaded to internal testing (founder,
+      once the Play account exists)
 
 ## Before launch: what needs the founder
 

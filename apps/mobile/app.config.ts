@@ -25,18 +25,54 @@ const withAbiSplits: ConfigPlugin = (expoConfig) =>
     return gradle;
   });
 
+// Play Store builds are signed with Warden's upload key, which the release workflow provides
+// through WARDEN_UPLOAD_* settings (docs/play-store.md). Without them, release builds keep the
+// development key, as the test APKs always have. Google Play rejects the development key.
+const UPLOAD_SIGNING = `
+// Added by app.config.ts (withUploadSigning): sign with the Play upload key when given one.
+if (System.getenv("WARDEN_UPLOAD_STORE_FILE")) {
+    android {
+        signingConfigs {
+            upload {
+                storeFile file(System.getenv("WARDEN_UPLOAD_STORE_FILE"))
+                storePassword System.getenv("WARDEN_UPLOAD_STORE_PASSWORD")
+                keyAlias System.getenv("WARDEN_UPLOAD_KEY_ALIAS")
+                keyPassword System.getenv("WARDEN_UPLOAD_STORE_PASSWORD")
+            }
+        }
+        buildTypes {
+            release {
+                signingConfig signingConfigs.upload
+            }
+        }
+    }
+}
+`;
+
+const withUploadSigning: ConfigPlugin = (expoConfig) =>
+  withAppBuildGradle(expoConfig, (gradle) => {
+    if (!gradle.modResults.contents.includes("withUploadSigning")) {
+      gradle.modResults.contents += UPLOAD_SIGNING;
+    }
+    return gradle;
+  });
+
 // WARDEN_API_URL is baked into a build. Leave it empty to ship a build that starts in demo mode;
 // testers can still point the app at a server from Settings.
 const config: ExpoConfig = {
   name: "Warden",
   slug: "warden",
   scheme: "warden",
-  version: "0.1.0",
+  // Play Store releases set the version people see (WARDEN_VERSION_NAME); test builds stay 0.1.0.
+  version: process.env.WARDEN_VERSION_NAME ?? "0.1.0",
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
   android: {
     package: "ng.warden.app",
+    // Contacts, places, PINs and trip tokens "stay on this phone": keep them out of Android's
+    // automatic cloud backup too (security review, November 2026).
+    allowBackup: false,
     versionCode: Number(process.env.WARDEN_VERSION_CODE ?? 1),
     adaptiveIcon: {
       backgroundColor: "#0F5C4D",
@@ -109,4 +145,4 @@ const config: ExpoConfig = {
   },
 };
 
-export default withAbiSplits(config);
+export default withUploadSigning(withAbiSplits(config));

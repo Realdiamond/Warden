@@ -3,6 +3,7 @@ export * from "./categories.ts";
 export * from "./community.ts";
 export * from "./distance.ts";
 export * from "./fleet.ts";
+export * from "./legal.ts";
 export * from "./media.ts";
 export * from "./outlook.ts";
 export * from "./responders.ts";

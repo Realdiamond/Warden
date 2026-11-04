@@ -11,11 +11,14 @@ export default defineConfig({
   },
   build: {
     sourcemap: false,
-    // Two pages: the moderator console and the live-location page trusted contacts open.
+    // The moderator console, the live-location page trusted contacts open, and the public legal pages.
     rolldownOptions: {
       input: {
         main: resolve(import.meta.dirname, "index.html"),
         live: resolve(import.meta.dirname, "live.html"),
+        // The public privacy notice and terms of use (M11), which the Play Store links to.
+        privacy: resolve(import.meta.dirname, "privacy.html"),
+        terms: resolve(import.meta.dirname, "terms.html"),
       },
     },
   },
