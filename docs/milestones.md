@@ -29,7 +29,7 @@ end of this page.
 | M8 | Voice notes, photos, SOS sound, spoken broadcasts, news | [#5](https://github.com/Realdiamond/warden/pull/5) | 14 Oct 2026 |
 | M9 | Fleet dashboard and paid risk-data API | [#6](https://github.com/Realdiamond/warden/pull/6) | 14 Oct 2026 |
 | M10 | New look, night mode and a first-run setup | [#8](https://github.com/Realdiamond/warden/pull/8) | 4 Nov 2026 |
-| M11 | Ready to go live: Play Store builds, backups, monitoring, security review, privacy texts | this pull request | not yet |
+| M11 | Ready to go live: Play Store builds, backups, monitoring, security review, privacy texts | [#9](https://github.com/Realdiamond/warden/pull/9) | not yet |
 
 In the lists below, a ticked box is done and an empty box is still open.
 
