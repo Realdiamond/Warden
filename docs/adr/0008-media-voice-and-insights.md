@@ -20,7 +20,9 @@ news sites breaks their terms and copies copyrighted work.
   against its type, removes the hidden details from photos (EXIF with GPS position and camera
   serial number, XMP, IPTC, comments), encrypts the bytes like report text, includes them in key
   rotation, and deletes them after 30 days. Videos keep their metadata, which can include a
-  position; only staff and responders can open them.
+  position; only staff and responders can open them. (Changed in November 2026: the server now
+  blanks the metadata boxes of MP4 videos and M4A voice notes as well; see
+  `docs/security-review-2026-11.md`.)
 - **Opening a file is audited.** Moderators (and responders, for incidents in their area) open
   files one at a time from the incident page. Each opening writes `report_media.read` to the
   audit log, and the request needs the console header, so a link on another site cannot make

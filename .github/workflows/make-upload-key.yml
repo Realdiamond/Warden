@@ -1,0 +1,59 @@
+name: Make the Play upload key (run once)
+
+# Creates the key that signs Warden for the Google Play Store, on GitHub's machines, so it never
+# passes through a laptop or a chat. The founder runs it once from the Actions tab after adding
+# the WARDEN_UPLOAD_STORE_PASSWORD secret (docs/play-store.md, step 2). The key file is locked
+# with that password, and the download expires after one day.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  key:
+    name: Make the upload key
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      STORE_PASSWORD: ${{ secrets.WARDEN_UPLOAD_STORE_PASSWORD }}
+      ALREADY_SAVED: ${{ secrets.WARDEN_UPLOAD_KEYSTORE_BASE64 != '' }}
+    steps:
+      - name: Check it is safe to make a key
+        run: |
+          if [ "$ALREADY_SAVED" = "true" ]; then
+            echo "An upload key is already saved in the WARDEN_UPLOAD_KEYSTORE_BASE64 secret."
+            echo "Making another would stop Play Store updates from working with the saved one."
+            echo "Only if you really mean to replace it, delete that secret first, then run this again."
+            exit 1
+          fi
+          if [ "${#STORE_PASSWORD}" -lt 16 ]; then
+            echo "First add a secret named WARDEN_UPLOAD_STORE_PASSWORD with at least 16 characters"
+            echo "(docs/play-store.md, step 2), then run this again."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Make the key
+        run: |
+          mkdir -p out
+          keytool -genkeypair -noprompt \
+            -keystore out/warden-upload-key.p12 -storetype PKCS12 \
+            -storepass "$STORE_PASSWORD" -keypass "$STORE_PASSWORD" \
+            -alias warden-upload -keyalg RSA -keysize 4096 -validity 10000 \
+            -dname "CN=Warden, O=Warden, C=NG"
+          base64 -w0 out/warden-upload-key.p12 > out/warden-upload-key.base64.txt
+          echo "The key's fingerprint (not secret; Play Console shows the same one):"
+          keytool -list -v -keystore out/warden-upload-key.p12 -storepass "$STORE_PASSWORD" \
+            -alias warden-upload | grep -E "SHA256:"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: warden-upload-key
+          path: out/
+          retention-days: 1

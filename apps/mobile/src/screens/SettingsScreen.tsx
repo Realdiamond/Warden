@@ -6,6 +6,8 @@ import { useStyles } from "../components/theme.tsx";
 import {
   Button,
   Card,
+  Divider,
+  ListRow,
   ModalHeader,
   Note,
   SectionLabel,
@@ -20,6 +22,7 @@ import {
   type Settings,
 } from "../lib/settings.ts";
 import { MONO, type Palette, type ThemeSetting } from "../lib/theme.ts";
+import { type LegalDocumentId, LegalScreen } from "./LegalScreen.tsx";
 
 const NIGHT_MODES: { value: ThemeSetting; label: string; accessibilityLabel: string }[] = [
   { value: "system", label: "System", accessibilityLabel: "Night mode follows the phone" },
@@ -45,6 +48,11 @@ export function SettingsScreen({
   const validUrl = isValidServerUrl(apiUrl.trim());
   const validCode = isValidReporterCode(reporterCode);
   const valid = validUrl && validCode;
+  const [reading, setReading] = useState<LegalDocumentId | null>(null);
+
+  if (reading) {
+    return <LegalScreen doc={reading} onBack={() => setReading(null)} onClose={onClose} />;
+  }
 
   return (
     <View style={styles.screen}>
@@ -148,6 +156,25 @@ export function SettingsScreen({
             })
           }
         />
+
+        <SectionLabel>Privacy</SectionLabel>
+        <Card>
+          <ListRow
+            icon="shield-account-outline"
+            tone="neutral"
+            title="Privacy notice"
+            description="What Warden keeps, who sees it, and for how long"
+            onPress={() => setReading("privacy")}
+          />
+          <Divider inset={66} />
+          <ListRow
+            icon="file-document-outline"
+            tone="neutral"
+            title="Terms of use"
+            description="What Warden is, and fair use"
+            onPress={() => setReading("terms")}
+          />
+        </Card>
 
         <Note icon="shield-check-outline">
           Warden keeps you anonymous. Reports carry the place you choose, never your name or your

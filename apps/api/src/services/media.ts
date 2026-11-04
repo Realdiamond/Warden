@@ -67,6 +67,60 @@ export function stripJpegMetadata(data: Buffer): Buffer | null {
   return null;
 }
 
+/** Boxes that only describe the recording (where, when, with what), never the picture or sound. */
+const MP4_METADATA_BOXES = new Set(["udta", "meta", "uuid"]);
+/** Boxes whose children may hold metadata boxes. */
+const MP4_CONTAINERS = new Set(["moov", "trak"]);
+
+/**
+ * Blanks the metadata of an MP4 video or M4A voice note: phone cameras write the GPS position
+ * (QuickTime "©xyz"), the phone model and similar details into "udta", "meta" and XMP "uuid"
+ * boxes. Each one is turned into a "free" box of the same size filled with zeros, so nothing else
+ * in the file moves and it still plays. Returns null when the file's boxes do not add up, so a
+ * broken file is refused rather than stored with its metadata.
+ */
+export function blankMp4Metadata(data: Buffer): Buffer | null {
+  const out = Buffer.from(data);
+  const walk = (start: number, end: number, depth: number): boolean => {
+    let at = start;
+    while (at < end) {
+      if (at + 8 > end) return false;
+      let size = out.readUInt32BE(at);
+      const type = out.subarray(at + 4, at + 8).toString("latin1");
+      let header = 8;
+      if (size === 1) {
+        if (at + 16 > end) return false;
+        const large = out.readBigUInt64BE(at + 8);
+        if (large > BigInt(end - at)) return false;
+        size = Number(large);
+        header = 16;
+      } else if (size === 0) {
+        // The last box runs to the end of its parent.
+        size = end - at;
+      }
+      if (size < header || at + size > end) return false;
+      if (MP4_METADATA_BOXES.has(type)) {
+        out.write("free", at + 4, "latin1");
+        out.fill(0, at + header, at + size);
+      } else if (MP4_CONTAINERS.has(type) && depth < 4) {
+        if (!walk(at + header, at + size, depth + 1)) return false;
+      }
+      at += size;
+    }
+    return true;
+  };
+  return walk(0, out.length, 0) ? out : null;
+}
+
+const MP4_FAMILY = new Set(["video/mp4", "audio/mp4", "audio/m4a", "audio/x-m4a"]);
+
+/** The bytes Warden keeps: photo and MP4 metadata removed, other types as they are. */
+export function cleanMedia(kind: MediaKind, type: string, data: Buffer): Buffer | null {
+  if (kind === "photo") return stripJpegMetadata(data);
+  if (MP4_FAMILY.has(type)) return blankMp4Metadata(data);
+  return data;
+}
+
 function check(
   contentType: string | undefined,
   data: Buffer,
@@ -99,7 +153,7 @@ export async function attachReportMedia(
     () => true,
   );
   if (!checked.ok) return checked;
-  const data = checked.kind === "photo" ? stripJpegMetadata(input.data) : input.data;
+  const data = cleanMedia(checked.kind, checked.type, input.data);
   if (!data) return { ok: false, status: 415, message: "The file does not match its type." };
   const now = deps.now();
   return withTransaction(deps.pool, async (client) => {
@@ -225,6 +279,9 @@ export async function addSessionClip(
     (k) => k === "audio",
   );
   if (!checked.ok) return checked;
+  // An SOS clip is never refused for its metadata: it goes only to the contacts the person
+  // chose, and a lost recording is worse than its details reaching them.
+  const data = cleanMedia(checked.kind, checked.type, input.data) ?? input.data;
   const now = deps.now();
   return withTransaction(deps.pool, async (client) => {
     const { rows } = await client.query<{
@@ -258,9 +315,9 @@ export async function addSessionClip(
         id,
         input.sessionId,
         checked.type,
-        input.data.length,
+        data.length,
         deps.cipher.currentKeyId,
-        deps.cipher.encrypt("session.audio", input.data.toString("base64")),
+        deps.cipher.encrypt("session.audio", data.toString("base64")),
         recordedAt,
         now,
       ],

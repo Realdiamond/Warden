@@ -1,0 +1,40 @@
+.legal {
+  max-width: 68ch;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+  line-height: 1.6;
+}
+
+.legal h1 {
+  margin: 4px 0 16px;
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
+.legal h2 {
+  margin: 28px 0 8px;
+  font-size: 1.2rem;
+}
+
+.legal p {
+  margin: 0 0 12px;
+}
+
+.legal-brand {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.legal-draft {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e9c46a;
+  background: #fff8e6;
+  color: #16181d;
+}
+
+.legal-meta {
+  margin-top: 32px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}

@@ -52,3 +52,14 @@ export function pressKey(value: string, key: string, length: number = SETUP_PIN_
   if (!/^\d$/.test(key) || value.length >= length) return value;
   return value + key;
 }
+
+const LEGAL_KEY = "warden.legalAccepted.v1";
+
+/** The privacy notice and terms version this phone's user accepted, if any. */
+export async function acceptedLegalVersion(store: KeyValueStore): Promise<string | null> {
+  return store.getItem(LEGAL_KEY);
+}
+
+export async function acceptLegal(store: KeyValueStore, version: string): Promise<void> {
+  await store.setItem(LEGAL_KEY, version);
+}

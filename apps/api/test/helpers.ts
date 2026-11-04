@@ -28,7 +28,9 @@ export interface TestContext {
 }
 
 /** A fresh schema per test: real PostgreSQL + PostGIS, controllable clock, captured logs. */
-export async function createTestContext(): Promise<TestContext> {
+export async function createTestContext(
+  options: { consoleDist?: string } = {},
+): Promise<TestContext> {
   const schema = `t_${randomBytes(6).toString("hex")}`;
   const admin = createPool(TEST_DATABASE_URL);
   await admin.query(`CREATE SCHEMA ${schema}`);
@@ -44,6 +46,7 @@ export async function createTestContext(): Promise<TestContext> {
     WARDEN_SIGNING_KEY: randomBytes(32).toString("base64"),
     PUBLIC_WEB_URL: "https://warden.test",
     USSD_CALLBACK_SECRET: "ussd-test-secret-0123456789abcdef",
+    ...(options.consoleDist ? { CONSOLE_DIST: options.consoleDist } : {}),
   });
 
   let current = new Date("2026-10-05T12:00:00.000Z");

@@ -90,6 +90,32 @@ describe("responder access", () => {
     expect(me.json()).toMatchObject({ role: "responder", organisation: { kind: "police" } });
   });
 
+  it("cannot get round the screen check by encoding the address", async () => {
+    await submitReport(ctx, { categoryId: "domestic_violence", location: LAGOS, description: "x" });
+    const { rows } = await ctx.pool.query<{ id: string }>("SELECT id FROM incidents LIMIT 1");
+    const id = rows[0]?.id ?? "";
+    const responder = await signInResponder(ctx);
+    // The router decodes %69 to "i" before matching, so these reach moderator routes.
+    for (const url of [
+      `/v1/admin/%69ncidents/${id}`,
+      "/v1/admin/%71ueue",
+      "/v1/admin/%6Dedia/00000000-0000-4000-8000-000000000000",
+      "/v1/admin/n%65ws",
+    ]) {
+      expect((await as(responder.cookie, "GET", url)).statusCode, url).toBe(403);
+    }
+    expect(
+      (await as(responder.cookie, "POST", `/v1/admin/%69ncidents/${id}/actions`, {
+        action: "verify",
+        reason: "x",
+      })).statusCode,
+    ).toBe(403);
+    const moderator = await signInStaff(ctx);
+    expect((await as(moderator.cookie, "GET", "/v1/admin/%72esponder/incidents")).statusCode).toBe(
+      403,
+    );
+  });
+
   it("posts public updates that show on the map, and can close an incident", async () => {
     await submitReport(ctx, { categoryId: "road_blockage", location: LAGOS });
     const id = await onlyIncidentId();

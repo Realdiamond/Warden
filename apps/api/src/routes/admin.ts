@@ -48,8 +48,13 @@ const COOKIE_PATH = "/v1/admin";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, config: Config): void {
-  const perEmail = new RateLimiter(5, 15 * 60_000);
-  const overall = new RateLimiter(100, 60_000);
+  // Login limits are counted per sender, so nobody can lock every moderator out by flooding
+  // the login page. The sender is a keyed hash of the address, held in memory only and never
+  // logged; behind Caddy it is the real client address (Caddy replaces X-Forwarded-For).
+  const perEmailAndSender = new RateLimiter(5, 15 * 60_000);
+  // A looser cap on each email from anywhere still stops guessing spread across many senders.
+  const perEmail = new RateLimiter(30, 60 * 60_000);
+  const perSender = new RateLimiter(30, 60_000);
   const staffByRequest = new WeakMap<FastifyRequest, StaffUser>();
 
   const requireConsoleHeader = (request: FastifyRequest, reply: FastifyReply) => {
@@ -64,13 +69,16 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
     if (!requireConsoleHeader(request, reply)) return reply;
     const credentials = StaffLoginSchema.parse(request.body);
     const nowMs = deps.now().getTime();
-    const global = overall.hit("all", nowMs);
-    if (!global.allowed) return tooMany(reply, global.retryAfterMs);
-    const mine = perEmail.hit(
-      deps.hasher.hmacHex("rl-login", credentials.email.toLowerCase()),
-      nowMs,
-    );
-    if (!mine.allowed) return tooMany(reply, mine.retryAfterMs);
+    const sender = deps.hasher.hmacHex("rl-login-sender", request.ip);
+    const email = deps.hasher.hmacHex("rl-login", credentials.email.toLowerCase());
+    for (const [limiter, key] of [
+      [perSender, sender],
+      [perEmailAndSender, `${email}:${sender}`],
+      [perEmail, email],
+    ] as const) {
+      const hit = limiter.hit(key, nowMs);
+      if (!hit.allowed) return tooMany(reply, hit.retryAfterMs);
+    }
 
     const result = await login(deps, credentials.email, credentials.password);
     if (!result.ok) return problem(reply, 401, "Email or password is incorrect.");
@@ -122,7 +130,10 @@ export function registerAdminRoutes(app: FastifyInstance, deps: ServiceDeps, con
     admin.addHook("preHandler", async (request, reply) => {
       const staff = staffByRequest.get(request);
       if (!staff) return;
-      const url = request.url.split("?")[0] ?? "";
+      // The route that matched, like "/v1/admin/incidents/:id", never the raw address: the router
+      // decodes "%69ncidents" to "incidents" before matching, so the raw address could be
+      // spelled to slip past these checks.
+      const url = request.routeOptions.url ?? "";
       if (url.startsWith(FLEET_PREFIX)) {
         if (staff.role !== "fleet" || !staff.organisation) {
           return problem(reply, 403, "Only fleet accounts can use this.");

@@ -129,8 +129,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     await app.register(fastifyStatic, { root: consoleDist });
     app.setNotFoundHandler((request, reply) => {
       if (request.method === "GET" && !request.url.startsWith("/v1/")) {
-        // The page contacts open from a trip or SOS link; everything else is the console.
-        const page = /^\/live\/?(\?|$)/.test(request.url) ? "live.html" : "index.html";
+        // The page contacts open from a trip or SOS link, the public privacy notice and terms,
+        // and everything else is the console.
+        const named = /^\/(live|privacy|terms)\/?(\?|$)/.exec(request.url)?.[1];
+        const page = named ? `${named}.html` : "index.html";
         return reply.sendFile(page);
       }
       return problem(reply, 404, "Not found");
