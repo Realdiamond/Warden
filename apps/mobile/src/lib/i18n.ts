@@ -7,7 +7,7 @@
 //
 // Speech uses the Nigerian English voice for both, since phones have no Pidgin voice.
 
-import type { CategoryId } from "@warden/shared";
+import type { CategoryId, TimeWindow } from "@warden/shared";
 
 export const LANGUAGES = ["en", "pcm"] as const;
 export type Language = (typeof LANGUAGES)[number];
@@ -118,6 +118,67 @@ export interface Strings {
   safety: string;
   alerts: string;
   call112: string;
+  trip: string;
+  menu: string;
+  // Map summary (M10)
+  nearYou: string;
+  inThisArea: string;
+  dangerNearby: string;
+  takeCareNearby: string;
+  quietNearYou: string;
+  quietTonight: string;
+  reportsWithin: (n: number, km: number, window: string) => string;
+  reportsInView: (n: number, window: string) => string;
+  tapCircle: string;
+  lastWindow: Record<TimeWindow, string>;
+  emergencyKey: string;
+  warningKey: string;
+  advisoryKey: string;
+  respondersKey: string;
+  // Report, trip and SOS screens (M10)
+  stepOf: (n: number, total: number) => string;
+  whatsHappening: string;
+  call112First: string;
+  privateGroupNote: string;
+  privateShort: string;
+  anonymousNoName: string;
+  whichOne: (group: string) => string;
+  whereDidItHappen: string;
+  whereIAmNow: string;
+  chooseOnMap: string;
+  locationStaysHere: string;
+  noLocation: string;
+  privateOnlyStaff: string;
+  anythingElse: string;
+  describePlaceholder: string;
+  noNames: string;
+  sendReport: string;
+  backToMap: string;
+  howLong: string;
+  lateHelp: string;
+  whereTo: string;
+  pickOnMap: string;
+  placeOnMap: string;
+  whereGoing: string;
+  moveToDestination: string;
+  noteForContacts: string;
+  notePlaceholder: string;
+  noContactsTrip: string;
+  addContacts: string;
+  startSharing: string;
+  starting: string;
+  tripPrivacy: string;
+  shareMyTrip: string;
+  sharingLive: string;
+  whoIsTold: string;
+  getsText: string;
+  respondersNear: string;
+  respondersCanSee: string;
+  needsPin: string;
+  willGetLocation: (names: string) => string;
+  and: string;
+  seconds: string;
+  pressedByMistake: string;
 }
 
 const en: Strings = {
@@ -220,6 +281,76 @@ const en: Strings = {
   safety: "Safety",
   alerts: "Alerts",
   call112: "Call 112",
+  trip: "Trip",
+  menu: "Menu",
+  nearYou: "Near you",
+  inThisArea: "On this part of the map",
+  dangerNearby: "Danger nearby",
+  takeCareNearby: "Take care nearby",
+  quietNearYou: "Quiet near you",
+  quietTonight: "Quiet tonight",
+  reportsWithin: (n, km, w) =>
+    n === 0
+      ? `No reports within ${km} km in the ${w}`
+      : `${n} ${n === 1 ? "report" : "reports"} within ${km} km in the ${w}`,
+  reportsInView: (n, w) => `${n} ${n === 1 ? "report" : "reports"} in the ${w}`,
+  tapCircle: "Tap a circle to zoom in.",
+  lastWindow: {
+    "6h": "last 6 hours",
+    "24h": "last 24 hours",
+    "7d": "last 7 days",
+    "30d": "last 30 days",
+  },
+  emergencyKey: "Emergency",
+  warningKey: "Warning",
+  advisoryKey: "Advisory",
+  respondersKey: "Responders",
+  stepOf: (n, total) => `Step ${n} of ${total}`,
+  whatsHappening: "What's happening?",
+  call112First: "Someone in danger right now? Call 112 first",
+  privateGroupNote:
+    "Private reports (sexual or domestic violence, missing person) never appear on the map.",
+  privateShort: "Private. Never on the map.",
+  anonymousNoName: "Anonymous. Warden never asks for your name.",
+  whichOne: (group) => `${group}: which one?`,
+  whereDidItHappen: "Where did it happen?",
+  whereIAmNow: "Where I am now",
+  chooseOnMap: "Choose on the map",
+  locationStaysHere: "Your own location stays on this phone. Only the place you report is sent.",
+  noLocation: "We could not get your location. Choose the place on the map instead.",
+  privateOnlyStaff: "This report goes only to trained staff. It will never appear on the map.",
+  anythingElse: "Anything else? (optional)",
+  describePlaceholder: "What did you see? For example: two men on a red motorcycle.",
+  noNames: "Please do not include names, phone numbers, or anyone's ethnicity or religion.",
+  sendReport: "Send report",
+  backToMap: "Back to the map",
+  howLong: "How long will it take?",
+  lateHelp: "If you have not arrived 10 minutes after this, Warden texts your trusted contacts.",
+  whereTo: "Where to? (optional)",
+  pickOnMap: "Pick on map",
+  placeOnMap: "Place on the map",
+  whereGoing: "Where are you going?",
+  moveToDestination: "Move the map so the pin is where you are going.",
+  noteForContacts: "Note for your contacts (optional)",
+  notePlaceholder: "For example: Bolt, blue Corolla, plate KJA 123 XY",
+  noContactsTrip:
+    "You have no trusted contacts yet. You can still share the link yourself, but Warden cannot text anyone if you are late.",
+  addContacts: "Add trusted contacts",
+  startSharing: "Start sharing",
+  starting: "Starting...",
+  tripPrivacy:
+    "While sharing, Android shows a Warden notification. Your location goes only to people with your private link and is deleted two days after the trip ends.",
+  shareMyTrip: "Share my trip",
+  sharingLive: "Sharing your live location",
+  whoIsTold: "Who is being told",
+  getsText: "Gets a text with your live location",
+  respondersNear: "Responders near you",
+  respondersCanSee: "Verified teams in your area can see this SOS",
+  needsPin: "Needs your PIN",
+  willGetLocation: (names) => `${names} will get your live location.`,
+  and: "and",
+  seconds: "seconds",
+  pressedByMistake: "Pressed by mistake? Cancel now. No PIN needed yet.",
 };
 
 // DRAFT Pidgin: needs checking by a native speaker before launch.
@@ -325,6 +456,78 @@ const pcm: Strings = {
   safety: "Safety",
   alerts: "Alert",
   call112: "Call 112",
+  trip: "Trip",
+  menu: "Menu",
+  nearYou: "For your area",
+  inThisArea: "For this side of the map",
+  dangerNearby: "Wahala dey nearby",
+  takeCareNearby: "Shine your eye for nearby",
+  quietNearYou: "E quiet for your area",
+  quietTonight: "E quiet tonight",
+  reportsWithin: (n, km, w) =>
+    n === 0
+      ? `Nobody report anything inside ${km} km for the ${w}`
+      : `${n} report inside ${km} km for the ${w}`,
+  reportsInView: (n, w) => `${n} report for the ${w}`,
+  tapCircle: "Touch any circle to zoom in.",
+  lastWindow: {
+    "6h": "last 6 hours",
+    "24h": "last 24 hours",
+    "7d": "last 7 days",
+    "30d": "last 30 days",
+  },
+  emergencyKey: "Emergency",
+  warningKey: "Warning",
+  advisoryKey: "Advisory",
+  respondersKey: "Responders",
+  stepOf: (n, total) => `Step ${n} of ${total}`,
+  whatsHappening: "Wetin dey happen?",
+  call112First: "Person dey for danger now? Call 112 first",
+  privateGroupNote:
+    "Private report (sexual or domestic violence, person wey miss) no go ever show for map.",
+  privateShort: "Private. E no go show for map.",
+  anonymousNoName: "Nobody go know na you. Warden no dey ask your name.",
+  whichOne: (group) => `${group}: which one?`,
+  whereDidItHappen: "Where e happen?",
+  whereIAmNow: "Where I dey now",
+  chooseOnMap: "Choose am for map",
+  locationStaysHere:
+    "Your own location go stay for this phone. Na only the place wey you report we go send.",
+  noLocation: "We no fit get your location. Choose the place for map instead.",
+  privateOnlyStaff: "Na only trained staff go see this report. E no go ever show for map.",
+  anythingElse: "Anything again? (if you like)",
+  describePlaceholder: "Wetin you see? Like: two men for red okada.",
+  noNames: "Abeg no put person name, phone number, tribe or religion.",
+  sendReport: "Send the report",
+  backToMap: "Go back to map",
+  howLong: "How long e go take?",
+  lateHelp:
+    "If you never reach 10 minutes after this time, Warden go text the people wey you trust.",
+  whereTo: "Where you dey go? (if you like)",
+  pickOnMap: "Pick am for map",
+  placeOnMap: "Place for map",
+  whereGoing: "Where you dey go?",
+  moveToDestination: "Move the map make the pin dey where you dey go.",
+  noteForContacts: "Message for your people (if you like)",
+  notePlaceholder: "Like: Bolt, blue Corolla, plate KJA 123 XY",
+  noContactsTrip:
+    "You never add people wey you trust. You fit still send the link yourself, but Warden no fit text anybody if you late.",
+  addContacts: "Add people wey you trust",
+  startSharing: "Start to share",
+  starting: "E dey start...",
+  tripPrivacy:
+    "When you dey share, Android go show Warden notification. Na only people wey get your private link go see your location, and we go delete am two days after the journey finish.",
+  shareMyTrip: "Share my journey",
+  sharingLive: "We dey share where you dey",
+  whoIsTold: "Who we dey tell",
+  getsText: "Go get text wey show where you dey",
+  respondersNear: "Responders wey dey near you",
+  respondersCanSee: "Verified teams for your area fit see this SOS",
+  needsPin: "E need your PIN",
+  willGetLocation: (names) => `${names} go see where you dey, live.`,
+  and: "and",
+  seconds: "seconds",
+  pressedByMistake: "You press am by mistake? Cancel now. You no need PIN yet.",
 };
 
 const STRINGS: Record<Language, Strings> = { en, pcm };

@@ -10,12 +10,14 @@ import {
 } from "expo-audio";
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { type Attachment, attachmentProblem } from "../lib/media.ts";
 import { keepFile, removeFile } from "../lib/mediaFiles.ts";
 import { VOICE_CONTENT_TYPE, VOICE_EXTENSION, VOICE_RECORDING } from "../lib/recording.ts";
-import { COLORS } from "../lib/ui.ts";
-import { Button, Icon } from "./ui.tsx";
+import { MONO, type Palette } from "../lib/theme.ts";
+import { Text } from "./text.tsx";
+import { useStyles, useTheme } from "./theme.tsx";
+import { Button, Icon, IconTile } from "./ui.tsx";
 
 const VOICE_MAX_SECONDS = 60;
 const VIDEO_MAX_SECONDS = 20;
@@ -36,6 +38,8 @@ export function AttachmentPicker({
   attachments: Attachment[];
   onChange: (next: Attachment[]) => void;
 }) {
+  const c = useTheme();
+  const styles = useStyles(makeStyles);
   const recorder = useAudioRecorder(VOICE_RECORDING);
   const recording = useAudioRecorderState(recorder, 500);
   const [message, setMessage] = useState<string | null>(null);
@@ -125,10 +129,12 @@ export function AttachmentPicker({
       </Text>
       {attachments.map((file, index) => (
         <View key={file.uri} style={styles.row}>
-          <Icon name={ICON[file.kind]} color={COLORS.primary} />
+          <IconTile icon={ICON[file.kind]} tone="primary" size={40} />
           <Text style={styles.rowText}>
             {LABEL[file.kind]}
-            {file.bytes > 0 ? ` · ${Math.max(1, Math.round(file.bytes / 1000))} KB` : ""}
+            {file.bytes > 0 ? (
+              <Text style={styles.size}> · {Math.max(1, Math.round(file.bytes / 1000))} KB</Text>
+            ) : null}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -137,9 +143,9 @@ export function AttachmentPicker({
               void removeFile(file.uri).catch(() => undefined);
               onChange(attachments.filter((_, i) => i !== index));
             }}
-            hitSlop={12}
+            style={styles.remove}
           >
-            <Icon name="close" color={COLORS.muted} />
+            <Icon name="close" color={c.muted} />
           </Pressable>
         </View>
       ))}
@@ -147,7 +153,7 @@ export function AttachmentPicker({
         <Button
           label={`Stop recording (${Math.floor(recording.durationMillis / 1000)}s of ${VOICE_MAX_SECONDS}s)`}
           icon="stop-circle"
-          variant="danger"
+          variant="dangerOutline"
           onPress={() => void stopVoice()}
         />
       ) : (
@@ -177,19 +183,22 @@ export function AttachmentPicker({
   );
 }
 
-const styles = StyleSheet.create({
-  box: {
-    padding: 14,
-    gap: 8,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  title: { fontSize: 15, fontWeight: "600", color: COLORS.text },
-  help: { color: COLORS.muted, fontSize: 13 },
-  row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
-  rowText: { flex: 1, color: COLORS.text },
-  buttons: { gap: 8 },
-  error: { color: COLORS.danger },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    box: {
+      padding: 16,
+      gap: 10,
+      borderRadius: 18,
+      backgroundColor: c.surface,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    title: { fontSize: 16, fontWeight: "700", color: c.text },
+    help: { color: c.muted, fontSize: 14, lineHeight: 19 },
+    row: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 48 },
+    rowText: { flex: 1, color: c.text, fontSize: 16, fontWeight: "700" },
+    size: { fontFamily: MONO, fontSize: 14, color: c.muted },
+    remove: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    buttons: { gap: 8 },
+    error: { color: c.dangerText, fontSize: 14, fontWeight: "700" },
+  });

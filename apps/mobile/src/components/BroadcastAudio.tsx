@@ -4,10 +4,10 @@
 import type { SignedBroadcast } from "@warden/shared";
 import { type AudioPlayer, createAudioPlayer } from "expo-audio";
 import { useEffect, useRef, useState } from "react";
-import { Text } from "react-native";
 import { verifiedBroadcastAudio } from "../lib/broadcasts.ts";
 import { writeTemp } from "../lib/mediaFiles.ts";
-import { COLORS } from "../lib/ui.ts";
+import { Text } from "./text.tsx";
+import { useTheme } from "./theme.tsx";
 import { Button } from "./ui.tsx";
 
 export function BroadcastAudio({
@@ -17,6 +17,7 @@ export function BroadcastAudio({
   broadcast: SignedBroadcast;
   download: (id: string) => Promise<Uint8Array | null>;
 }) {
+  const c = useTheme();
   const [state, setState] = useState<"idle" | "loading" | "playing" | "failed">("idle");
   const player = useRef<AudioPlayer | null>(null);
 
@@ -57,7 +58,7 @@ export function BroadcastAudio({
         onPress={() => void play()}
       />
       {state === "failed" && (
-        <Text style={{ color: COLORS.muted }}>
+        <Text style={{ color: c.muted, fontSize: 14, lineHeight: 20 }}>
           The spoken message could not be checked, so it was not played. The written message above
           is the official one.
         </Text>

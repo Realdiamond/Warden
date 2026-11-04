@@ -162,13 +162,23 @@ describe("settings", () => {
       demoMode: true,
       language: "en",
       reporterCode: "",
+      theme: "system",
     });
     expect(await loadSettings(memoryStore(), "https://api.warden.ng")).toEqual({
       apiUrl: "https://api.warden.ng",
       demoMode: false,
       language: "en",
       reporterCode: "",
+      theme: "system",
     });
+  });
+
+  it("keeps a night mode choice and ignores unknown ones", async () => {
+    const store = memoryStore();
+    await store.setItem("warden.settings.v1", JSON.stringify({ theme: "dark" }));
+    expect((await loadSettings(store, "")).theme).toBe("dark");
+    await store.setItem("warden.settings.v1", JSON.stringify({ theme: "purple" }));
+    expect((await loadSettings(store, "")).theme).toBe("system");
   });
 
   it("accepts only https server addresses", () => {

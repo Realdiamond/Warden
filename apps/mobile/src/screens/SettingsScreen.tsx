@@ -1,7 +1,17 @@
 import Constants from "expo-constants";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
-import { Button, ModalHeader, Note } from "../components/ui.tsx";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text, TextInput } from "../components/text.tsx";
+import { useStyles } from "../components/theme.tsx";
+import {
+  Button,
+  Card,
+  ModalHeader,
+  Note,
+  SectionLabel,
+  SegmentedControl,
+  SwitchRow,
+} from "../components/ui.tsx";
 import { LANGUAGE_NAMES, LANGUAGES, type Language } from "../lib/i18n.ts";
 import {
   isValidReporterCode,
@@ -9,7 +19,13 @@ import {
   normaliseReporterCode,
   type Settings,
 } from "../lib/settings.ts";
-import { COLORS } from "../lib/ui.ts";
+import { MONO, type Palette, type ThemeSetting } from "../lib/theme.ts";
+
+const NIGHT_MODES: { value: ThemeSetting; label: string; accessibilityLabel: string }[] = [
+  { value: "system", label: "System", accessibilityLabel: "Night mode follows the phone" },
+  { value: "light", label: "Light", accessibilityLabel: "Always light" },
+  { value: "dark", label: "Dark", accessibilityLabel: "Always dark" },
+];
 
 export function SettingsScreen({
   settings,
@@ -20,10 +36,12 @@ export function SettingsScreen({
   onSave: (settings: Settings) => void;
   onClose: () => void;
 }) {
+  const styles = useStyles(makeStyles);
   const [apiUrl, setApiUrl] = useState(settings.apiUrl);
   const [demoMode, setDemoMode] = useState(settings.demoMode);
   const [language, setLanguage] = useState<Language>(settings.language);
   const [reporterCode, setReporterCode] = useState(settings.reporterCode);
+  const [theme, setTheme] = useState<ThemeSetting>(settings.theme);
   const validUrl = isValidServerUrl(apiUrl.trim());
   const validCode = isValidReporterCode(reporterCode);
   const valid = validUrl && validCode;
@@ -32,72 +50,93 @@ export function SettingsScreen({
     <View style={styles.screen}>
       <ModalHeader title="Settings" onClose={onClose} />
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <Text style={styles.label}>Language</Text>
-        <View style={styles.choices} accessibilityRole="radiogroup">
-          {LANGUAGES.map((id) => (
-            <Pressable
-              key={id}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: language === id }}
-              onPress={() => setLanguage(id)}
-              style={[styles.choice, language === id && styles.choiceOn]}
-            >
-              <Text style={[styles.choiceText, language === id && styles.choiceTextOn]}>
-                {LANGUAGE_NAMES[id]}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        {language === "pcm" && (
-          <Text style={styles.help}>
-            Alerts, SOS, trips and safe places are in Pidgin. This is a first version and is still
-            being checked.
-          </Text>
-        )}
-
-        <View style={styles.row}>
-          <View style={styles.rowText}>
-            <Text style={styles.label}>Demo mode</Text>
-            <Text style={styles.help}>Shows sample incidents. Reports are not sent anywhere.</Text>
+        <View style={styles.section}>
+          <SectionLabel>Language</SectionLabel>
+          <View style={styles.choices} accessibilityRole="radiogroup">
+            {LANGUAGES.map((id) => (
+              <Pressable
+                key={id}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: language === id }}
+                onPress={() => setLanguage(id)}
+                style={[styles.choice, language === id && styles.choiceOn]}
+              >
+                <Text style={[styles.choiceText, language === id && styles.choiceTextOn]}>
+                  {LANGUAGE_NAMES[id]}
+                </Text>
+              </Pressable>
+            ))}
           </View>
-          <Switch value={demoMode} onValueChange={setDemoMode} accessibilityLabel="Demo mode" />
+          {language === "pcm" && (
+            <Text style={styles.help}>
+              Alerts, SOS, trips and safe places are in Pidgin. This is a first version and is still
+              being checked.
+            </Text>
+          )}
         </View>
 
-        <Text style={styles.label}>Server address</Text>
-        <TextInput
-          style={styles.input}
-          value={apiUrl}
-          onChangeText={setApiUrl}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          placeholder="https://api.example.ng"
-          placeholderTextColor={COLORS.muted}
-          accessibilityLabel="Server address"
-        />
-        {!validUrl && <Text style={styles.error}>Enter an address starting with https://</Text>}
-        <Text style={styles.help}>For testing. Leave empty to use demo mode.</Text>
+        <View style={styles.section}>
+          <SectionLabel>Night mode</SectionLabel>
+          <View style={styles.segmentRow}>
+            <SegmentedControl
+              options={NIGHT_MODES}
+              value={theme}
+              onChange={setTheme}
+              accessibilityLabel="Night mode"
+            />
+          </View>
+          <Text style={styles.help}>
+            Dark colours keep the screen dim at night. System follows your phone's setting.
+          </Text>
+        </View>
 
-        <Text style={styles.label}>Trusted reporter code</Text>
-        <TextInput
-          style={styles.input}
-          value={reporterCode}
-          onChangeText={setReporterCode}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
-          placeholderTextColor={COLORS.muted}
-          accessibilityLabel="Trusted reporter code"
-        />
-        {!validCode && <Text style={styles.error}>That code does not look right.</Text>}
-        <Text style={styles.help}>
-          Only if Warden gave you one. Your reports are then shown sooner. They stay anonymous:
-          Warden sees that a trusted reporter sent them, not who.
-        </Text>
+        <Card>
+          <SwitchRow
+            title="Demo mode"
+            description="Shows sample incidents. Reports are not sent anywhere."
+            value={demoMode}
+            onValueChange={setDemoMode}
+          />
+        </Card>
+
+        <View style={styles.section}>
+          <SectionLabel>Server address</SectionLabel>
+          <TextInput
+            style={styles.input}
+            value={apiUrl}
+            onChangeText={setApiUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            placeholder="https://api.example.ng"
+            accessibilityLabel="Server address"
+          />
+          {!validUrl && <Text style={styles.error}>Enter an address starting with https://</Text>}
+          <Text style={styles.help}>For testing. Leave empty to use demo mode.</Text>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel>Trusted reporter code</SectionLabel>
+          <TextInput
+            style={[styles.input, styles.code]}
+            value={reporterCode}
+            onChangeText={setReporterCode}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
+            accessibilityLabel="Trusted reporter code"
+          />
+          {!validCode && <Text style={styles.error}>That code does not look right.</Text>}
+          <Text style={styles.help}>
+            Only if Warden gave you one. Your reports are then shown sooner. They stay anonymous:
+            Warden sees that a trusted reporter sent them, not who.
+          </Text>
+        </View>
 
         <Button
           label="Save"
           variant="primary"
+          large
           disabled={!valid}
           onPress={() =>
             onSave({
@@ -105,11 +144,12 @@ export function SettingsScreen({
               demoMode: demoMode || apiUrl.trim() === "",
               language,
               reporterCode: normaliseReporterCode(reporterCode),
+              theme,
             })
           }
         />
 
-        <Note>
+        <Note icon="shield-check-outline">
           Warden keeps you anonymous. Reports carry the place you choose, never your name or your
           own location. Public maps show areas, not exact spots. Warden does not replace 112.
         </Note>
@@ -121,37 +161,38 @@ export function SettingsScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.background },
-  body: { padding: 16, gap: 12 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12 },
-  rowText: { flex: 1 },
-  label: { fontSize: 16, fontWeight: "600", color: COLORS.text },
-  help: { color: COLORS.muted, fontSize: 13 },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    color: COLORS.text,
-    backgroundColor: COLORS.surface,
-  },
-  error: { color: COLORS.danger },
-  choices: { flexDirection: "row", gap: 8 },
-  choice: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: COLORS.surface,
-  },
-  choiceOn: { borderColor: COLORS.primary, backgroundColor: COLORS.primary },
-  choiceText: { fontSize: 16, color: COLORS.text },
-  choiceTextOn: { color: "#FFFFFF", fontWeight: "600" },
-  version: { color: COLORS.muted, textAlign: "center", marginTop: 8 },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: c.background },
+    body: { padding: 16, gap: 18, paddingBottom: 32 },
+    section: { gap: 8 },
+    segmentRow: { flexDirection: "row" },
+    help: { color: c.muted, fontSize: 14, lineHeight: 20, paddingHorizontal: 2 },
+    input: {
+      minHeight: 52,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      fontSize: 17,
+      color: c.text,
+      backgroundColor: c.surface,
+    },
+    code: { fontFamily: MONO, letterSpacing: 1 },
+    error: { color: c.dangerText, fontSize: 14, fontWeight: "700" },
+    choices: { flexDirection: "row", gap: 8 },
+    choice: {
+      flex: 1,
+      minHeight: 48,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.surface,
+    },
+    choiceOn: { borderColor: c.primary, backgroundColor: c.primary },
+    choiceText: { fontSize: 16, fontWeight: "600", color: c.text },
+    choiceTextOn: { color: c.onPrimary, fontWeight: "700" },
+    version: { color: c.muted, textAlign: "center", marginTop: 4, fontFamily: MONO, fontSize: 13 },
+  });

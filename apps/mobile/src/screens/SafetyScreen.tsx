@@ -4,17 +4,20 @@ import { requestRecordingPermissionsAsync } from "expo-audio";
 import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from "expo-crypto";
 import * as SMS from "expo-sms";
 import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text, TextInput } from "../components/text.tsx";
+import { useStyles, useTheme } from "../components/theme.tsx";
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { Button, Icon, ModalHeader, Note } from "../components/ui.tsx";
+  Button,
+  Card,
+  Divider,
+  Icon,
+  IconTile,
+  ModalHeader,
+  Note,
+  SectionLabel,
+  SwitchRow,
+} from "../components/ui.tsx";
 import {
   displayPhone,
   inviteText,
@@ -24,11 +27,13 @@ import {
   saveProfile,
 } from "../lib/contacts.ts";
 import { loadPins, type PinSettings, savePins, setUpPins } from "../lib/pin.ts";
-import { COLORS } from "../lib/ui.ts";
+import { MONO, type Palette } from "../lib/theme.ts";
 
 export const sha256Hex = (text: string) => digestStringAsync(CryptoDigestAlgorithm.SHA256, text);
 
 export function SafetyScreen({ onClose }: { onClose: () => void }) {
+  const c = useTheme();
+  const styles = useStyles(makeStyles);
   const [profile, setProfile] = useState<SafetyProfile | null>(null);
   const [pins, setPins] = useState<PinSettings | null>(null);
   const [name, setName] = useState("");
@@ -127,7 +132,7 @@ export function SafetyScreen({ onClose }: { onClose: () => void }) {
   if (!profile) {
     return (
       <View style={[styles.screen, styles.center]}>
-        <ActivityIndicator color={COLORS.primary} />
+        <ActivityIndicator color={c.primary} />
       </View>
     );
   }
@@ -136,203 +141,218 @@ export function SafetyScreen({ onClose }: { onClose: () => void }) {
     <View style={styles.screen}>
       <ModalHeader title="Safety contacts and PIN" onClose={onClose} />
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <Text style={styles.section}>Your name</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={(value) => setName(value.slice(0, MAX_PERSON_NAME))}
-          onEndEditing={() => void store({ ...profile, personName: name.trim() })}
-          placeholder="How your contacts know you"
-          placeholderTextColor={COLORS.muted}
-          accessibilityLabel="Your name"
-        />
-        <Text style={styles.help}>Used in messages to your contacts, like "Ada needs help".</Text>
+        <View style={styles.section}>
+          <SectionLabel>Your name</SectionLabel>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={(value) => setName(value.slice(0, MAX_PERSON_NAME))}
+            onEndEditing={() => void store({ ...profile, personName: name.trim() })}
+            placeholder="How your contacts know you"
+            accessibilityLabel="Your name"
+          />
+          <Text style={styles.help}>Used in messages to your contacts, like "Ada needs help".</Text>
+        </View>
 
-        <Text style={styles.section}>Trusted contacts</Text>
-        {profile.contacts.map((contact) => (
-          <View key={contact.id} style={styles.contactRow}>
-            <Icon name="account" color={COLORS.primary} />
-            <View style={styles.flex}>
-              <Text style={styles.contactName}>{contact.name}</Text>
-              <Text style={styles.help}>
-                {displayPhone(contact.phone)}
-                {contact.invited ? " · told" : ""}
+        <View style={styles.section}>
+          <SectionLabel>Trusted contacts</SectionLabel>
+          {profile.contacts.length > 0 && (
+            <Card>
+              {profile.contacts.map((contact, index) => (
+                <View key={contact.id}>
+                  {index > 0 && <Divider inset={72} />}
+                  <View style={styles.contactRow}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>
+                        {contact.name.trim().charAt(0).toUpperCase() || "?"}
+                      </Text>
+                    </View>
+                    <View style={styles.flex}>
+                      <Text style={styles.contactName}>{contact.name}</Text>
+                      <Text style={styles.phone}>{displayPhone(contact.phone)}</Text>
+                    </View>
+                    {contact.invited ? (
+                      <View style={styles.toldPill}>
+                        <Icon name="check" size={16} color={c.onPrimarySoft} />
+                        <Text style={styles.toldText}>Told</Text>
+                      </View>
+                    ) : (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Tell ${contact.name}`}
+                        onPress={() => void invite(contact.id)}
+                        style={({ pressed }) => [styles.smallButton, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.smallButtonText}>Tell them</Text>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${contact.name}`}
+                      onPress={() =>
+                        void store({
+                          ...profile,
+                          contacts: profile.contacts.filter((c) => c.id !== contact.id),
+                        })
+                      }
+                      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+                    >
+                      <Icon name="trash-can-outline" color={c.muted} />
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </Card>
+          )}
+
+          {adding ? (
+            <Card style={styles.form}>
+              <TextInput
+                style={styles.input}
+                value={contactName}
+                onChangeText={setContactName}
+                placeholder="Name"
+                accessibilityLabel="Contact name"
+              />
+              <TextInput
+                style={[styles.input, styles.mono]}
+                value={contactPhone}
+                onChangeText={setContactPhone}
+                placeholder="Phone, like 0803 123 4567"
+                keyboardType="phone-pad"
+                accessibilityLabel="Contact phone number"
+              />
+              {contactError && <Text style={styles.error}>{contactError}</Text>}
+              <Button
+                label="Save contact"
+                variant="primary"
+                icon="check"
+                large
+                onPress={() => void addContact()}
+              />
+              <Button label="Cancel" variant="text" onPress={() => setAdding(false)} />
+            </Card>
+          ) : profile.contacts.length < MAX_CONTACTS ? (
+            <Button
+              label="Add a trusted contact"
+              icon="account-plus"
+              variant={profile.contacts.length === 0 ? "primary" : "secondary"}
+              onPress={() => setAdding(true)}
+            />
+          ) : null}
+          {!adding && contactError && <Text style={styles.error}>{contactError}</Text>}
+          <Note icon="account-heart-outline">
+            Choose people you trust and tell them first ("Tell them" opens a text message from your
+            phone). If you press SOS or are late arriving, Warden texts them a private link to your
+            live location. Their numbers stay on this phone until then.
+          </Note>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel>SOS</SectionLabel>
+          <Card>
+            <SwitchRow
+              title="Also alert responders near me"
+              description="When you press SOS, verified responders (such as police or emergency services) in your area can see your name and live location until you are safe."
+              value={profile.shareSosWithResponders}
+              onValueChange={(value) => void store({ ...profile, shareSosWithResponders: value })}
+            />
+            <Divider />
+            <SwitchRow
+              title="Record sound during SOS"
+              description={
+                'When you press SOS, your phone records sound in short clips and sends them to Warden, so your contacts can hear what is happening on their private link. Android shows a "recording" notice while it runs. Clips are deleted after 30 days.'
+              }
+              value={profile.recordSosSound}
+              onValueChange={(value) => void setSosSound(value)}
+            />
+          </Card>
+          {micMessage && <Text style={styles.error}>{micMessage}</Text>}
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel>Safety PIN</SectionLabel>
+          <Card style={styles.pinCard}>
+            <View style={styles.pinStatus}>
+              <IconTile
+                icon={pins?.pinHash ? "lock-check" : "lock-open-alert"}
+                tone={pins?.pinHash ? "primary" : "warning"}
+                size={40}
+              />
+              <Text style={styles.pinText}>
+                {pins?.pinHash
+                  ? `PIN is set${pins.duressHash ? ", with a duress PIN" : ""}. You need it to stop a trip or SOS.`
+                  : "Without a PIN, anyone holding your phone can stop a trip or SOS."}
               </Text>
             </View>
-            {!contact.invited && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Tell ${contact.name}`}
-                onPress={() => void invite(contact.id)}
-                style={styles.smallButton}
-              >
-                <Text style={styles.smallButtonText}>Tell them</Text>
-              </Pressable>
-            )}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Remove ${contact.name}`}
-              onPress={() =>
-                void store({
-                  ...profile,
-                  contacts: profile.contacts.filter((c) => c.id !== contact.id),
-                })
-              }
-              style={styles.iconButton}
-            >
-              <Icon name="trash-can-outline" color={COLORS.muted} />
-            </Pressable>
-          </View>
-        ))}
-
-        {adding ? (
-          <View style={styles.card}>
-            <TextInput
-              style={styles.input}
-              value={contactName}
-              onChangeText={setContactName}
-              placeholder="Name"
-              placeholderTextColor={COLORS.muted}
-              accessibilityLabel="Contact name"
-            />
-            <TextInput
-              style={styles.input}
-              value={contactPhone}
-              onChangeText={setContactPhone}
-              placeholder="Phone, like 0803 123 4567"
-              placeholderTextColor={COLORS.muted}
-              keyboardType="phone-pad"
-              accessibilityLabel="Contact phone number"
-            />
-            {contactError && <Text style={styles.error}>{contactError}</Text>}
-            <Button
-              label="Save contact"
-              variant="primary"
-              icon="check"
-              onPress={() => void addContact()}
-            />
-            <Button label="Cancel" onPress={() => setAdding(false)} />
-          </View>
-        ) : profile.contacts.length < MAX_CONTACTS ? (
-          <Button
-            label="Add a trusted contact"
-            icon="account-plus"
-            variant={profile.contacts.length === 0 ? "primary" : "secondary"}
-            onPress={() => setAdding(true)}
-          />
-        ) : null}
-        {!adding && contactError && <Text style={styles.error}>{contactError}</Text>}
-        <Note>
-          Choose people you trust and tell them first ("Tell them" opens a text message from your
-          phone). If you press SOS or are late arriving, Warden texts them a private link to your
-          live location. Their numbers stay on this phone until then.
-        </Note>
-
-        <Text style={styles.section}>SOS</Text>
-        <View style={styles.toggleRow}>
-          <View style={styles.flex}>
-            <Text style={styles.contactName}>Also alert responders near me</Text>
-            <Text style={styles.help}>
-              When you press SOS, verified responders (such as police or emergency services) in your
-              area can see your name and live location until you are safe.
-            </Text>
-          </View>
-          <Switch
-            value={profile.shareSosWithResponders}
-            onValueChange={(value) => void store({ ...profile, shareSosWithResponders: value })}
-            accessibilityLabel="Also alert responders near me"
-            trackColor={{ true: COLORS.primary }}
-          />
-        </View>
-        <View style={styles.toggleRow}>
-          <View style={styles.flex}>
-            <Text style={styles.contactName}>Record sound during SOS</Text>
-            <Text style={styles.help}>
-              When you press SOS, your phone records sound in short clips and sends them to Warden,
-              so your contacts can hear what is happening on their private link. Android shows a
-              "recording" notice while it runs. Clips are deleted after 30 days.
-            </Text>
-          </View>
-          <Switch
-            value={profile.recordSosSound}
-            onValueChange={(value) => void setSosSound(value)}
-            accessibilityLabel="Record sound during SOS"
-            trackColor={{ true: COLORS.primary }}
-          />
-        </View>
-        {micMessage && <Text style={styles.error}>{micMessage}</Text>}
-
-        <Text style={styles.section}>Safety PIN</Text>
-        <Text style={styles.help}>
-          {pins?.pinHash
-            ? `PIN is set${pins.duressHash ? ", with a duress PIN" : ""}. You need it to stop a trip or SOS.`
-            : "Without a PIN, anyone holding your phone can stop a trip or SOS."}
-        </Text>
-        {pinForm ? (
-          <View style={styles.card}>
-            <TextInput
-              style={styles.input}
-              value={pinForm.pin}
-              onChangeText={(pin) =>
-                setPinForm({ ...pinForm, pin: pin.replace(/\D/g, "").slice(0, 6) })
-              }
-              placeholder="PIN (4 to 6 digits)"
-              placeholderTextColor={COLORS.muted}
-              keyboardType="number-pad"
-              secureTextEntry
-              accessibilityLabel="PIN"
-            />
-            <TextInput
-              style={styles.input}
-              value={pinForm.duress}
-              onChangeText={(duress) =>
-                setPinForm({ ...pinForm, duress: duress.replace(/\D/g, "").slice(0, 6) })
-              }
-              placeholder="Duress PIN (optional)"
-              placeholderTextColor={COLORS.muted}
-              keyboardType="number-pad"
-              secureTextEntry
-              accessibilityLabel="Duress PIN"
-            />
-            <Text style={styles.help}>
-              If someone forces you to stop, enter the duress PIN instead. Warden will look like it
-              stopped, but your contacts get an urgent message.
-            </Text>
-            <Button
-              label="Save PIN"
-              variant="primary"
-              icon="lock"
-              onPress={() => void savePinForm()}
-            />
-            <Button label="Cancel" onPress={() => setPinForm(null)} />
-          </View>
-        ) : (
-          <View style={styles.buttonRow}>
-            <View style={styles.flex}>
-              <Button
-                label={pins?.pinHash ? "Change PIN" : "Set a PIN"}
-                icon="lock"
-                onPress={() => {
-                  setPinMessage(null);
-                  setPinForm({ pin: "", duress: "" });
-                }}
-              />
-            </View>
-            {pins?.pinHash && (
-              <View style={styles.flex}>
-                <Button
-                  label="Remove PIN"
-                  icon="lock-open-variant"
-                  onPress={() => {
-                    void savePins(AsyncStorage, null);
-                    setPins(null);
-                  }}
+            {pinForm ? (
+              <View style={styles.form}>
+                <TextInput
+                  style={[styles.input, styles.mono]}
+                  value={pinForm.pin}
+                  onChangeText={(pin) =>
+                    setPinForm({ ...pinForm, pin: pin.replace(/\D/g, "").slice(0, 6) })
+                  }
+                  placeholder="PIN (4 to 6 digits)"
+                  keyboardType="number-pad"
+                  secureTextEntry
+                  accessibilityLabel="PIN"
                 />
+                <TextInput
+                  style={[styles.input, styles.mono]}
+                  value={pinForm.duress}
+                  onChangeText={(duress) =>
+                    setPinForm({ ...pinForm, duress: duress.replace(/\D/g, "").slice(0, 6) })
+                  }
+                  placeholder="Duress PIN (optional)"
+                  keyboardType="number-pad"
+                  secureTextEntry
+                  accessibilityLabel="Duress PIN"
+                />
+                <Text style={styles.help}>
+                  If someone forces you to stop, enter the duress PIN instead. Warden will look like
+                  it stopped, but your contacts get an urgent message.
+                </Text>
+                <Button
+                  label="Save PIN"
+                  variant="primary"
+                  icon="lock"
+                  large
+                  onPress={() => void savePinForm()}
+                />
+                <Button label="Cancel" variant="text" onPress={() => setPinForm(null)} />
+              </View>
+            ) : (
+              <View style={styles.buttonRow}>
+                <View style={styles.flex}>
+                  <Button
+                    label={pins?.pinHash ? "Change PIN" : "Set a PIN"}
+                    icon="lock"
+                    variant={pins?.pinHash ? "secondary" : "primary"}
+                    onPress={() => {
+                      setPinMessage(null);
+                      setPinForm({ pin: "", duress: "" });
+                    }}
+                  />
+                </View>
+                {pins?.pinHash && (
+                  <View style={styles.flex}>
+                    <Button
+                      label="Remove PIN"
+                      icon="lock-open-variant"
+                      onPress={() => {
+                        void savePins(AsyncStorage, null);
+                        setPins(null);
+                      }}
+                    />
+                  </View>
+                )}
               </View>
             )}
-          </View>
-        )}
-        {pinMessage && <Text style={styles.help}>{pinMessage}</Text>}
+          </Card>
+          {pinMessage && <Text style={styles.help}>{pinMessage}</Text>}
+        </View>
+
         <Note tone="warning">
           Warden does not replace 112. In danger now, call 112 first if you can.
         </Note>
@@ -341,52 +361,68 @@ export function SafetyScreen({ onClose }: { onClose: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  center: { alignItems: "center", justifyContent: "center" },
-  body: { padding: 16, gap: 12, paddingBottom: 48 },
-  section: { fontSize: 20, fontWeight: "700", color: COLORS.text, marginTop: 8 },
-  help: { color: COLORS.muted },
-  error: { color: COLORS.danger, fontWeight: "600" },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    color: COLORS.text,
-    backgroundColor: COLORS.surface,
-  },
-  contactRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingLeft: 12,
-    borderRadius: 12,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  contactName: { fontSize: 16, fontWeight: "600", color: COLORS.text },
-  flex: { flex: 1 },
-  smallButton: {
-    minHeight: 40,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    justifyContent: "center",
-    backgroundColor: COLORS.primary,
-  },
-  smallButtonText: { color: COLORS.primaryText, fontWeight: "600" },
-  iconButton: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
-  card: {
-    gap: 10,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  buttonRow: { flexDirection: "row", gap: 8 },
-  toggleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: c.background },
+    center: { alignItems: "center", justifyContent: "center" },
+    body: { padding: 16, gap: 20, paddingBottom: 48 },
+    section: { gap: 10 },
+    help: { color: c.muted, fontSize: 14, lineHeight: 20 },
+    error: { color: c.dangerText, fontWeight: "700", fontSize: 14 },
+    input: {
+      minHeight: 52,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      fontSize: 17,
+      color: c.text,
+      backgroundColor: c.surface,
+    },
+    mono: { fontFamily: MONO },
+    contactRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      minHeight: 68,
+      paddingLeft: 14,
+      paddingRight: 4,
+    },
+    avatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.primarySoft,
+    },
+    avatarText: { fontSize: 18, fontWeight: "800", color: c.onPrimarySoft },
+    contactName: { fontSize: 17, fontWeight: "700", color: c.text },
+    phone: { fontFamily: MONO, fontSize: 14, color: c.muted },
+    flex: { flex: 1 },
+    toldPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      minHeight: 32,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      backgroundColor: c.primarySoft,
+    },
+    toldText: { color: c.onPrimarySoft, fontWeight: "700", fontSize: 14 },
+    smallButton: {
+      minHeight: 44,
+      paddingHorizontal: 14,
+      borderRadius: 22,
+      justifyContent: "center",
+      backgroundColor: c.primary,
+    },
+    smallButtonText: { color: c.onPrimary, fontWeight: "700", fontSize: 15 },
+    iconButton: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+    pressed: { opacity: 0.6 },
+    form: { gap: 10, padding: 16 },
+    pinCard: { padding: 16, gap: 14 },
+    pinStatus: { flexDirection: "row", alignItems: "center", gap: 12 },
+    pinText: { flex: 1, fontSize: 15, lineHeight: 21, color: c.text },
+    buttonRow: { flexDirection: "row", gap: 8 },
+  });

@@ -1,12 +1,18 @@
 import { getCategory } from "@warden/shared";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, View } from "react-native";
 import { BroadcastAudio } from "../components/BroadcastAudio.tsx";
-import { Button, Icon, ModalHeader, Note } from "../components/ui.tsx";
+import { Text } from "../components/text.tsx";
+import { useStyles } from "../components/theme.tsx";
+import { Button, IconTile, ModalHeader, Note, type Tone } from "../components/ui.tsx";
 import { type AlertState, alertTitle, describeDistance, type InboxEntry } from "../lib/alerts.ts";
 import { timeAgo } from "../lib/format.ts";
-import { COLORS } from "../lib/ui.ts";
+import type { Palette } from "../lib/theme.ts";
 
-const TIER_COLOR = { critical: "#B42318", warning: "#C2410C", advisory: "#2563EB" } as const;
+const TIER_TONE: Record<InboxEntry["alert"]["tier"], Tone> = {
+  critical: "danger",
+  warning: "warning",
+  advisory: "advisory",
+};
 
 function iconFor(entry: InboxEntry): string {
   const { alert } = entry;
@@ -32,6 +38,7 @@ export function AlertsScreen({
   onSettings: () => void;
   onClose: () => void;
 }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.screen}>
       <ModalHeader title="Alerts" onClose={onClose} />
@@ -48,15 +55,15 @@ export function AlertsScreen({
         keyExtractor={(entry) => entry.alert.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Note>
+          <Note icon={placeCount === 0 ? "map-marker-plus-outline" : "bell-check-outline"}>
             {placeCount === 0
               ? "Add your home, work or school and Warden will alert you about incidents near them. Your places stay on this phone."
               : "No alerts near your places. Warden checks every few minutes while the app is open, and from time to time when it is closed."}
           </Note>
         }
         renderItem={({ item }) => {
-          const color =
-            item.alert.kind === "resolved" ? COLORS.primary : TIER_COLOR[item.alert.tier];
+          const tone: Tone =
+            item.alert.kind === "resolved" ? "primary" : TIER_TONE[item.alert.tier];
           const title = alertTitle(item.alert);
           return (
             <Pressable
@@ -65,9 +72,7 @@ export function AlertsScreen({
               onPress={() => onOpen(item)}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             >
-              <View style={[styles.iconWrap, { backgroundColor: `${color}22` }]}>
-                <Icon name={iconFor(item)} color={color} />
-              </View>
+              <IconTile icon={iconFor(item)} tone={tone} size={44} round />
               <View style={styles.rowText}>
                 <Text style={[styles.title, !item.read && styles.unread]}>{title}</Text>
                 <Text style={styles.meta}>
@@ -96,32 +101,26 @@ export function AlertsScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  top: { paddingHorizontal: 16, paddingBottom: 8 },
-  list: { padding: 16, gap: 10 },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  pressed: { opacity: 0.7 },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rowText: { flex: 1, gap: 2 },
-  title: { fontSize: 16, color: COLORS.text },
-  unread: { fontWeight: "700" },
-  meta: { color: COLORS.muted },
-  message: { color: COLORS.text, marginTop: 4 },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.danger },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: c.background },
+    top: { paddingHorizontal: 16, paddingBottom: 4 },
+    list: { padding: 16, gap: 10 },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 14,
+      borderRadius: 18,
+      backgroundColor: c.surface,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    pressed: { opacity: 0.75 },
+    rowText: { flex: 1, gap: 3 },
+    title: { fontSize: 16, fontWeight: "500", color: c.text },
+    unread: { fontWeight: "800" },
+    meta: { color: c.muted, fontSize: 14, lineHeight: 19 },
+    message: { color: c.text, fontSize: 15, lineHeight: 21, marginTop: 4 },
+    dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: c.danger },
+  });

@@ -49,6 +49,20 @@ const config: ExpoConfig = {
   },
   plugins: [
     "@maplibre/maplibre-react-native",
+    // Atkinson Hyperlegible (M10), bundled into the build so text never waits for a download.
+    [
+      "expo-font",
+      {
+        fonts: [
+          "./assets/fonts/AtkinsonHyperlegibleNext_400Regular.ttf",
+          "./assets/fonts/AtkinsonHyperlegibleNext_500Medium.ttf",
+          "./assets/fonts/AtkinsonHyperlegibleNext_700Bold.ttf",
+          "./assets/fonts/AtkinsonHyperlegibleNext_800ExtraBold.ttf",
+          "./assets/fonts/AtkinsonHyperlegibleMono_500Medium.ttf",
+          "./assets/fonts/AtkinsonHyperlegibleMono_700Bold.ttf",
+        ],
+      },
+    ],
     [
       "expo-location",
       {
@@ -87,7 +101,11 @@ const config: ExpoConfig = {
     // Public half of the server's broadcast signing key (from gen-keys). Not secret. During a
     // key change this is a list such as "s1:<key>,s2:<key>" (docs/deploy.md).
     broadcastPublicKey: process.env.WARDEN_BROADCAST_PUBLIC_KEY ?? "",
-    mapStyleUrl: process.env.WARDEN_MAP_STYLE_URL ?? "https://tiles.openfreemap.org/styles/liberty",
+    // A calm grey map by day so incident colours stand out, and a dark one for night mode.
+    mapStyleUrl:
+      process.env.WARDEN_MAP_STYLE_URL ?? "https://tiles.openfreemap.org/styles/positron",
+    mapStyleDarkUrl:
+      process.env.WARDEN_MAP_STYLE_DARK_URL ?? "https://tiles.openfreemap.org/styles/dark",
   },
 };
 
