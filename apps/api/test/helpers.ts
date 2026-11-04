@@ -29,7 +29,7 @@ export interface TestContext {
 
 /** A fresh schema per test: real PostgreSQL + PostGIS, controllable clock, captured logs. */
 export async function createTestContext(
-  options: { consoleDist?: string } = {},
+  options: { housekeepingIntervalMs?: number; consoleDist?: string } = {},
 ): Promise<TestContext> {
   const schema = `t_${randomBytes(6).toString("hex")}`;
   const admin = createPool(TEST_DATABASE_URL);
@@ -59,6 +59,9 @@ export async function createTestContext(
     now: () => current,
     random: () => 0,
     logStream: { write: (line: string) => logs.push(line) },
+    ...(options.housekeepingIntervalMs
+      ? { housekeepingIntervalMs: options.housekeepingIntervalMs }
+      : {}),
   });
   await app.ready();
 

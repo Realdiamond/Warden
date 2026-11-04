@@ -105,10 +105,12 @@ describe("responder access", () => {
       expect((await as(responder.cookie, "GET", url)).statusCode, url).toBe(403);
     }
     expect(
-      (await as(responder.cookie, "POST", `/v1/admin/%69ncidents/${id}/actions`, {
-        action: "verify",
-        reason: "x",
-      })).statusCode,
+      (
+        await as(responder.cookie, "POST", `/v1/admin/%69ncidents/${id}/actions`, {
+          action: "verify",
+          reason: "x",
+        })
+      ).statusCode,
     ).toBe(403);
     const moderator = await signInStaff(ctx);
     expect((await as(moderator.cookie, "GET", "/v1/admin/%72esponder/incidents")).statusCode).toBe(

@@ -21,6 +21,19 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Shows as "healthy" in `docker compose ps`. Outside monitoring uses /readyz (docs/deploy.md).
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
     environment:
       DATABASE_URL: postgres://warden:${POSTGRES_PASSWORD}@db:5432/warden
       WARDEN_FIELD_KEY: ${WARDEN_FIELD_KEY:?set WARDEN_FIELD_KEY in .env}

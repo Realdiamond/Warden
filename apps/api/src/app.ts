@@ -22,6 +22,9 @@ import { deliverDueSms } from "./services/sms.ts";
 import { Signer } from "./signing.ts";
 import { LogSmsSender, type SmsSender, TermiiSmsSender } from "./sms/sender.ts";
 
+/** /readyz reports a problem when the background work has not finished for this long. */
+const HOUSEKEEPING_STALE_MS = 5 * 60_000;
+
 export interface AppOptions {
   config: Config;
   pool: Pool;
@@ -55,6 +58,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     publicWebUrl: config.publicWebUrl,
     signer: config.signingKey ? new Signer(config.signingKey.seed, config.signingKey.id) : null,
   };
+  /** When the background work last finished, for /readyz. */
+  const housekeepingState: {
+    startedAt: Date;
+    lastSuccessAt: Date | null;
+    lastFailureAt: Date | null;
+  } = { startedAt: deps.now(), lastSuccessAt: null, lastFailureAt: null };
 
   const app = Fastify({
     bodyLimit: 16 * 1024,
@@ -112,9 +121,64 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return problem(reply, 500, "Something went wrong");
   });
 
+  /** Cheap liveness check for load balancers and Docker: the process answers and so does the database. */
   app.get("/healthz", async () => {
     await pool.query("SELECT 1");
     return { ok: true };
+  });
+
+  /**
+   * Readiness for uptime monitors (docs/deploy.md, "Knowing it is up"): the database answers and
+   * the background work (expiry, late trips, text messages) keeps running. Only timings and
+   * yes/no answers, never counts or anything about reports, people or sessions.
+   */
+  app.get("/readyz", async (_request, reply) => {
+    const started = Date.now();
+    let database = true;
+    try {
+      await pool.query("SELECT 1");
+    } catch {
+      database = false;
+    }
+    const databaseMs = Date.now() - started;
+    const now = deps.now().getTime();
+    const secondsSince = (at: Date | null) =>
+      at ? Math.max(0, Math.round((now - at.getTime()) / 1000)) : null;
+    let housekeepingOk = true;
+    let housekeeping: Record<string, unknown> = { running: false };
+    if (options.housekeepingIntervalMs) {
+      const staleAfterMs = Math.max(3 * options.housekeepingIntervalMs, HOUSEKEEPING_STALE_MS);
+      const last = housekeepingState.lastSuccessAt;
+      const reference = last ?? housekeepingState.startedAt;
+      housekeepingOk = now - reference.getTime() <= staleAfterMs;
+      housekeeping = {
+        running: true,
+        ok: housekeepingOk,
+        lastSuccessSecondsAgo: secondsSince(last),
+        lastFailureSecondsAgo: secondsSince(housekeepingState.lastFailureAt),
+      };
+    }
+    // Texts to trusted contacts stop once the hourly cap is reached. Reaching it usually means
+    // someone is starting fake trips or SOS (docs/security-review-2026-11.md), so the uptime
+    // monitor should raise the alarm. Only yes or no, never how many.
+    let textsOk = true;
+    if (database) {
+      const { rows } = await pool
+        .query<{ capped: boolean }>(
+          "SELECT count(*) >= $2 AS capped FROM sms_outbox WHERE created_at > $1",
+          [new Date(now - 3_600_000), deps.smsHourlyCap],
+        )
+        .catch(() => ({ rows: [{ capped: false }] }));
+      textsOk = !rows[0]?.capped;
+    }
+    const ok = database && housekeepingOk && textsOk;
+    return reply.code(ok ? 200 : 503).send({
+      ok,
+      database: { ok: database, ms: databaseMs },
+      housekeeping,
+      texts: { ok: textsOk },
+      uptimeSeconds: secondsSince(housekeepingState.startedAt),
+    });
   });
 
   registerPublicRoutes(app, deps);
@@ -154,7 +218,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           }
         })
         .then(() => deliverDueSms(deps))
-        .catch((err: unknown) => app.log.error({ err }, "housekeeping failed"));
+        .then(() => {
+          housekeepingState.lastSuccessAt = deps.now();
+        })
+        .catch((err: unknown) => {
+          housekeepingState.lastFailureAt = deps.now();
+          app.log.error({ err }, "housekeeping failed");
+        });
     }, options.housekeepingIntervalMs);
     timer.unref();
     app.addHook("onClose", async () => clearInterval(timer));

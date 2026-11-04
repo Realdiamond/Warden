@@ -11,7 +11,7 @@ real people use Warden. Each finding was checked against the code; the fixed one
 | **Anyone could lock all staff out of signing in** (low-medium) | One shared limit of 100 sign-in attempts a minute covered everyone, so flooding the sign-in page locked every moderator out. | Limits now count per sender and per email address, with a looser cap per email from anywhere so guessing spread across many senders still stops. Senders are a keyed hash held in memory only, never logged. |
 | **Videos and voice notes kept their hidden details** (medium) | Phone videos can carry the GPS position where they were filmed and the phone model. Staff and responders who opened them could learn more about an anonymous reporter. | The server blanks those details before storing a file. The video still plays. Files whose structure does not add up are refused, except SOS sound clips, which are kept for contacts either way. |
 | **Phone data copied to the cloud** (low) | Android's automatic backup would have copied trusted contacts, places, PIN details and trip tokens to the owner's Google account, though the app says they stay on the phone. | Backup is switched off for Warden. Contacts and places do not move to a new phone by themselves. |
-| **Server packages with known problems** | `zod` (high: memory use with crafted input), `fastify`, `fast-uri`, `glob` and `minimatch` had published advisories. | Updated (see the pull request). The remaining advisories are in Expo's build tools (`node-forge`, `uuid`, `deepmerge`), which run only when building the app and never ship in it. |
+| **Server packages with known problems** | `zod` (high: memory use with crafted input), `fastify` and `fast-uri` had published advisories. | Updated to `zod` 4.6.7, `fastify` 5.12.7 and `fast-uri` 3.1.9 / 4.2.3. Left for now: `glob` and `minimatch` inside `@fastify/static` (only exploitable with an attacker's file pattern, which Warden never takes; the fixed release is days old, so update it in a couple of weeks), and Expo's build tools (`node-forge`, `uuid`, `deepmerge`, an older `zod`), which run only when the app is built and never ship in it. |
 
 ## Needs a decision before launch
 
@@ -21,8 +21,8 @@ These are not bugs in the code but limits of an anonymous service. Each has a re
    Starting a trip or SOS needs no account, and the caller chooses the numbers, so someone could
    send up to 10 texts a day to a stranger's number, or start enough sessions to reach the 500 an
    hour cap so that real SOS texts wait.
-   *Recommendation:* for the closed pilot, keep the caps and watch the health page for the text
-   limit being reached. Before the public launch, add Google Play Integrity checks so only the
+   *Recommendation:* for the closed pilot, keep the caps; `/readyz` now reports when the text
+   limit is reached, so the uptime monitor raises the alarm ([deploy.md](deploy.md)). Before the public launch, add Google Play Integrity checks so only the
    real Warden app can start a session, and keep spare text capacity for SOS.
 2. **Fake "independent" reports, votes and flags.** Each phone identifies itself with a random
    number it makes itself, so one person with a script can pretend to be many: making a report
