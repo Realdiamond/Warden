@@ -22,6 +22,13 @@ import {
 } from "../services/sessions.ts";
 import { deliverDueSms } from "../services/sms.ts";
 
+declare module "fastify" {
+  interface FastifyInstance {
+    /** Resolves once the text messages that session requests started have been tried. */
+    smsSettled: () => Promise<void>;
+  }
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TOKEN = /^[A-Za-z0-9_-]{20,100}$/;
 
@@ -35,10 +42,20 @@ export function registerSessionRoutes(app: FastifyInstance, deps: ServiceDeps): 
   const updateLimiter = new RateLimiter(400, 3_600_000);
   const viewLimiter = new RateLimiter(2_000, 3_600_000);
 
-  /** Sends queued messages straight away instead of waiting for the next minute's run. */
+  /**
+   * Sends queued messages straight away instead of waiting for the next minute's run. Runs
+   * started here go one after another; `app.smsSettled()` waits for the last one.
+   */
+  let smsRun: Promise<void> = Promise.resolve();
   const kickSms = () => {
-    void deliverDueSms(deps).catch((err: unknown) => app.log.error({ err }, "sms delivery failed"));
+    smsRun = smsRun
+      .then(() => deliverDueSms(deps))
+      .then(
+        () => undefined,
+        (err: unknown) => app.log.error({ err }, "sms delivery failed"),
+      );
   };
+  app.decorate("smsSettled", () => smsRun);
 
   const tokenFor = (request: IdRequest, reply: FastifyReply, header: string) => {
     const token = headerValue(request.headers[header]);

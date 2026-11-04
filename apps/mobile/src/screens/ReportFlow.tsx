@@ -21,16 +21,28 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { AttachmentPicker } from "../components/AttachmentPicker.tsx";
-import { Button, EmergencyCallButton, Icon, ModalHeader, Note } from "../components/ui.tsx";
+import { Text, TextInput } from "../components/text.tsx";
+import { useStyles, useTheme } from "../components/theme.tsx";
+import {
+  Button,
+  Card,
+  Divider,
+  EmergencyCallButton,
+  Icon,
+  IconTile,
+  ListRow,
+  ModalHeader,
+  Note,
+  type Tone,
+} from "../components/ui.tsx";
 import { categoryName, type Language, strings } from "../lib/i18n.ts";
 import { currentPosition, type Position } from "../lib/location.ts";
 import type { Attachment } from "../lib/media.ts";
-import { COLORS, GROUP_ICONS } from "../lib/ui.ts";
+import { MONO, type Palette } from "../lib/theme.ts";
+import { GROUP_ICONS, GROUP_LABELS, GROUP_TONES } from "../lib/ui.ts";
 import { PickLocation } from "./PickLocation.tsx";
 
 type Step = "group" | "category" | "location" | "pick" | "details" | "sending" | "done";
@@ -51,8 +63,19 @@ interface Props {
   language: Language;
 }
 
+/** Three steps for the person: what, where, details. */
+const STEP_NUMBER: Partial<Record<Step, number>> = {
+  group: 1,
+  category: 1,
+  location: 2,
+  pick: 2,
+  details: 3,
+};
+
 export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, onDiscard, language }: Props) {
   const t = strings(language);
+  const c = useTheme();
+  const styles = useStyles(makeStyles);
   const [step, setStep] = useState<Step>("group");
   const [group, setGroup] = useState<CategoryGroup | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
@@ -71,7 +94,7 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, onDiscard, 
     const position = await currentPosition();
     setLocating(false);
     if (!position) {
-      setLocationError("We could not get your location. Choose the place on the map instead.");
+      setLocationError(t.noLocation);
       return;
     }
     setDevicePosition(position);
@@ -115,6 +138,13 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, onDiscard, 
   };
   const canGoBack =
     step === "category" || step === "location" || step === "pick" || step === "details";
+  const stepNumber = STEP_NUMBER[step];
+  const publicGroups = CATEGORY_GROUPS.filter((item) => item.id !== "personal");
+  const personalGroup = CATEGORY_GROUPS.find((item) => item.id === "personal");
+  const pickGroup = (item: CategoryGroup) => {
+    setGroup(item);
+    setStep("category");
+  };
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="height">
@@ -139,137 +169,166 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, onDiscard, 
         />
       ) : (
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          {stepNumber !== undefined && (
+            <Text style={styles.stepLabel}>{t.stepOf(stepNumber, 3)}</Text>
+          )}
+
           {step === "group" && (
             <>
-              <EmergencyCallButton />
-              <Text style={styles.question}>What is happening?</Text>
+              <Text style={styles.question} accessibilityRole="header">
+                {t.whatsHappening}
+              </Text>
+              <EmergencyCallButton tone="soft" label={t.call112First} />
               <View style={styles.grid}>
-                {CATEGORY_GROUPS.map((item) => (
+                {publicGroups.map((item) => (
                   <Tile
                     key={item.id}
-                    label={item.label}
+                    label={GROUP_LABELS[item.id]}
                     icon={GROUP_ICONS[item.id]}
-                    onPress={() => {
-                      setGroup(item);
-                      setStep("category");
-                    }}
+                    tone={GROUP_TONES[item.id]}
+                    onPress={() => pickGroup(item)}
                   />
                 ))}
               </View>
-              <Note>Reports are anonymous. Warden does not ask for your name.</Note>
+              {personalGroup && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${GROUP_LABELS.personal}. ${t.privateGroupNote}`}
+                  onPress={() => pickGroup(personalGroup)}
+                  style={({ pressed }) => [styles.privateTile, pressed && styles.pressed]}
+                >
+                  <IconTile icon="lock-outline" tone="primary" size={44} />
+                  <View style={styles.privateText}>
+                    <Text style={styles.privateTitle}>{GROUP_LABELS.personal}</Text>
+                    <Text style={styles.privateNote}>{t.privateGroupNote}</Text>
+                  </View>
+                  <Icon name="chevron-right" color={c.primary} />
+                </Pressable>
+              )}
+              <View style={styles.footerLine}>
+                <Icon name="eye-off-outline" size={20} color={c.muted} />
+                <Text style={styles.footerText}>{t.anonymousNoName}</Text>
+              </View>
             </>
           )}
 
           {step === "category" && group && (
             <>
-              <Text style={styles.question}>{group.label}: which one?</Text>
-              <View style={styles.list}>
-                {categoriesInGroup(group.id).map((item) => (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={categoryName(item.id, item.label, language)}
-                    style={({ pressed }) => [styles.listItem, pressed && styles.pressed]}
-                    onPress={() => {
-                      setCategory(item);
-                      setStep("location");
-                    }}
-                  >
-                    <Icon name={item.icon} />
-                    <Text style={styles.listText}>
-                      {categoryName(item.id, item.label, language)}
-                    </Text>
-                    <Icon name="chevron-right" color={COLORS.muted} />
-                  </Pressable>
+              <Text style={styles.question} accessibilityRole="header">
+                {t.whichOne(GROUP_LABELS[group.id])}
+              </Text>
+              <Card>
+                {categoriesInGroup(group.id).map((item, index) => (
+                  <View key={item.id}>
+                    {index > 0 && <Divider inset={68} />}
+                    <ListRow
+                      icon={item.icon}
+                      tone={item.handling === "private" ? "primary" : GROUP_TONES[group.id]}
+                      title={categoryName(item.id, item.label, language)}
+                      description={item.handling === "private" ? t.privateShort : undefined}
+                      accessibilityLabel={categoryName(item.id, item.label, language)}
+                      onPress={() => {
+                        setCategory(item);
+                        setStep("location");
+                      }}
+                    />
+                  </View>
                 ))}
-              </View>
+              </Card>
             </>
           )}
 
           {step === "location" && (
             <>
-              <Text style={styles.question}>Where did it happen?</Text>
+              <Text style={styles.question} accessibilityRole="header">
+                {t.whereDidItHappen}
+              </Text>
               {locating ? (
-                <ActivityIndicator size="large" color={COLORS.primary} />
+                <ActivityIndicator size="large" color={c.primary} />
               ) : (
                 <View style={styles.list}>
                   <Button
-                    label="Where I am now"
+                    label={t.whereIAmNow}
                     icon="crosshairs-gps"
                     variant="primary"
+                    large
                     onPress={() => void takeCurrentLocation()}
                   />
                   <Button
-                    label="Choose on the map"
+                    label={t.chooseOnMap}
                     icon="map-marker-radius"
+                    large
                     onPress={() => void chooseOnMap()}
                   />
                 </View>
               )}
               {locationError && <Note tone="warning">{locationError}</Note>}
-              <Note>Your own location stays on this phone. Only the place you report is sent.</Note>
+              <Note icon="shield-lock-outline">{t.locationStaysHere}</Note>
             </>
           )}
 
           {step === "details" && category && (
             <>
-              <Text style={styles.question}>
+              <Text style={styles.question} accessibilityRole="header">
                 {categoryName(category.id, category.label, language)}
               </Text>
               {category.handling === "private" ? (
-                <Note tone="warning">
-                  This report goes only to trained staff. It will never appear on the map.
+                <Note tone="warning" icon="lock-outline">
+                  {t.privateOnlyStaff}
                 </Note>
               ) : null}
-              <Text style={styles.fieldLabel}>Anything else? (optional)</Text>
+              <Text style={styles.fieldLabel}>{t.anythingElse}</Text>
               <TextInput
                 style={styles.input}
                 multiline
                 maxLength={MAX_DESCRIPTION_LENGTH}
                 value={description}
                 onChangeText={setDescription}
-                placeholder="What did you see? For example: two men on a red motorcycle."
-                placeholderTextColor={COLORS.muted}
+                placeholder={t.describePlaceholder}
                 accessibilityLabel="Description"
               />
               <Text style={styles.counter}>
                 {description.length}/{MAX_DESCRIPTION_LENGTH}
               </Text>
-              <Note>
-                Please do not include names, phone numbers, or anyone's ethnicity or religion.
-              </Note>
+              <Note>{t.noNames}</Note>
               <AttachmentPicker attachments={attachments} onChange={setAttachments} />
               <Button
-                label="Send report"
+                label={t.sendReport}
                 variant="primary"
                 icon="check-circle"
+                large
                 onPress={() => void send()}
               />
             </>
           )}
 
-          {step === "sending" && <ActivityIndicator size="large" color={COLORS.primary} />}
+          {step === "sending" && (
+            <View style={styles.sending}>
+              <ActivityIndicator size="large" color={c.primary} />
+            </View>
+          )}
 
           {step === "done" && outcome && (
             <>
               <View style={styles.doneIcon}>
-                <Icon
-                  name={
+                <IconTile
+                  icon={
                     outcome.tone === "error"
-                      ? "alert-circle"
+                      ? "alert-circle-outline"
                       : outcome.tone === "queued"
                         ? "clock-outline"
-                        : "check-circle"
+                        : "check"
                   }
-                  size={56}
-                  color={outcome.tone === "error" ? COLORS.danger : COLORS.primary}
+                  tone={outcome.tone === "error" ? "danger" : "primary"}
+                  size={80}
+                  round
                 />
               </View>
               <Text style={styles.doneText}>{outcome.message}</Text>
               {category?.handling === "private" && outcome.tone !== "error" && (
                 <SupportReferral categoryId={category.id} language={language} />
               )}
-              <Button label="Back to the map" variant="primary" onPress={onClose} />
+              <Button label={t.backToMap} variant="primary" large onPress={onClose} />
               <EmergencyCallButton />
             </>
           )}
@@ -282,10 +341,14 @@ export function ReportFlow({ styleUrl, mapCenter, onClose, onSubmit, onDiscard, 
 /** After a private report: where to get help. Only services Warden has confirmed are listed. */
 function SupportReferral({ categoryId, language }: { categoryId: string; language: Language }) {
   const t = strings(language);
+  const styles = useStyles(makeStyles);
   const services = supportFor(categoryId);
   return (
-    <View style={styles.support}>
-      <Text style={styles.supportTitle}>{t.thankYouPrivate}</Text>
+    <Card style={styles.support}>
+      <View style={styles.supportHead}>
+        <IconTile icon="hand-heart" tone="primary" size={40} />
+        <Text style={styles.supportTitle}>{t.thankYouPrivate}</Text>
+      </View>
       <Text style={styles.supportText}>{t.privateHelp}</Text>
       {services.map((service) => (
         <Button
@@ -296,11 +359,22 @@ function SupportReferral({ categoryId, language }: { categoryId: string; languag
         />
       ))}
       {services.length === 0 && <Text style={styles.supportText}>{t.supportBeingConfirmed}</Text>}
-    </View>
+    </Card>
   );
 }
 
-function Tile({ label, icon, onPress }: { label: string; icon: string; onPress: () => void }) {
+function Tile({
+  label,
+  icon,
+  tone,
+  onPress,
+}: {
+  label: string;
+  icon: string;
+  tone: Tone;
+  onPress: () => void;
+}) {
+  const styles = useStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -308,67 +382,80 @@ function Tile({ label, icon, onPress }: { label: string; icon: string; onPress: 
       onPress={onPress}
       style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
     >
-      <Icon name={icon} size={30} color={COLORS.primary} />
+      <IconTile icon={icon} tone={tone} size={42} />
       <Text style={styles.tileText}>{label}</Text>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.background },
-  body: { padding: 16, gap: 14 },
-  question: { fontSize: 22, fontWeight: "700", color: COLORS.text },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  tile: {
-    width: "47%",
-    minHeight: 104,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 12,
-    gap: 8,
-  },
-  tileText: { fontSize: 15, fontWeight: "600", color: COLORS.text, textAlign: "center" },
-  list: { gap: 10 },
-  listItem: {
-    minHeight: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  listText: { flex: 1, fontSize: 16, color: COLORS.text },
-  pressed: { opacity: 0.7 },
-  fieldLabel: { fontSize: 15, fontWeight: "600", color: COLORS.text },
-  input: {
-    minHeight: 110,
-    textAlignVertical: "top",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 16,
-    color: COLORS.text,
-    backgroundColor: COLORS.surface,
-  },
-  counter: { alignSelf: "flex-end", color: COLORS.muted, fontSize: 12 },
-  doneIcon: { alignItems: "center", marginTop: 24 },
-  support: {
-    padding: 16,
-    gap: 8,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  supportTitle: { fontSize: 17, fontWeight: "700", color: COLORS.text },
-  supportText: { color: COLORS.text },
-  doneText: { fontSize: 18, textAlign: "center", color: COLORS.text, marginBottom: 8 },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: c.background },
+    body: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40, gap: 14 },
+    stepLabel: { fontFamily: MONO, fontSize: 13, color: c.muted, marginBottom: -8 },
+    question: { fontSize: 26, lineHeight: 32, fontWeight: "800", color: c.text },
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    tile: {
+      flexBasis: "47%",
+      flexGrow: 1,
+      minHeight: 108,
+      borderRadius: 18,
+      backgroundColor: c.surface,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: 14,
+      gap: 12,
+      justifyContent: "space-between",
+    },
+    tileText: { fontSize: 16, lineHeight: 21, fontWeight: "700", color: c.text },
+    privateTile: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+      padding: 16,
+      borderRadius: 18,
+      borderWidth: 2,
+      borderColor: c.primary,
+      backgroundColor: c.surface,
+    },
+    privateText: { flex: 1, gap: 3 },
+    privateTitle: { fontSize: 16, fontWeight: "700", color: c.text },
+    privateNote: { fontSize: 14, lineHeight: 19, color: c.muted },
+    footerLine: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 4 },
+    footerText: { flex: 1, fontSize: 14.5, lineHeight: 20, color: c.muted },
+    list: { gap: 10 },
+    pressed: { opacity: 0.75 },
+    fieldLabel: { fontSize: 16, fontWeight: "700", color: c.text },
+    input: {
+      minHeight: 120,
+      textAlignVertical: "top",
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      borderRadius: 14,
+      padding: 14,
+      fontSize: 17,
+      lineHeight: 23,
+      backgroundColor: c.surface,
+    },
+    counter: {
+      alignSelf: "flex-end",
+      color: c.muted,
+      fontSize: 13,
+      fontFamily: MONO,
+      marginTop: -6,
+    },
+    sending: { paddingVertical: 48, alignItems: "center" },
+    doneIcon: { alignItems: "center", marginTop: 24 },
+    support: { padding: 16, gap: 10 },
+    supportHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+    supportTitle: { flex: 1, fontSize: 18, fontWeight: "800", color: c.text },
+    supportText: { fontSize: 15, lineHeight: 21, color: c.text },
+    doneText: {
+      fontSize: 19,
+      lineHeight: 26,
+      fontWeight: "700",
+      textAlign: "center",
+      color: c.text,
+      marginBottom: 8,
+    },
+  });

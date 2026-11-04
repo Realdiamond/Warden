@@ -1,5 +1,6 @@
 import { isLanguage, type Language } from "./i18n.ts";
 import type { KeyValueStore } from "./outbox.ts";
+import { isThemeSetting, type ThemeSetting } from "./theme.ts";
 
 export interface Settings {
   apiUrl: string;
@@ -7,6 +8,8 @@ export interface Settings {
   language: Language;
   /** Given by Warden to checked community reporters; empty for everyone else. */
   reporterCode: string;
+  /** Night mode: follow the phone, or always light or dark. */
+  theme: ThemeSetting;
 }
 
 const SETTINGS_KEY = "warden.settings.v1";
@@ -28,6 +31,7 @@ export async function loadSettings(store: KeyValueStore, builtInApiUrl: string):
     demoMode: builtInApiUrl === "",
     language: "en",
     reporterCode: "",
+    theme: "system",
   };
   const raw = await store.getItem(SETTINGS_KEY);
   if (!raw) return fallback;
@@ -38,6 +42,7 @@ export async function loadSettings(store: KeyValueStore, builtInApiUrl: string):
       demoMode: typeof parsed.demoMode === "boolean" ? parsed.demoMode : fallback.demoMode,
       language: isLanguage(parsed.language) ? parsed.language : fallback.language,
       reporterCode: typeof parsed.reporterCode === "string" ? parsed.reporterCode : "",
+      theme: isThemeSetting(parsed.theme) ? parsed.theme : fallback.theme,
     };
   } catch {
     return fallback;

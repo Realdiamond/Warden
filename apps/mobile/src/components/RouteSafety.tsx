@@ -12,14 +12,27 @@ import {
   routeScore,
 } from "@warden/shared";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { describeDistance } from "../lib/alerts.ts";
 import { categoryName, type Language, strings } from "../lib/i18n.ts";
 import { currentPosition } from "../lib/location.ts";
-import { COLORS } from "../lib/ui.ts";
-import { Icon } from "./ui.tsx";
+import type { Palette } from "../lib/theme.ts";
+import { Text } from "./text.tsx";
+import { useStyles, useTheme } from "./theme.tsx";
+import { IconTile, type Tone } from "./ui.tsx";
 
-const LEVEL_COLOR = { calm: COLORS.primary, caution: "#B54708", avoid: COLORS.danger } as const;
+const LEVEL_TONE: Record<RouteScore["level"], Tone> = {
+  calm: "primary",
+  caution: "warning",
+  avoid: "danger",
+};
+
+function levelColor(c: Palette, level: RouteScore["level"]): string {
+  if (level === "calm") return c.primary;
+  if (level === "caution") return c.warningText;
+  return c.dangerText;
+}
+
 const LEVEL_ICON = {
   calm: "shield-check",
   caution: "shield-alert",
@@ -36,6 +49,8 @@ export function RouteSafety({
   language: Language;
 }) {
   const t = strings(language);
+  const c = useTheme();
+  const styles = useStyles(makeStyles);
   const [result, setResult] = useState<RouteScore | null | "loading">("loading");
 
   useEffect(() => {
@@ -65,7 +80,7 @@ export function RouteSafety({
     };
   }, [destination, findIncidents]);
 
-  if (result === "loading") return <ActivityIndicator color={COLORS.primary} />;
+  if (result === "loading") return <ActivityIndicator color={c.primary} />;
   if (result === null) return null;
 
   const title =
@@ -74,11 +89,12 @@ export function RouteSafety({
       : result.level === "caution"
         ? t.routeCaution
         : t.routeAvoid;
+  const color = levelColor(c, result.level);
   return (
-    <View style={[styles.box, { borderColor: LEVEL_COLOR[result.level] }]}>
+    <View style={[styles.box, { borderColor: color }]}>
       <View style={styles.head}>
-        <Icon name={LEVEL_ICON[result.level]} color={LEVEL_COLOR[result.level]} />
-        <Text style={[styles.title, { color: LEVEL_COLOR[result.level] }]}>{title}</Text>
+        <IconTile icon={LEVEL_ICON[result.level]} tone={LEVEL_TONE[result.level]} size={40} />
+        <Text style={[styles.title, { color }]}>{title}</Text>
       </View>
       <Text style={styles.help}>
         {result.nearby.length === 0 ? t.routeNothing : t.routeBasis(result.nearby.length)}
@@ -87,6 +103,7 @@ export function RouteSafety({
         const category = getCategory(item.categoryId);
         return (
           <Text key={item.id} style={styles.item}>
+            <Text style={{ color }}>● </Text>
             {categoryName(
               item.categoryId,
               category ? publicLabelOf(category) : item.categoryId,
@@ -100,10 +117,17 @@ export function RouteSafety({
   );
 }
 
-const styles = StyleSheet.create({
-  box: { padding: 14, gap: 6, borderRadius: 14, borderWidth: 2, backgroundColor: COLORS.surface },
-  head: { flexDirection: "row", alignItems: "center", gap: 8 },
-  title: { fontSize: 17, fontWeight: "700" },
-  help: { color: COLORS.muted, fontSize: 13 },
-  item: { color: COLORS.text },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    box: {
+      padding: 16,
+      gap: 8,
+      borderRadius: 18,
+      borderWidth: 2,
+      backgroundColor: c.surface,
+    },
+    head: { flexDirection: "row", alignItems: "center", gap: 12 },
+    title: { flex: 1, fontSize: 18, fontWeight: "800" },
+    help: { color: c.muted, fontSize: 14, lineHeight: 20 },
+    item: { color: c.text, fontSize: 15, lineHeight: 21 },
+  });

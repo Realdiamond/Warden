@@ -3,12 +3,14 @@
 
 import { nearestStops, SAFE_STOP_LABELS, type SafeStop } from "@warden/shared";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from "react-native";
 import { describeDistance } from "../lib/alerts.ts";
 import { type Language, strings } from "../lib/i18n.ts";
 import { currentPosition, type Position } from "../lib/location.ts";
-import { COLORS } from "../lib/ui.ts";
-import { Icon } from "./ui.tsx";
+import type { Palette } from "../lib/theme.ts";
+import { Text } from "./text.tsx";
+import { useStyles, useTheme } from "./theme.tsx";
+import { Icon, IconTile } from "./ui.tsx";
 
 const ICONS: Record<SafeStop["kind"], string> = {
   police: "police-badge",
@@ -37,6 +39,8 @@ export function SafePlaces({
   count?: number;
 }) {
   const t = strings(language);
+  const c = useTheme();
+  const styles = useStyles(makeStyles);
   const [openFailed, setOpenFailed] = useState<SafeStop | null>(null);
   const [state, setState] = useState<
     | { kind: "loading" }
@@ -65,9 +69,11 @@ export function SafePlaces({
 
   return (
     <View style={styles.box}>
-      <Text style={styles.title}>{t.safePlaces}</Text>
+      <Text style={styles.title} accessibilityRole="header">
+        {t.safePlaces}
+      </Text>
       <Text style={styles.help}>{t.safePlacesHelp}</Text>
-      {state.kind === "loading" && <ActivityIndicator color={COLORS.primary} />}
+      {state.kind === "loading" && <ActivityIndicator color={c.primary} />}
       {(state.kind === "failed" || (state.kind === "done" && state.stops.length === 0)) && (
         <Text style={styles.help}>{t.noSafePlaces}</Text>
       )}
@@ -83,7 +89,7 @@ export function SafePlaces({
             }}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
-            <Icon name={ICONS[stop.kind]} color={COLORS.primary} />
+            <IconTile icon={ICONS[stop.kind]} tone="primary" size={40} />
             <View style={styles.rowText}>
               <Text style={styles.name}>{stop.name}</Text>
               <Text style={styles.help}>
@@ -92,7 +98,9 @@ export function SafePlaces({
                 {stop.verified ? "" : ` · ${t.notChecked}`}
               </Text>
             </View>
-            <Icon name="directions" color={COLORS.primary} />
+            <View style={styles.go}>
+              <Icon name="directions" size={22} color={c.primary} />
+            </View>
           </Pressable>
         ))}
       {openFailed && (
@@ -117,19 +125,36 @@ export function areaAround(here: Position) {
   };
 }
 
-const styles = StyleSheet.create({
-  box: {
-    padding: 16,
-    gap: 8,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  title: { fontSize: 17, fontWeight: "700", color: COLORS.text },
-  help: { color: COLORS.muted, fontSize: 13 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
-  rowText: { flex: 1 },
-  name: { fontSize: 15, fontWeight: "600", color: COLORS.text },
-  pressed: { opacity: 0.6 },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    box: {
+      padding: 16,
+      gap: 8,
+      borderRadius: 18,
+      backgroundColor: c.surface,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    title: {
+      fontSize: 12,
+      fontWeight: "700",
+      letterSpacing: 1,
+      textTransform: "uppercase",
+      color: c.muted,
+    },
+    help: { color: c.muted, fontSize: 14, lineHeight: 19 },
+    row: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 60, paddingVertical: 6 },
+    rowText: { flex: 1, gap: 2 },
+    name: { fontSize: 16, fontWeight: "700", color: c.text },
+    go: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.surfaceMuted,
+    },
+    pressed: { opacity: 0.6 },
+  });

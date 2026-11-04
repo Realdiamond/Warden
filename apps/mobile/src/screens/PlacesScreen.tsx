@@ -1,18 +1,22 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { randomUUID } from "expo-crypto";
-import { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ensureBackgroundChecks } from "../background.ts";
-import { Button, Icon, ModalHeader, Note } from "../components/ui.tsx";
+import { Text, TextInput } from "../components/text.tsx";
+import { useStyles, useTheme } from "../components/theme.tsx";
+import {
+  Button,
+  Card,
+  Chip,
+  Divider,
+  Icon,
+  IconTile,
+  ModalHeader,
+  Note,
+  SectionLabel,
+  SwitchRow,
+} from "../components/ui.tsx";
 import {
   type AlertPrefs,
   DEFAULT_ALERT_PREFS,
@@ -34,7 +38,7 @@ import {
   saveLastArea,
   savePlaces,
 } from "../lib/places.ts";
-import { COLORS } from "../lib/ui.ts";
+import type { Palette } from "../lib/theme.ts";
 import { PickLocation } from "./PickLocation.tsx";
 
 const START_HOURS = [20, 21, 22, 23];
@@ -65,6 +69,8 @@ export function PlacesScreen({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const c = useTheme();
+  const styles = useStyles(makeStyles);
   const [places, setPlaces] = useState<SavedPlace[] | null>(null);
   const [prefs, setPrefs] = useState<AlertPrefs>(DEFAULT_ALERT_PREFS);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -170,7 +176,7 @@ export function PlacesScreen({
   if (!places) {
     return (
       <View style={[styles.screen, styles.center]}>
-        <ActivityIndicator color={COLORS.primary} />
+        <ActivityIndicator color={c.primary} />
       </View>
     );
   }
@@ -181,166 +187,187 @@ export function PlacesScreen({
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {message && <Note tone="warning">{message}</Note>}
 
-        <Text style={styles.section}>Your places</Text>
-        {places.map((place) => (
-          <View key={place.id} style={styles.placeRow}>
-            <Icon name={PLACE_ICONS[place.kind]} color={COLORS.primary} />
-            <Text style={styles.placeName}>{place.name}</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Remove ${place.name}`}
-              onPress={() => void storePlaces(places.filter((p) => p.id !== place.id))}
-              style={styles.iconButton}
-            >
-              <Icon name="trash-can-outline" color={COLORS.muted} />
-            </Pressable>
-          </View>
-        ))}
-
-        {draft ? (
-          <View style={styles.card}>
-            <Text style={styles.label}>What is this place?</Text>
-            <View style={styles.chips}>
-              {PLACE_KINDS.map((kind) => (
-                <Pressable
-                  key={kind}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: draft.kind === kind }}
-                  onPress={() => setDraft({ ...draft, kind })}
-                  style={[styles.chip, draft.kind === kind && styles.chipActive]}
-                >
-                  <Text style={[styles.chipText, draft.kind === kind && styles.chipTextActive]}>
-                    {PLACE_KIND_LABEL[kind]}
-                  </Text>
-                </Pressable>
+        <View style={styles.section}>
+          <SectionLabel>Your places</SectionLabel>
+          {places.length > 0 && (
+            <Card>
+              {places.map((place, index) => (
+                <View key={place.id}>
+                  {index > 0 && <Divider inset={68} />}
+                  <View style={styles.placeRow}>
+                    <IconTile icon={PLACE_ICONS[place.kind]} tone="primary" size={40} />
+                    <Text style={styles.placeName}>{place.name}</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${place.name}`}
+                      onPress={() => void storePlaces(places.filter((p) => p.id !== place.id))}
+                      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+                    >
+                      <Icon name="trash-can-outline" color={c.muted} />
+                    </Pressable>
+                  </View>
+                </View>
               ))}
-            </View>
-            <TextInput
-              style={styles.input}
-              value={draft.name}
-              onChangeText={(name) => setDraft({ ...draft, name: name.slice(0, MAX_PLACE_NAME) })}
-              placeholder={`Name (for example "${PLACE_KIND_LABEL[draft.kind]}")`}
-              placeholderTextColor={COLORS.muted}
-              accessibilityLabel="Place name"
-            />
-            {draft.point ? (
-              <Text style={styles.help}>Location set. You can change it below.</Text>
-            ) : (
-              <Text style={styles.help}>Where is it?</Text>
-            )}
-            <View style={styles.buttonRow}>
-              <View style={styles.flex}>
-                <Button
-                  label={locating ? "Finding you..." : "Where I am now"}
-                  icon="crosshairs-gps"
-                  disabled={locating}
-                  onPress={() => void locateHere()}
-                />
+            </Card>
+          )}
+
+          {draft ? (
+            <Card style={styles.draft}>
+              <Text style={styles.label}>What is this place?</Text>
+              <View style={styles.chips}>
+                {PLACE_KINDS.map((kind) => (
+                  <Chip
+                    key={kind}
+                    label={PLACE_KIND_LABEL[kind]}
+                    icon={PLACE_ICONS[kind]}
+                    selected={draft.kind === kind}
+                    onPress={() => setDraft({ ...draft, kind })}
+                  />
+                ))}
               </View>
-              <View style={styles.flex}>
-                <Button label="Pick on map" icon="map" onPress={() => setPicking(true)} />
+              <TextInput
+                style={styles.input}
+                value={draft.name}
+                onChangeText={(name) => setDraft({ ...draft, name: name.slice(0, MAX_PLACE_NAME) })}
+                placeholder={`Name (for example "${PLACE_KIND_LABEL[draft.kind]}")`}
+                accessibilityLabel="Place name"
+              />
+              {draft.point ? (
+                <View style={styles.located}>
+                  <Icon name="check-circle" size={20} color={c.primary} />
+                  <Text style={styles.locatedText}>Location set. You can change it below.</Text>
+                </View>
+              ) : (
+                <Text style={styles.help}>Where is it?</Text>
+              )}
+              <View style={styles.buttonRow}>
+                <View style={styles.flex}>
+                  <Button
+                    label={locating ? "Finding you..." : "Where I am now"}
+                    icon="crosshairs-gps"
+                    disabled={locating}
+                    onPress={() => void locateHere()}
+                  />
+                </View>
+                <View style={styles.flex}>
+                  <Button label="Pick on map" icon="map" onPress={() => setPicking(true)} />
+                </View>
               </View>
-            </View>
+              <Button
+                label="Save place"
+                variant="primary"
+                icon="check"
+                large
+                disabled={!draft.point}
+                onPress={() => void saveDraft()}
+              />
+              <Button label="Cancel" variant="text" onPress={() => setDraft(null)} />
+            </Card>
+          ) : places.length < MAX_PLACES ? (
             <Button
-              label="Save place"
-              variant="primary"
-              icon="check"
-              disabled={!draft.point}
-              onPress={() => void saveDraft()}
-            />
-            <Button label="Cancel" onPress={() => setDraft(null)} />
-          </View>
-        ) : places.length < MAX_PLACES ? (
-          <Button
-            label="Add a place"
-            icon="plus"
-            variant={places.length === 0 ? "primary" : "secondary"}
-            onPress={() =>
-              setDraft({ kind: places.length === 0 ? "home" : "work", name: "", point: null })
-            }
-          />
-        ) : (
-          <Text style={styles.help}>You can save up to {MAX_PLACES} places.</Text>
-        )}
-
-        <Note>
-          Your places stay on this phone. Warden asks the server for alerts across wide areas (about
-          11 km squares) and checks here which are near you.
-        </Note>
-
-        <Text style={styles.section}>Alerts</Text>
-        <ToggleRow
-          label="Alerts near my places"
-          help="Critical alerts, like kidnapping or shooting, are always included."
-          value={prefs.enabled}
-          onChange={(enabled) => void updatePrefs({ ...prefs, enabled })}
-        />
-        <ToggleRow
-          label="Warnings"
-          help="Serious incidents such as robberies."
-          value={prefs.tiers.warning}
-          disabled={!prefs.enabled}
-          onChange={(warning) => void updatePrefs({ ...prefs, tiers: { ...prefs.tiers, warning } })}
-        />
-        <ToggleRow
-          label="Advisories"
-          help="Less serious incidents such as theft or road blockages."
-          value={prefs.tiers.advisory}
-          disabled={!prefs.enabled}
-          onChange={(advisory) =>
-            void updatePrefs({ ...prefs, tiers: { ...prefs.tiers, advisory } })
-          }
-        />
-        <ToggleRow
-          label="Also where I last was"
-          help="Uses the place your phone was when you last used your location in Warden."
-          value={prefs.aroundMe}
-          disabled={!prefs.enabled}
-          onChange={(aroundMe) => {
-            void updatePrefs({ ...prefs, aroundMe });
-            if (aroundMe) {
-              void currentPosition(15_000).then((p) =>
-                p ? saveLastArea(AsyncStorage, p, new Date()).then(onChanged) : undefined,
-              );
-            }
-          }}
-        />
-        <ToggleRow
-          label="Read alerts aloud"
-          help="Speaks new alerts while Warden is open, for example when driving."
-          value={prefs.speak}
-          disabled={!prefs.enabled}
-          onChange={(speak) => void updatePrefs({ ...prefs, speak })}
-        />
-        <ToggleRow
-          label="Quiet hours"
-          help="No sound at night, except for critical alerts."
-          value={prefs.quietHours.enabled}
-          disabled={!prefs.enabled}
-          onChange={(enabled) =>
-            void updatePrefs({ ...prefs, quietHours: { ...prefs.quietHours, enabled } })
-          }
-        />
-        {prefs.enabled && prefs.quietHours.enabled && (
-          <View style={styles.card}>
-            <Text style={styles.label}>From</Text>
-            <HourChips
-              hours={START_HOURS}
-              value={prefs.quietHours.startHour}
-              onChange={(startHour) =>
-                void updatePrefs({ ...prefs, quietHours: { ...prefs.quietHours, startHour } })
+              label="Add a place"
+              icon="plus"
+              variant={places.length === 0 ? "primary" : "secondary"}
+              onPress={() =>
+                setDraft({ kind: places.length === 0 ? "home" : "work", name: "", point: null })
               }
             />
-            <Text style={styles.label}>Until</Text>
-            <HourChips
-              hours={END_HOURS}
-              value={prefs.quietHours.endHour}
-              onChange={(endHour) =>
-                void updatePrefs({ ...prefs, quietHours: { ...prefs.quietHours, endHour } })
-              }
+          ) : (
+            <Text style={styles.help}>You can save up to {MAX_PLACES} places.</Text>
+          )}
+
+          <Note icon="cellphone-lock">
+            Your places stay on this phone. Warden asks the server for alerts across wide areas
+            (about 11 km squares) and checks here which are near you.
+          </Note>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel>Alerts</SectionLabel>
+          <Card>
+            <SwitchRow
+              title="Alerts near my places"
+              description="Critical alerts, like kidnapping or shooting, are always included."
+              value={prefs.enabled}
+              onValueChange={(enabled) => void updatePrefs({ ...prefs, enabled })}
             />
-          </View>
-        )}
+            <Divider />
+            <Dimmed off={!prefs.enabled}>
+              <SwitchRow
+                title="Warnings"
+                description="Serious incidents such as robberies."
+                value={prefs.tiers.warning}
+                disabled={!prefs.enabled}
+                onValueChange={(warning) =>
+                  void updatePrefs({ ...prefs, tiers: { ...prefs.tiers, warning } })
+                }
+              />
+              <Divider />
+              <SwitchRow
+                title="Advisories"
+                description="Less serious incidents such as theft or road blockages."
+                value={prefs.tiers.advisory}
+                disabled={!prefs.enabled}
+                onValueChange={(advisory) =>
+                  void updatePrefs({ ...prefs, tiers: { ...prefs.tiers, advisory } })
+                }
+              />
+              <Divider />
+              <SwitchRow
+                title="Also where I last was"
+                description="Uses the place your phone was when you last used your location in Warden."
+                value={prefs.aroundMe}
+                disabled={!prefs.enabled}
+                onValueChange={(aroundMe) => {
+                  void updatePrefs({ ...prefs, aroundMe });
+                  if (aroundMe) {
+                    void currentPosition(15_000).then((p) =>
+                      p ? saveLastArea(AsyncStorage, p, new Date()).then(onChanged) : undefined,
+                    );
+                  }
+                }}
+              />
+              <Divider />
+              <SwitchRow
+                title="Read alerts aloud"
+                description="Speaks new alerts while Warden is open, for example when driving."
+                value={prefs.speak}
+                disabled={!prefs.enabled}
+                onValueChange={(speak) => void updatePrefs({ ...prefs, speak })}
+              />
+              <Divider />
+              <SwitchRow
+                title="Quiet hours"
+                description="No sound at night, except for critical alerts."
+                value={prefs.quietHours.enabled}
+                disabled={!prefs.enabled}
+                onValueChange={(enabled) =>
+                  void updatePrefs({ ...prefs, quietHours: { ...prefs.quietHours, enabled } })
+                }
+              />
+              {prefs.enabled && prefs.quietHours.enabled && (
+                <View style={styles.hours}>
+                  <Text style={styles.label}>From</Text>
+                  <HourChips
+                    hours={START_HOURS}
+                    value={prefs.quietHours.startHour}
+                    onChange={(startHour) =>
+                      void updatePrefs({ ...prefs, quietHours: { ...prefs.quietHours, startHour } })
+                    }
+                  />
+                  <Text style={styles.label}>Until</Text>
+                  <HourChips
+                    hours={END_HOURS}
+                    value={prefs.quietHours.endHour}
+                    onChange={(endHour) =>
+                      void updatePrefs({ ...prefs, quietHours: { ...prefs.quietHours, endHour } })
+                    }
+                  />
+                </View>
+              )}
+            </Dimmed>
+          </Card>
+        </View>
 
         {prefs.enabled && backgroundOk === false && (
           <Note tone="warning">
@@ -359,34 +386,9 @@ export function PlacesScreen({
   );
 }
 
-function ToggleRow({
-  label,
-  help,
-  value,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  help: string;
-  value: boolean;
-  disabled?: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <View style={[styles.toggleRow, disabled && styles.disabled]}>
-      <View style={styles.flex}>
-        <Text style={styles.label}>{label}</Text>
-        <Text style={styles.help}>{help}</Text>
-      </View>
-      <Switch
-        value={value}
-        disabled={disabled}
-        onValueChange={onChange}
-        accessibilityLabel={label}
-        trackColor={{ true: COLORS.primary }}
-      />
-    </View>
-  );
+/** Settings that only matter while alerts are on. */
+function Dimmed({ off, children }: { off: boolean; children: ReactNode }) {
+  return <View style={off ? { opacity: 0.5 } : undefined}>{children}</View>;
 }
 
 function HourChips({
@@ -398,77 +400,55 @@ function HourChips({
   value: number;
   onChange: (hour: number) => void;
 }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.chips}>
       {hours.map((hour) => (
-        <Pressable
+        <Chip
           key={hour}
-          accessibilityRole="button"
-          accessibilityState={{ selected: value === hour }}
+          label={hourLabel(hour)}
+          selected={value === hour}
           onPress={() => onChange(hour)}
-          style={[styles.chip, value === hour && styles.chipActive]}
-        >
-          <Text style={[styles.chipText, value === hour && styles.chipTextActive]}>
-            {hourLabel(hour)}
-          </Text>
-        </Pressable>
+        />
       ))}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  center: { alignItems: "center", justifyContent: "center" },
-  body: { padding: 16, gap: 12, paddingBottom: 48 },
-  section: { fontSize: 20, fontWeight: "700", color: COLORS.text, marginTop: 8 },
-  placeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingLeft: 12,
-    borderRadius: 12,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  placeName: { flex: 1, fontSize: 16, color: COLORS.text },
-  iconButton: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
-  card: {
-    gap: 10,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  label: { fontSize: 16, fontWeight: "600", color: COLORS.text },
-  help: { color: COLORS.muted },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    minHeight: 40,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  chipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  chipText: { color: COLORS.text, fontWeight: "600" },
-  chipTextActive: { color: COLORS.primaryText },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    color: COLORS.text,
-    backgroundColor: COLORS.surface,
-  },
-  buttonRow: { flexDirection: "row", gap: 8 },
-  flex: { flex: 1 },
-  toggleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  disabled: { opacity: 0.5 },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: c.background },
+    center: { alignItems: "center", justifyContent: "center" },
+    body: { padding: 16, gap: 18, paddingBottom: 48 },
+    section: { gap: 10 },
+    placeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      minHeight: 60,
+      paddingLeft: 14,
+      paddingRight: 4,
+    },
+    placeName: { flex: 1, fontSize: 16, fontWeight: "700", color: c.text },
+    iconButton: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+    pressed: { opacity: 0.6 },
+    draft: { gap: 12, padding: 16 },
+    label: { fontSize: 16, fontWeight: "700", color: c.text },
+    help: { color: c.muted, fontSize: 14, lineHeight: 20 },
+    located: { flexDirection: "row", alignItems: "center", gap: 8 },
+    locatedText: { flex: 1, color: c.text, fontSize: 15 },
+    chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    input: {
+      minHeight: 52,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      fontSize: 17,
+      color: c.text,
+      backgroundColor: c.surface,
+    },
+    buttonRow: { flexDirection: "row", gap: 8 },
+    flex: { flex: 1 },
+    hours: { gap: 10, paddingHorizontal: 16, paddingBottom: 16 },
+  });

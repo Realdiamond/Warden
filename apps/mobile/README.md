@@ -12,6 +12,21 @@ Android app (Expo SDK 57, React Native 0.86) with MapLibre maps.
 - 112 button on every reporting screen.
 - Demo mode with built-in sample data when no server is set.
 
+## Look and feel (M10)
+
+- Colours, the night palette and font names live in `src/lib/theme.ts`; a test checks every text
+  colour is readable (4.5:1) in both themes. Screens build their styles with
+  `useStyles((c) => StyleSheet.create(...))` so night mode applies everywhere.
+- Use `Text` and `TextInput` from `src/components/text.tsx`, not React Native's: they pick the
+  Atkinson Hyperlegible file for each weight. `fontFamily: MONO` gives the mono face for numbers.
+- Shared pieces (buttons, cards, list rows, chips, switches, the 112 button) are in
+  `src/components/ui.tsx`.
+- Fonts are in `assets/fonts` (SIL Open Font License, `OFL.txt`), bundled by the `expo-font`
+  plugin. Map marker icons are in `assets/map-icons`, rendered from the app's icon font; a new
+  category icon needs a new image there (see ADR 0010) and a line in `src/components/mapIcons.ts`.
+- `WARDEN_MAP_STYLE_URL` and `WARDEN_MAP_STYLE_DARK_URL` (build time) change the day and night maps.
+- The first-run setup is `src/screens/Onboarding.tsx`; clearing the app's data shows it again.
+
 ## Getting a test build
 
 GitHub Actions builds an APK on every push that touches the app and publishes it as a pre-release on

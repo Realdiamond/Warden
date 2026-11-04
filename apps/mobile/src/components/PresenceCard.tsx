@@ -1,8 +1,9 @@
 import type { DeploymentKind, PublicPresence } from "@warden/shared";
-import { StyleSheet, Text, View } from "react-native";
-import { COLORS } from "../lib/ui.ts";
-import { PRESENCE_COLOR } from "./IncidentMap.tsx";
-import { Icon } from "./ui.tsx";
+import { StyleSheet, View } from "react-native";
+import { MONO, type Palette } from "../lib/theme.ts";
+import { Text } from "./text.tsx";
+import { useStyles } from "./theme.tsx";
+import { IconTile } from "./ui.tsx";
 
 const KIND: Record<DeploymentKind, { label: string; icon: string }> = {
   patrol: { label: "Patrol", icon: "police-badge" },
@@ -20,6 +21,7 @@ function clock(iso: string): string {
 
 /** A responder deployment the organisation chose to show the public. */
 export function PresenceCard({ presence }: { presence: PublicPresence }) {
+  const styles = useStyles(makeStyles);
   const kind = KIND[presence.kind];
   return (
     <View
@@ -28,15 +30,14 @@ export function PresenceCard({ presence }: { presence: PublicPresence }) {
       accessibilityLabel={`${kind.label} by ${presence.organisation}, until ${clock(presence.until)}`}
     >
       <View style={styles.row}>
-        <View style={styles.iconWrap}>
-          <Icon name={kind.icon} color={PRESENCE_COLOR} />
-        </View>
+        <IconTile icon={kind.icon} tone="responder" size={48} />
         <View style={styles.flex}>
+          <Text style={styles.eyebrow}>Responders</Text>
           <Text style={styles.title}>
             {kind.label}: {presence.label}
           </Text>
           <Text style={styles.meta}>
-            {presence.organisation} · until {clock(presence.until)}
+            {presence.organisation} · until <Text style={styles.time}>{clock(presence.until)}</Text>
           </Text>
         </View>
       </View>
@@ -47,25 +48,32 @@ export function PresenceCard({ presence }: { presence: PublicPresence }) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
-    gap: 10,
-    elevation: 6,
-  },
-  row: { flexDirection: "row", alignItems: "center", gap: 12 },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${PRESENCE_COLOR}22`,
-  },
-  flex: { flex: 1 },
-  title: { fontSize: 18, fontWeight: "700", color: COLORS.text },
-  meta: { color: COLORS.muted, marginTop: 2 },
-  footnote: { fontSize: 12, color: COLORS.muted },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: c.surface,
+      borderRadius: 22,
+      padding: 16,
+      gap: 12,
+      borderWidth: c.name === "dark" ? 1 : 0,
+      borderColor: c.border,
+      shadowColor: c.shadow,
+      shadowOpacity: 0.16,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
+    },
+    row: { flexDirection: "row", alignItems: "center", gap: 14 },
+    flex: { flex: 1, gap: 2 },
+    eyebrow: {
+      fontSize: 12,
+      fontWeight: "700",
+      letterSpacing: 1,
+      textTransform: "uppercase",
+      color: c.name === "dark" ? c.responderText : c.responder,
+    },
+    title: { fontSize: 19, fontWeight: "800", color: c.text },
+    meta: { color: c.muted, fontSize: 14 },
+    time: { fontFamily: MONO, color: c.muted },
+    footnote: { fontSize: 13.5, lineHeight: 19, color: c.muted },
+  });

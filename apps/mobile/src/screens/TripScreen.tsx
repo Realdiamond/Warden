@@ -1,16 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { type BBox, MAX_SESSION_NOTE, type PublicIncident } from "@warden/shared";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { RouteSafety } from "../components/RouteSafety.tsx";
-import { Button, ModalHeader, Note } from "../components/ui.tsx";
+import { Text, TextInput } from "../components/text.tsx";
+import { useStyles } from "../components/theme.tsx";
+import { Button, Chip, ModalHeader, Note } from "../components/ui.tsx";
 import { loadProfile, type SafetyProfile } from "../lib/contacts.ts";
-import type { Language } from "../lib/i18n.ts";
-import { loadPlaces, type SavedPlace } from "../lib/places.ts";
-import { COLORS } from "../lib/ui.ts";
+import { type Language, strings } from "../lib/i18n.ts";
+import { loadPlaces, PLACE_ICONS, type SavedPlace } from "../lib/places.ts";
+import type { Palette } from "../lib/theme.ts";
 import { PickLocation } from "./PickLocation.tsx";
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
+
+/** Stored as the destination label when the person picks a point on the map. */
+const PLACE_ON_MAP = "Place on the map";
 
 export interface TripPlan {
   minutes: number;
@@ -42,6 +47,8 @@ export function TripScreen({
   onContacts: () => void;
   onClose: () => void;
 }) {
+  const t = strings(language);
+  const styles = useStyles(makeStyles);
   const [profile, setProfile] = useState<SafetyProfile | null>(null);
   const [places, setPlaces] = useState<SavedPlace[]>([]);
   const [minutes, setMinutes] = useState(30);
@@ -61,16 +68,13 @@ export function TripScreen({
   if (picking) {
     return (
       <View style={styles.screen}>
-        <ModalHeader
-          title="Where are you going?"
-          onClose={onClose}
-          onBack={() => setPicking(false)}
-        />
+        <ModalHeader title={t.whereGoing} onClose={onClose} onBack={() => setPicking(false)} />
         <PickLocation
           styleUrl={styleUrl}
           start={destination ?? mapCenter}
+          hint={t.moveToDestination}
           onPick={(point) => {
-            setDestination({ ...point, label: "Place on the map" });
+            setDestination({ ...point, label: PLACE_ON_MAP });
             setPicking(false);
           }}
         />
@@ -82,64 +86,53 @@ export function TripScreen({
 
   return (
     <View style={styles.screen}>
-      <ModalHeader title="Share my trip" onClose={onClose} />
+      <ModalHeader title={t.shareMyTrip} onClose={onClose} />
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <Text style={styles.section}>How long will it take?</Text>
-        <View style={styles.chips}>
-          {DURATIONS.map((value) => (
-            <Pressable
-              key={value}
-              accessibilityRole="button"
-              accessibilityState={{ selected: minutes === value }}
-              onPress={() => setMinutes(value)}
-              style={[styles.chip, minutes === value && styles.chipActive]}
-            >
-              <Text style={[styles.chipText, minutes === value && styles.chipTextActive]}>
-                {durationLabel(value)}
-              </Text>
-            </Pressable>
-          ))}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            {t.howLong}
+          </Text>
+          <View style={styles.chips}>
+            {DURATIONS.map((value) => (
+              <Chip
+                key={value}
+                label={durationLabel(value)}
+                selected={minutes === value}
+                onPress={() => setMinutes(value)}
+              />
+            ))}
+          </View>
+          <Text style={styles.help}>{t.lateHelp}</Text>
         </View>
-        <Text style={styles.help}>
-          If you have not arrived 10 minutes after this, Warden texts your trusted contacts.
-        </Text>
 
-        <Text style={styles.section}>Where to? (optional)</Text>
-        <View style={styles.chips}>
-          {places.map((place) => {
-            const selected = destination?.label === place.name;
-            return (
-              <Pressable
-                key={place.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                onPress={() =>
-                  setDestination(
-                    selected ? undefined : { lat: place.lat, lng: place.lng, label: place.name },
-                  )
-                }
-                style={[styles.chip, selected && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextActive]}>
-                  {place.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setPicking(true)}
-            style={[styles.chip, destination?.label === "Place on the map" && styles.chipActive]}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                destination?.label === "Place on the map" && styles.chipTextActive,
-              ]}
-            >
-              Pick on map
-            </Text>
-          </Pressable>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            {t.whereTo}
+          </Text>
+          <View style={styles.chips}>
+            {places.map((place) => {
+              const selected = destination?.label === place.name;
+              return (
+                <Chip
+                  key={place.id}
+                  label={place.name}
+                  icon={PLACE_ICONS[place.kind]}
+                  selected={selected}
+                  onPress={() =>
+                    setDestination(
+                      selected ? undefined : { lat: place.lat, lng: place.lng, label: place.name },
+                    )
+                  }
+                />
+              );
+            })}
+            <Chip
+              label={t.pickOnMap}
+              icon="map-marker-radius"
+              selected={destination?.label === PLACE_ON_MAP}
+              onPress={() => setPicking(true)}
+            />
+          </View>
         </View>
 
         {destination && (
@@ -150,31 +143,28 @@ export function TripScreen({
           />
         )}
 
-        <Text style={styles.section}>Note for your contacts (optional)</Text>
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          value={note}
-          onChangeText={(value) => setNote(value.slice(0, MAX_SESSION_NOTE))}
-          placeholder="For example: Bolt, blue Corolla, plate KJA 123 XY"
-          placeholderTextColor={COLORS.muted}
-          multiline
-          accessibilityLabel="Note for your contacts"
-        />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle} accessibilityRole="header">
+            {t.noteForContacts}
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={note}
+            onChangeText={(value) => setNote(value.slice(0, MAX_SESSION_NOTE))}
+            placeholder={t.notePlaceholder}
+            multiline
+            accessibilityLabel="Note for your contacts"
+          />
+        </View>
 
-        {noContacts && (
-          <Note tone="warning">
-            You have no trusted contacts yet. You can still share the link yourself, but Warden
-            cannot text anyone if you are late.
-          </Note>
-        )}
-        {noContacts && (
-          <Button label="Add trusted contacts" icon="account-plus" onPress={onContacts} />
-        )}
+        {noContacts && <Note tone="warning">{t.noContactsTrip}</Note>}
+        {noContacts && <Button label={t.addContacts} icon="account-plus" onPress={onContacts} />}
         {error && <Text style={styles.error}>{error}</Text>}
         <Button
-          label={busy ? "Starting..." : "Start sharing"}
+          label={busy ? t.starting : t.startSharing}
           variant="primary"
           icon="map-marker-path"
+          large
           disabled={busy}
           onPress={() => {
             setBusy(true);
@@ -184,43 +174,32 @@ export function TripScreen({
               .finally(() => setBusy(false));
           }}
         />
-        <Note>
-          While sharing, Android shows a Warden notification. Your location goes only to people with
-          your private link and is deleted two days after the trip ends.
-        </Note>
+        <Note icon="shield-lock-outline">{t.tripPrivacy}</Note>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  body: { padding: 16, gap: 12, paddingBottom: 48 },
-  section: { fontSize: 18, fontWeight: "700", color: COLORS.text, marginTop: 8 },
-  help: { color: COLORS.muted },
-  error: { color: COLORS.danger, fontWeight: "600" },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    minHeight: 44,
-    paddingHorizontal: 16,
-    borderRadius: 22,
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  chipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  chipText: { color: COLORS.text, fontWeight: "600" },
-  chipTextActive: { color: COLORS.primaryText },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    color: COLORS.text,
-    backgroundColor: COLORS.surface,
-  },
-  multiline: { minHeight: 80, paddingTop: 12, textAlignVertical: "top" },
-});
+const makeStyles = (c: Palette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: c.background },
+    body: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 48, gap: 18 },
+    section: { gap: 10 },
+    sectionTitle: { fontSize: 19, fontWeight: "800", color: c.text },
+    help: { fontSize: 14.5, lineHeight: 20, color: c.muted },
+    error: { color: c.dangerText, fontWeight: "700", fontSize: 15 },
+    chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    input: {
+      minHeight: 88,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingTop: 12,
+      paddingBottom: 12,
+      fontSize: 17,
+      lineHeight: 23,
+      textAlignVertical: "top",
+      backgroundColor: c.surface,
+    },
+  });

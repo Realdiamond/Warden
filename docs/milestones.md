@@ -5,10 +5,11 @@ It is written to be read without knowing any code. The full plan lives in the
 [Warden 2.0 Requirements Set](https://claude.ai/code/artifact/9e32d210-e4da-4bad-b899-a11b5ba06bcf);
 the reasons behind each design choice are in the decision records in [`adr/`](adr/).
 
-## Where things stand (15 October 2026)
+## Where things stand (4 November 2026)
 
-All nine milestones are built and merged into `main`, and the checks pass. A test Android app
-(APK) is published in the repository's GitHub Releases after every build.
+All nine feature milestones are built and merged into `main`, and the checks pass. M10 gives the
+Android app a new look and a first-run setup; it is built and waiting to be merged. A test Android
+app (APK) is published in the repository's GitHub Releases after every build.
 
 What is left is mostly not code. Warden needs a server, accounts with outside providers, real
 partner organisations, a native Pidgin speaker and a lawyer before it can launch. Those items are
@@ -26,6 +27,7 @@ end of this page.
 | M7 | Community feed and route safety score | [#4](https://github.com/Realdiamond/warden/pull/4) | 14 Oct 2026 |
 | M8 | Voice notes, photos, SOS sound, spoken broadcasts, news | [#5](https://github.com/Realdiamond/warden/pull/5) | 14 Oct 2026 |
 | M9 | Fleet dashboard and paid risk-data API | [#6](https://github.com/Realdiamond/warden/pull/6) | 14 Oct 2026 |
+| M10 | New look, night mode and a first-run setup | [#8](https://github.com/Realdiamond/warden/pull/8) | not yet |
 
 In the lists below, a ticked box is done and an empty box is still open.
 
@@ -171,6 +173,29 @@ what is already public on the map.
 - [ ] Prices, contracts and terms of use for fleets and data customers (founder, with a lawyer)
 - [ ] First fleet and data customers signed up (founder)
 
+## M10: New look and first-run setup ([ADR 0010](adr/0010-new-look-and-first-run.md), [PR #8](https://github.com/Realdiamond/warden/pull/8))
+
+The app was redesigned after looking at every screen. Its first impression was weak: the map
+opened on all of Lagos with incidents too small to see, and nobody was asked to add trusted
+contacts until they pressed SOS. M10 fixes that and gives every screen one consistent look.
+
+- [x] First-run setup: welcome, what stays private, location, trusted contacts, a safety PIN
+      (with an optional duress PIN), home, and a short "how SOS works"; every step but the first
+      can be skipped, and people who already set things up skip it
+- [x] The map opens on the person's own area when location is allowed, on a calm grey map
+- [x] A "near you" line at the top: danger, take care or quiet, and how many reports within 1 km
+- [x] A colour key, incidents as markers with icons and report counts, numbered circles when
+      zoomed out
+- [x] Labelled buttons along the bottom (SOS, Report, Trip, Menu), and a menu with a short
+      description for each item and a check that SOS can reach someone
+- [x] Night mode: follows the phone, or always light or dark (Settings); dark map at night
+- [x] Atkinson Hyperlegible, a typeface made to be easy to read, bundled into the app
+- [x] Every screen restyled: reporting, trips, SOS, alerts, places, contacts, community, outlook,
+      settings, my reports
+- [x] Every text colour checked for readability in both themes by an automated test
+- [ ] New words checked in Pidgin by a native speaker (founder)
+- [ ] First-time use watched with five people in Lagos who have not seen the app (founder)
+
 ## Before launch: what needs the founder
 
 None of these need more code. [deploy.md](deploy.md) explains how to switch each one on once it
@@ -213,3 +238,5 @@ exists.
 - [ ] The app on real low-end Android phones on MTN, Airtel and Glo
 - [ ] Off-route limits tuned on real trips in Lagos traffic
 - [ ] SOS sound tried with the screen off on a few phones
+- [ ] The new design on low-end phones: the font in bright sun, night mode in the dark, and the
+      first-run setup with five people who have not seen the app
