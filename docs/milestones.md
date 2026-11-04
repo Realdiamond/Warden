@@ -27,7 +27,7 @@ end of this page.
 | M7 | Community feed and route safety score | [#4](https://github.com/Realdiamond/warden/pull/4) | 14 Oct 2026 |
 | M8 | Voice notes, photos, SOS sound, spoken broadcasts, news | [#5](https://github.com/Realdiamond/warden/pull/5) | 14 Oct 2026 |
 | M9 | Fleet dashboard and paid risk-data API | [#6](https://github.com/Realdiamond/warden/pull/6) | 14 Oct 2026 |
-| M10 | New look, night mode and a first-run setup | waiting to be opened | not yet |
+| M10 | New look, night mode and a first-run setup | [#8](https://github.com/Realdiamond/warden/pull/8) | not yet |
 
 In the lists below, a ticked box is done and an empty box is still open.
 
@@ -173,7 +173,7 @@ what is already public on the map.
 - [ ] Prices, contracts and terms of use for fleets and data customers (founder, with a lawyer)
 - [ ] First fleet and data customers signed up (founder)
 
-## M10: New look and first-run setup ([ADR 0010](adr/0010-new-look-and-first-run.md))
+## M10: New look and first-run setup ([ADR 0010](adr/0010-new-look-and-first-run.md), [PR #8](https://github.com/Realdiamond/warden/pull/8))
 
 The app was redesigned after looking at every screen. Its first impression was weak: the map
 opened on all of Lagos with incidents too small to see, and nobody was asked to add trusted
