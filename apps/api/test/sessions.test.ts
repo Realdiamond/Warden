@@ -66,6 +66,9 @@ async function view(receipt: Receipt, token = receipt.viewToken) {
 }
 
 async function deliver() {
+  // Let the delivery that each session request starts in the background finish first, so the
+  // two never compete for the same message.
+  await ctx.app.smsSettled();
   return deliverDueSms(serviceDeps(ctx));
 }
 
@@ -254,6 +257,9 @@ describe("SOS", () => {
 
   it("retries failed messages and caps messages per number", async () => {
     ctx.sms.failNext = 2;
+    // A slow provider: the delivery each request starts in the background holds the message
+    // while the test's own runs happen, as on a busy CI machine.
+    ctx.sms.delayMs = 150;
     await start({ kind: "sos", personName: "Ada", contacts: [CONTACTS[0]] });
     await deliver();
     expect(ctx.sms.sent).toHaveLength(0);
@@ -264,6 +270,7 @@ describe("SOS", () => {
     await deliver();
     expect(ctx.sms.sent).toHaveLength(1);
 
+    ctx.sms.delayMs = 0;
     for (let i = 0; i < SMS_PER_NUMBER_PER_DAY + 3; i += 1) {
       await start({ kind: "sos", personName: "Spam", contacts: [CONTACTS[0]] });
     }

@@ -27,8 +27,11 @@ export class MemorySmsSender implements SmsSender {
   readonly name = "memory";
   readonly sent: { to: string; text: string }[] = [];
   failNext = 0;
+  /** Makes every send take this long, like a slow provider. */
+  delayMs = 0;
 
   async send(to: string, text: string): Promise<SmsResult> {
+    if (this.delayMs > 0) await new Promise((resolve) => setTimeout(resolve, this.delayMs));
     if (this.failNext > 0) {
       this.failNext -= 1;
       return { ok: false, retry: true, error: "simulated failure" };
