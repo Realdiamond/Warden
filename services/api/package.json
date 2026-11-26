@@ -1,0 +1,21 @@
+{
+  "name": "@monitor/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types --experimental-sqlite --watch src/index.ts",
+    "start": "node --experimental-strip-types --experimental-sqlite src/index.ts",
+    "test": "node --experimental-strip-types --experimental-sqlite --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fastify": "^5.2.0",
+    "jose": "^5.9.6",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.0"
+  }
+}

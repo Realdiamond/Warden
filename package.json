@@ -1,0 +1,16 @@
+{
+  "name": "monitor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Monitor — a consent-based family device monitoring system (parent dashboard + parent app + monitored Android app + API).",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @monitor/api dev",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "packageManager": "pnpm@10.28.0"
+}
