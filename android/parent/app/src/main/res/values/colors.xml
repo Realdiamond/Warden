@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#2563EB</color>
+    <color name="muted">#697086</color>
+    <color name="error">#C0362C</color>
+    <color name="ic_launcher_background">#2563EB</color>
+    <color name="card_border">#E3E6EC</color>
+</resources>

@@ -4,6 +4,12 @@ Progress log for Monitor. Newest first.
 
 ## Stage 1 — Backbone (in progress)
 
+**Done (parent Android app)**
+- `android/parent`: native Kotlin app for the parent — sign in, device list, device location +
+  history, open a point in a maps app. Mirrors the web dashboard on the phone.
+- Verified: builds a real `app-debug.apk` here; GitHub Actions builds it on every push
+  (`.github/workflows/android-parent.yml`).
+
 **Done (monitored Android app)**
 - `android/child`: native Kotlin app for the monitored phone.
   - Pairing screen: explains the app openly, takes the code, requires an explicit consent tick.

@@ -57,8 +57,9 @@ git-ignored.
 ## Roadmap (approach: backbone first, then features by value)
 
 - [x] **Stage 0 — Scaffold.** Workspace, shared package, API skeleton.
-- [~] **Stage 1 — Backbone.** Accounts, pairing, consent gate, **location** end to end.
-      *(API done; dashboard + child-app clients next.)*
+- [x] **Stage 1 — Backbone.** Accounts, pairing, consent gate, **location** end to end across
+      all four pieces: API, web dashboard, monitored app, parent app. Both Android apps build to
+      real APKs (locally and in CI).
 - [ ] **Stage 2 — App usage.** Which apps, how long, when.
 - [ ] **Stage 3 — Messages.** Contents across apps (encrypted at rest).
 - [ ] **Stage 4 — Calls.** History + contents.
