@@ -60,7 +60,9 @@ git-ignored.
 - [x] **Stage 1 — Backbone.** Accounts, pairing, consent gate, **location** end to end across
       all four pieces: API, web dashboard, monitored app, parent app. Both Android apps build to
       real APKs (locally and in CI).
-- [ ] **Stage 2 — App usage.** Which apps, how long, when.
+- [x] **Stage 2 — App usage.** Monitored app reports per-app foreground time (UsageStats);
+      dashboard shows the latest totals per app. Needs the "Usage access" permission (the pairing
+      screen links to it).
 - [ ] **Stage 3 — Messages.** Contents across apps (encrypted at rest).
 - [ ] **Stage 4 — Calls.** History + contents.
 - [ ] **Stage 5 — Limits.** Block apps, screen-time rules.

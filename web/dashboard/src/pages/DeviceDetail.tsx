@@ -1,19 +1,61 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { api, type DeviceSummary, type EventEnvelope, type LocationPayload } from "../api.ts";
+import {
+  api,
+  type DeviceSummary,
+  type EventEnvelope,
+  type LocationPayload,
+  type AppUsagePayload,
+} from "../api.ts";
 import { LocationMap, type Point } from "../components/LocationMap.tsx";
+
+interface UsageRow {
+  packageName: string;
+  foregroundMs: number;
+}
+
+function aggregateUsage(events: EventEnvelope<AppUsagePayload>[]): UsageRow[] {
+  // Events arrive newest-first; keep the latest reported total per package.
+  const latest = new Map<string, number>();
+  for (const e of events) {
+    if (!latest.has(e.payload.packageName)) latest.set(e.payload.packageName, e.payload.foregroundMs);
+  }
+  return [...latest.entries()]
+    .map(([packageName, foregroundMs]) => ({ packageName, foregroundMs }))
+    .sort((a, b) => b.foregroundMs - a.foregroundMs);
+}
+
+function formatDuration(ms: number): string {
+  const min = Math.round(ms / 60_000);
+  if (min < 1) return "<1 min";
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
+function appName(pkg: string): string {
+  const parts = pkg.split(".");
+  return parts[parts.length - 1] || pkg;
+}
 
 export function DeviceDetail() {
   const { id = "" } = useParams();
   const [device, setDevice] = useState<DeviceSummary | null>(null);
   const [events, setEvents] = useState<EventEnvelope<LocationPayload>[]>([]);
+  const [usage, setUsage] = useState<UsageRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [d, e] = await Promise.all([api.getDevice(id), api.getEvents(id, "location", 200)]);
+      const [d, e, u] = await Promise.all([
+        api.getDevice(id),
+        api.getEvents(id, "location", 200),
+        api.getEvents(id, "app_usage", 500),
+      ]);
       setDevice(d.device);
       setEvents(e.events as EventEnvelope<LocationPayload>[]);
+      setUsage(aggregateUsage(u.events as EventEnvelope<AppUsagePayload>[]));
     } catch {
       setError("Could not load this device.");
     }
@@ -68,7 +110,24 @@ export function DeviceDetail() {
       </section>
 
       <section className="panel">
-        <h2>History</h2>
+        <h2>App usage (today)</h2>
+        {usage.length === 0 ? (
+          <p className="muted">No app usage reported yet.</p>
+        ) : (
+          <ul className="usage" data-testid="usage">
+            {usage.map((u) => (
+              <li key={u.packageName}>
+                <span className="usage-name">{appName(u.packageName)}</span>
+                <span className="usage-pkg muted">{u.packageName}</span>
+                <span className="usage-time">{formatDuration(u.foregroundMs)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="panel">
+        <h2>Location history</h2>
         {events.length === 0 ? (
           <p className="muted">Nothing yet.</p>
         ) : (

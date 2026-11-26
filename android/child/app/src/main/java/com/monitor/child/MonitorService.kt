@@ -20,8 +20,11 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.Instant
 
@@ -36,6 +39,7 @@ class MonitorService : Service() {
     private lateinit var store: Store
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var callback: LocationCallback? = null
+    private var usageJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -70,6 +74,18 @@ class MonitorService : Service() {
                 fused.requestLocationUpdates(request, cb, Looper.getMainLooper())
             } catch (e: SecurityException) {
                 // Location permission has not been granted yet; the pairing screen requests it.
+            }
+        }
+        if (usageJob == null) {
+            usageJob = scope.launch {
+                while (isActive) {
+                    try {
+                        UsageReporter(this@MonitorService, store).reportNow()
+                    } catch (e: Exception) {
+                        // ignore a single failed usage report; try again next cycle
+                    }
+                    delay(USAGE_INTERVAL_MS)
+                }
             }
         }
         return START_STICKY
@@ -107,6 +123,7 @@ class MonitorService : Service() {
         private const val NOTIF_ID = 1001
         private const val CHANNEL = "monitor_notice"
         private const val INTERVAL_MS = 60_000L
+        private const val USAGE_INTERVAL_MS = 15L * 60 * 1000
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, MonitorService::class.java))

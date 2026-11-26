@@ -17,6 +17,12 @@ export interface LocationPayload {
   battery?: number;
 }
 
+export interface AppUsagePayload {
+  packageName: string;
+  appLabel?: string;
+  foregroundMs: number;
+}
+
 export interface EventEnvelope<P = unknown> {
   id: string;
   deviceId: string;

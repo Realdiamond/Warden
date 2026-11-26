@@ -2,7 +2,15 @@
 
 Progress log for Monitor. Newest first.
 
-## Stage 1 — Backbone (in progress)
+## Stage 2 — App usage (done)
+
+- Monitored app: reports per-app foreground time via UsageStatsManager every ~15 min; pairing
+  screen links to the "Usage access" settings so the user can grant it.
+- API: `app_usage` events stored and read back (test added).
+- Dashboard: device page shows "App usage (today)" — latest total per app, longest first.
+- Verified: API tests green, dashboard build + browser screenshot showing usage, child APK builds.
+
+## Stage 1 — Backbone (done)
 
 **Done (parent Android app)**
 - `android/parent`: native Kotlin app for the parent — sign in, device list, device location +

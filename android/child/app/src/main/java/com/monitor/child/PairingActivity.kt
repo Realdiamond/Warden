@@ -1,9 +1,12 @@
 package com.monitor.child
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -48,6 +51,22 @@ class PairingActivity : AppCompatActivity() {
         }
 
         binding.pairButton.setOnClickListener { attemptPair() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateUsageButton()
+    }
+
+    private fun updateUsageButton() {
+        if (store.isPaired && !UsageReporter.hasUsageAccess(this)) {
+            binding.usageAccessButton.visibility = View.VISIBLE
+            binding.usageAccessButton.setOnClickListener {
+                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            }
+        } else {
+            binding.usageAccessButton.visibility = View.GONE
+        }
     }
 
     private fun attemptPair() {

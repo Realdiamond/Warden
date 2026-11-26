@@ -66,6 +66,61 @@ test("full flow: signup -> device -> pair with consent -> location -> parent rea
   assert.equal(events[0]?.payload.lat, 6.5244);
 });
 
+test("app_usage events are stored and read back", async () => {
+  const signup = await app.inject({
+    method: "POST",
+    url: "/v1/accounts",
+    payload: { email: `usage${Date.now()}@example.com`, password: "supersecret" },
+  });
+  const accountToken = signup.json().token as string;
+
+  const created = await app.inject({
+    method: "POST",
+    url: "/v1/devices",
+    headers: { authorization: `Bearer ${accountToken}` },
+    payload: { name: "Kid phone" },
+  });
+  const { deviceId, pairCode } = created.json() as { deviceId: string; pairCode: string };
+
+  const paired = await app.inject({
+    method: "POST",
+    url: "/v1/pairing",
+    payload: {
+      pairCode,
+      deviceName: "Kid phone",
+      platform: "android",
+      appVersion: "0.1.0",
+      consentAcceptedAt: new Date().toISOString(),
+    },
+  });
+  const deviceToken = paired.json().deviceToken as string;
+
+  const reported = await app.inject({
+    method: "POST",
+    url: "/v1/events",
+    headers: { authorization: `Bearer ${deviceToken}` },
+    payload: {
+      kind: "app_usage",
+      capturedAt: new Date().toISOString(),
+      payload: { packageName: "com.whatsapp", foregroundMs: 3_600_000 },
+    },
+  });
+  assert.equal(reported.statusCode, 201);
+
+  const read = await app.inject({
+    method: "GET",
+    url: `/v1/devices/${deviceId}/events?kind=app_usage`,
+    headers: { authorization: `Bearer ${accountToken}` },
+  });
+  assert.equal(read.statusCode, 200);
+  const { events } = read.json() as {
+    events: Array<{ payload: { packageName: string; foregroundMs: number } }>;
+  };
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.payload.packageName, "com.whatsapp");
+  assert.equal(events[0]?.payload.foregroundMs, 3_600_000);
+});
+
 test("a device token cannot read another account's device", async () => {
   // A random/forged account token must not read someone else's device.
   const read = await app.inject({

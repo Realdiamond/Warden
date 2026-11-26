@@ -31,6 +31,23 @@ class Api(private val baseUrl: String) {
         }
     }
 
+    suspend fun postAppUsage(
+        token: String,
+        packageName: String,
+        foregroundMs: Long,
+        capturedAt: String,
+    ): Boolean = withContext(Dispatchers.IO) {
+        val payload = JSONObject()
+            .put("packageName", packageName)
+            .put("foregroundMs", foregroundMs)
+        val body = JSONObject()
+            .put("kind", "app_usage")
+            .put("capturedAt", capturedAt)
+            .put("payload", payload)
+        val (code, _) = post("/v1/events", body.toString(), token)
+        code in 200..299
+    }
+
     suspend fun postLocation(
         token: String,
         lat: Double,
