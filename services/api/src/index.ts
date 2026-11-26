@@ -1,7 +1,7 @@
 import { buildServer } from "./server.ts";
 import { config } from "./config.ts";
 
-const app = buildServer({ logger: true });
+const app = await buildServer({ logger: true });
 
 app
   .listen({ port: config.port, host: config.host })

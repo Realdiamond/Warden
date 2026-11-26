@@ -1,0 +1,73 @@
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../auth.tsx";
+import { ApiError } from "../api.ts";
+
+function friendly(code: string): string {
+  switch (code) {
+    case "invalid_credentials":
+      return "Wrong email or password.";
+    case "email_taken":
+      return "That email already has an account — try signing in.";
+    case "invalid_body":
+      return "Enter a valid email and a password of at least 8 characters.";
+    default:
+      return "Something went wrong. Please try again.";
+  }
+}
+
+export function Login() {
+  const { signIn } = useAuth();
+  const nav = useNavigate();
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await signIn(email, password, mode === "signup");
+      nav("/devices");
+    } catch (err) {
+      setError(err instanceof ApiError ? friendly(err.code) : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="auth">
+      <div className="auth-card">
+        <h1 className="brand">Monitor</h1>
+        <p className="muted">Consent-based family device monitoring.</p>
+        <form onSubmit={submit}>
+          <label>
+            Email
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+            />
+          </label>
+          {error && <p className="error">{error}</p>}
+          <button type="submit" disabled={busy}>
+            {mode === "signup" ? "Create account" : "Sign in"}
+          </button>
+        </form>
+        <button className="link" onClick={() => setMode(mode === "signup" ? "login" : "signup")}>
+          {mode === "signup" ? "Have an account? Sign in" : "New here? Create an account"}
+        </button>
+      </div>
+    </div>
+  );
+}

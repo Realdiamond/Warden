@@ -4,7 +4,16 @@ Progress log for Monitor. Newest first.
 
 ## Stage 1 — Backbone (in progress)
 
-**Done**
+**Done (dashboard)**
+- `web/dashboard`: parent web app (React + Vite + Leaflet).
+  - Sign up / sign in, device list, add device → pairing code shown.
+  - Device page: latest location + history, plotted on an OpenStreetMap map with a trail.
+  - "Paired" / "Consent recorded" / "Last seen" status badges.
+  - The API now serves the built dashboard from the same origin (plus CORS for dev).
+  - Verified by an automated browser (Playwright) test: sign up → add device → simulated
+    phone pairs with consent and reports a track → dashboard shows it on the map.
+
+**Done (API)**
 - Monorepo scaffold: pnpm workspace, shared package, API service.
 - `packages/shared`: event kinds, sensitivity classification, pairing/DTO contracts.
 - `services/api`: Node 22 + TypeScript (run directly, no build step), SQLite storage.

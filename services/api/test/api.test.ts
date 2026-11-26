@@ -9,7 +9,7 @@ process.env.MONITOR_ENCRYPTION_KEY =
 
 const { buildServer } = await import("../src/server.ts");
 
-const app = buildServer();
+const app = await buildServer();
 
 test("full flow: signup -> device -> pair with consent -> location -> parent reads", async () => {
   const signup = await app.inject({
