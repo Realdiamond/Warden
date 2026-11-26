@@ -31,6 +31,14 @@ class Store(context: Context) {
             prefs.edit().putString(KEY_CONSENT, value).apply()
         }
 
+    // Only calls newer than this have been reported (epoch millis). Defaults to a week back so the
+    // first report picks up recent history.
+    var lastCallMillis: Long
+        get() = prefs.getLong(KEY_LAST_CALL, System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000)
+        set(value) {
+            prefs.edit().putLong(KEY_LAST_CALL, value).apply()
+        }
+
     val isPaired: Boolean
         get() = !deviceToken.isNullOrEmpty()
 
@@ -38,6 +46,7 @@ class Store(context: Context) {
         private const val KEY_BASE_URL = "baseUrl"
         private const val KEY_TOKEN = "deviceToken"
         private const val KEY_CONSENT = "consentAcceptedAt"
+        private const val KEY_LAST_CALL = "lastCallMillis"
 
         // The deployed API. Overridable on the pairing screen during testing.
         const val DEFAULT_BASE_URL = "https://monitor.example.com"

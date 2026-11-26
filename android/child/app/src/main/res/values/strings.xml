@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Monitor</string>
 
-    <string name="pairing_explainer">This phone is being set up for monitoring. While it is on, the person responsible for this phone can see its location and activity. A notice stays in your status bar the whole time monitoring is active. Enter the pairing code you were given and confirm you agree.</string>
+    <string name="pairing_explainer">This phone is being set up for monitoring. While it is on, the person responsible for this phone can see its location, which apps are used, incoming messages and call history, and may view this screen. A notice stays in your status bar the whole time monitoring is active. Enter the pairing code you were given and confirm you agree.</string>
 
     <string name="server_label">Server address</string>
     <string name="server_hint">https://your-monitor-server</string>
@@ -22,7 +22,7 @@
     <string name="grant_notifications">Grant notification access (needed for message monitoring)</string>
 
     <string name="notice_title">Monitoring is on</string>
-    <string name="notice_text">This phone\'s location and activity are being monitored.</string>
+    <string name="notice_text">Location, apps, messages, calls and screen may be monitored.</string>
     <string name="notice_channel">Monitoring notice</string>
     <string name="notice_desc">A permanent reminder that this phone is being monitored.</string>
 </resources>

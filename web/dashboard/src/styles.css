@@ -249,6 +249,43 @@ input {
   font-weight: 600;
 }
 
+.calls {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.calls li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.call-dir {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--line);
+}
+.call-incoming {
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+}
+.call-missed,
+.call-rejected {
+  background: #fde7e7;
+  color: var(--error);
+}
+.call-num {
+  font-weight: 600;
+}
+.call-time {
+  margin-left: auto;
+  font-size: 0.85rem;
+}
+
 .messages {
   list-style: none;
   padding: 0;

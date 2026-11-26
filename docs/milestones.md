@@ -2,6 +2,16 @@
 
 Progress log for Monitor. Newest first.
 
+## Stage 4 — Call history (done)
+
+- Monitored app: `CallLogReporter` reports new call-log entries (number, direction, duration)
+  every ~15 min; requests READ_CALL_LOG; tracks last-reported time to avoid duplicates.
+- API: `call` is a sensitive kind — encrypted at rest (round-trip test added; 7 tests pass).
+- Dashboard: device page shows a "Calls" section (direction badge, number, duration, time).
+- Permanent notice + consent text updated to disclose location, apps, messages, calls and screen.
+- Scope note: call *history* only — call audio/recording is not available to a normal app on
+  modern Android.
+
 ## Stage 3 — Messages (done)
 
 - Monitored app: `MessageListener` (NotificationListenerService) captures incoming message

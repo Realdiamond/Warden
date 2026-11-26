@@ -84,6 +84,11 @@ class MonitorService : Service() {
                     } catch (e: Exception) {
                         // ignore a single failed usage report; try again next cycle
                     }
+                    try {
+                        CallLogReporter(this@MonitorService, store).reportNew()
+                    } catch (e: Exception) {
+                        // ignore a single failed call-log report; try again next cycle
+                    }
                     delay(USAGE_INTERVAL_MS)
                 }
             }

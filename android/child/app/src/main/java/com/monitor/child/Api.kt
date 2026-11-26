@@ -48,6 +48,23 @@ class Api(private val baseUrl: String) {
         code in 200..299
     }
 
+    suspend fun postCall(
+        token: String,
+        number: String?,
+        direction: String,
+        durationSec: Long,
+        capturedAt: String,
+    ): Boolean = withContext(Dispatchers.IO) {
+        val payload = JSONObject().put("direction", direction).put("durationSec", durationSec)
+        if (number != null) payload.put("number", number)
+        val body = JSONObject()
+            .put("kind", "call")
+            .put("capturedAt", capturedAt)
+            .put("payload", payload)
+        val (code, _) = post("/v1/events", body.toString(), token)
+        code in 200..299
+    }
+
     suspend fun postMessage(
         token: String,
         app: String,

@@ -74,6 +74,20 @@ git-ignored.
 - [ ] **Stage 8 — Remote unlock.** Needs a feasibility check first — modern Android restricts this
       heavily (likely requires device-owner enrolment). Confirm before promising it.
 
+## Feature feasibility (honest reference for client conversations)
+
+| Feature | Reality |
+| --- | --- |
+| Location (now + history) | Done. |
+| App usage (which apps, how long) | Done. |
+| Messages (incoming notifications: sender + text) | Done. Captures incoming message notifications, not full chat history or outgoing messages. |
+| Call history (who, when, how long) | Doable — building now. |
+| Call audio / listening to calls | **Not possible** for a normal app on modern Android — Google removed call-recording access in Android 10+. Do not promise this to the client. |
+| App limits / blocking | Doable; needs testing on a real phone. |
+| Live screen view | Doable via screen capture (MediaProjection) + a relay carried by our backend. One approval on Android 9 (reused); the permanent "monitored" notice discloses it. Needs a phone to test. |
+| Remote control | Partly doable (tap/type via an Accessibility service); "control it like Zoom" is approximate and device-dependent. Needs heavy on-phone testing. |
+| Remote unlock | Hardest. A normal app can't type the PIN. The only real route is enrolling the phone as a company-managed (device-owner) device, set up on a fresh/reset phone — which changes onboarding. Must be tested on a real device before promising it. |
+
 ## Open technical risks (to confirm by spike, not assume)
 
 - **Messages/calls across third-party apps** rely on Android's AccessibilityService and

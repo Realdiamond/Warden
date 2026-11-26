@@ -17,6 +17,12 @@ export interface LocationPayload {
   battery?: number;
 }
 
+export interface CallPayload {
+  number?: string;
+  direction: string;
+  durationSec: number;
+}
+
 export interface MessagePayload {
   app: string;
   sender?: string;

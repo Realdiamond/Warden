@@ -7,7 +7,15 @@ import {
   type LocationPayload,
   type AppUsagePayload,
   type MessagePayload,
+  type CallPayload,
 } from "../api.ts";
+
+function formatCallDuration(sec: number): string {
+  if (sec <= 0) return "—";
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m ? `${m}m ${s}s` : `${s}s`;
+}
 import { LocationMap, type Point } from "../components/LocationMap.tsx";
 
 interface UsageRow {
@@ -46,20 +54,23 @@ export function DeviceDetail() {
   const [events, setEvents] = useState<EventEnvelope<LocationPayload>[]>([]);
   const [usage, setUsage] = useState<UsageRow[]>([]);
   const [messages, setMessages] = useState<EventEnvelope<MessagePayload>[]>([]);
+  const [calls, setCalls] = useState<EventEnvelope<CallPayload>[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [d, e, u, m] = await Promise.all([
+      const [d, e, u, m, c] = await Promise.all([
         api.getDevice(id),
         api.getEvents(id, "location", 200),
         api.getEvents(id, "app_usage", 500),
         api.getEvents(id, "message", 100),
+        api.getEvents(id, "call", 100),
       ]);
       setDevice(d.device);
       setEvents(e.events as EventEnvelope<LocationPayload>[]);
       setUsage(aggregateUsage(u.events as EventEnvelope<AppUsagePayload>[]));
       setMessages(m.events as EventEnvelope<MessagePayload>[]);
+      setCalls(c.events as EventEnvelope<CallPayload>[]);
     } catch {
       setError("Could not load this device.");
     }
@@ -124,6 +135,24 @@ export function DeviceDetail() {
                 <span className="usage-name">{appName(u.packageName)}</span>
                 <span className="usage-pkg muted">{u.packageName}</span>
                 <span className="usage-time">{formatDuration(u.foregroundMs)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="panel">
+        <h2>Calls</h2>
+        {calls.length === 0 ? (
+          <p className="muted">No calls captured yet.</p>
+        ) : (
+          <ul className="calls" data-testid="calls">
+            {calls.map((c) => (
+              <li key={c.id}>
+                <span className={`call-dir call-${c.payload.direction}`}>{c.payload.direction}</span>
+                <span className="call-num">{c.payload.number ?? "Unknown"}</span>
+                <span className="muted">{formatCallDuration(c.payload.durationSec)}</span>
+                <span className="call-time muted">{new Date(c.capturedAt).toLocaleString()}</span>
               </li>
             ))}
           </ul>
