@@ -26,6 +26,6 @@ class Store(context: Context) {
     }
 
     companion object {
-        const val DEFAULT_BASE_URL = "https://monitor.example.com"
+        const val DEFAULT_BASE_URL = "https://monitor-api.homegoing.workers.dev"
     }
 }

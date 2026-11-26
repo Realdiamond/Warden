@@ -2,6 +2,21 @@
 
 Progress log for Monitor. Newest first.
 
+## Deployment — live on Cloudflare (done)
+
+- **Live URL:** https://monitor-api.homegoing.workers.dev (dashboard + API on one origin).
+- API ported to a Cloudflare Worker + D1 (`workers/api`): Web Crypto (AES-256-GCM + PBKDF2),
+  jose JWT, Hono router. Same endpoints/behaviour as the Node version; verified locally
+  (Miniflare + local D1) and live.
+- The dashboard is bundled into the Worker script (`scripts/bundle-dashboard.mjs`) and served
+  from the same origin — avoids a separate asset upload.
+- D1 database `monitor` created; schema applied; Worker secrets `MONITOR_JWT_SECRET` and
+  `MONITOR_ENCRYPTION_KEY` set via `wrangler secret`.
+- Both Android apps default to the live API URL.
+- Verified live: a real browser signs up, pairs a device, and sees location + usage + calls +
+  messages on the dashboard served from Cloudflare.
+- Note: the Node API in `services/api` stays for local dev and the test suite.
+
 ## Stage 4 — Call history (done)
 
 - Monitored app: `CallLogReporter` reports new call-log entries (number, direction, duration)

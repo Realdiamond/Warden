@@ -19,3 +19,8 @@ local.properties
 !debug.keystore
 captures/
 .cxx/
+
+# Cloudflare Wrangler
+.dev.vars
+.wrangler/
+workers/api/src/assets.ts

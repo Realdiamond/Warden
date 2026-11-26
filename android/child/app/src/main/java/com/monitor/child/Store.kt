@@ -49,6 +49,6 @@ class Store(context: Context) {
         private const val KEY_LAST_CALL = "lastCallMillis"
 
         // The deployed API. Overridable on the pairing screen during testing.
-        const val DEFAULT_BASE_URL = "https://monitor.example.com"
+        const val DEFAULT_BASE_URL = "https://monitor-api.homegoing.workers.dev"
     }
 }

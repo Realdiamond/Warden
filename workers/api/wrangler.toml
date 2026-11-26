@@ -1,0 +1,16 @@
+name = "monitor-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# D1 database binding. After `wrangler d1 create monitor`, paste the printed database_id here.
+[[d1_databases]]
+binding = "DB"
+database_name = "monitor"
+database_id = "30c71574-ee81-4b0b-ad1c-eeae7e17314a"
+
+# The dashboard is bundled into the Worker script itself (see scripts/bundle-dashboard.mjs,
+# run automatically by `pnpm deploy`), so there is no separate asset upload.
+
+# Secrets (set with `wrangler secret put`, never committed):
+#   wrangler secret put MONITOR_JWT_SECRET
+#   wrangler secret put MONITOR_ENCRYPTION_KEY   # 64 hex chars (32 bytes)

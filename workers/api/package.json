@@ -1,0 +1,22 @@
+{
+  "name": "@monitor/api-cf",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bundle": "node scripts/bundle-dashboard.mjs",
+    "dev": "node scripts/bundle-dashboard.mjs && wrangler dev",
+    "deploy": "node scripts/bundle-dashboard.mjs && wrangler deploy",
+    "build": "node scripts/bundle-dashboard.mjs && wrangler deploy --dry-run --outdir dist",
+    "typecheck": "node scripts/bundle-dashboard.mjs && tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.6.14",
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^3.90.0"
+  }
+}
