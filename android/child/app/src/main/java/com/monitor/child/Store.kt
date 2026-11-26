@@ -1,0 +1,45 @@
+package com.monitor.child
+
+import android.content.Context
+
+/**
+ * Local settings for the monitored device: where the API lives, the device token issued at
+ * pairing, and the recorded consent timestamp.
+ *
+ * The device token is this device's own credential; the monitored person has consented, so plain
+ * SharedPreferences is acceptable for now. Moving to EncryptedSharedPreferences is a hardening
+ * follow-up tracked in docs/milestones.md.
+ */
+class Store(context: Context) {
+    private val prefs = context.getSharedPreferences("monitor", Context.MODE_PRIVATE)
+
+    var baseUrl: String
+        get() = prefs.getString(KEY_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
+        set(value) {
+            prefs.edit().putString(KEY_BASE_URL, value).apply()
+        }
+
+    var deviceToken: String?
+        get() = prefs.getString(KEY_TOKEN, null)
+        set(value) {
+            prefs.edit().putString(KEY_TOKEN, value).apply()
+        }
+
+    var consentAcceptedAt: String?
+        get() = prefs.getString(KEY_CONSENT, null)
+        set(value) {
+            prefs.edit().putString(KEY_CONSENT, value).apply()
+        }
+
+    val isPaired: Boolean
+        get() = !deviceToken.isNullOrEmpty()
+
+    companion object {
+        private const val KEY_BASE_URL = "baseUrl"
+        private const val KEY_TOKEN = "deviceToken"
+        private const val KEY_CONSENT = "consentAcceptedAt"
+
+        // The deployed API. Overridable on the pairing screen during testing.
+        const val DEFAULT_BASE_URL = "https://monitor.example.com"
+    }
+}

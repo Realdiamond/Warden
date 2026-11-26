@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Monitor</string>
+
+    <string name="pairing_explainer">This phone is being set up for monitoring. While it is on, the person responsible for this phone can see its location and activity. A notice stays in your status bar the whole time monitoring is active. Enter the pairing code you were given and confirm you agree.</string>
+
+    <string name="server_label">Server address</string>
+    <string name="server_hint">https://your-monitor-server</string>
+    <string name="code_label">Pairing code</string>
+    <string name="code_hint">8-digit code</string>
+    <string name="consent_label">I understand this phone will be monitored, and I agree to it.</string>
+    <string name="pair_button">Pair this phone</string>
+
+    <string name="must_consent">You must agree before pairing.</string>
+    <string name="enter_code">Enter the pairing code.</string>
+    <string name="pairing">Pairing…</string>
+    <string name="paired_ok">Paired. Setting up monitoring…</string>
+    <string name="pair_failed">Pairing failed: %1$s</string>
+    <string name="already_paired">This phone is already paired and being monitored.</string>
+    <string name="monitoring_on">Monitoring is on. You can leave this screen.</string>
+
+    <string name="notice_title">Monitoring is on</string>
+    <string name="notice_text">This phone\'s location and activity are being monitored.</string>
+    <string name="notice_channel">Monitoring notice</string>
+    <string name="notice_desc">A permanent reminder that this phone is being monitored.</string>
+</resources>

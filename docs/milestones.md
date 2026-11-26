@@ -4,6 +4,16 @@ Progress log for Monitor. Newest first.
 
 ## Stage 1 — Backbone (in progress)
 
+**Done (monitored Android app)**
+- `android/child`: native Kotlin app for the monitored phone.
+  - Pairing screen: explains the app openly, takes the code, requires an explicit consent tick.
+  - Foreground service with a permanent "Monitoring is on" notice (cannot be swiped away).
+  - Reports location (~60s) via FusedLocationProvider; requests foreground then background
+    location; restarts after reboot.
+  - Verified: builds a real `app-debug.apk` (compiled + packaged with Android SDK 34 here);
+    GitHub Actions also builds the APK on every push (`.github/workflows/android-child.yml`).
+  - Follow-ups: move device token to EncryptedSharedPreferences; tune location cadence.
+
 **Done (dashboard)**
 - `web/dashboard`: parent web app (React + Vite + Leaflet).
   - Sign up / sign in, device list, add device → pairing code shown.
