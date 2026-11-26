@@ -63,7 +63,10 @@ git-ignored.
 - [x] **Stage 2 — App usage.** Monitored app reports per-app foreground time (UsageStats);
       dashboard shows the latest totals per app. Needs the "Usage access" permission (the pairing
       screen links to it).
-- [ ] **Stage 3 — Messages.** Contents across apps (encrypted at rest).
+- [x] **Stage 3 — Messages.** Monitored app captures incoming message notifications (sender +
+      text) from common messaging apps via a NotificationListenerService; encrypted at rest;
+      shown on the dashboard. (Captures incoming notifications, not full chat history or outgoing
+      messages — the realistic on-device technique.)
 - [ ] **Stage 4 — Calls.** History + contents.
 - [ ] **Stage 5 — Limits.** Block apps, screen-time rules.
 - [ ] **Stage 6 — Live screen view.** Real-time relay + on-device indicator.

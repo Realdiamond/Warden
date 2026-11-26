@@ -249,6 +249,34 @@ input {
   font-weight: 600;
 }
 
+.messages {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+.messages li {
+  border-left: 3px solid var(--line);
+  padding-left: 0.75rem;
+}
+.msg-head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+.msg-sender {
+  font-weight: 600;
+}
+.msg-time {
+  margin-left: auto;
+}
+.msg-text {
+  margin-top: 0.15rem;
+}
+
 .back {
   display: inline-block;
   margin-bottom: 0.5rem;

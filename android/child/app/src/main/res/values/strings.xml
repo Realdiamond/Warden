@@ -19,6 +19,7 @@
     <string name="already_paired">This phone is already paired and being monitored.</string>
     <string name="monitoring_on">Monitoring is on. You can leave this screen.</string>
     <string name="grant_usage">Grant usage access (needed for app-usage monitoring)</string>
+    <string name="grant_notifications">Grant notification access (needed for message monitoring)</string>
 
     <string name="notice_title">Monitoring is on</string>
     <string name="notice_text">This phone\'s location and activity are being monitored.</string>

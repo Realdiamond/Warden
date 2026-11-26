@@ -10,6 +10,7 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.monitor.child.databinding.ActivityPairingBinding
@@ -55,11 +56,13 @@ class PairingActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        updateUsageButton()
+        updatePermissionButtons()
     }
 
-    private fun updateUsageButton() {
-        if (store.isPaired && !UsageReporter.hasUsageAccess(this)) {
+    private fun updatePermissionButtons() {
+        val paired = store.isPaired
+
+        if (paired && !UsageReporter.hasUsageAccess(this)) {
             binding.usageAccessButton.visibility = View.VISIBLE
             binding.usageAccessButton.setOnClickListener {
                 startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
@@ -67,7 +70,19 @@ class PairingActivity : AppCompatActivity() {
         } else {
             binding.usageAccessButton.visibility = View.GONE
         }
+
+        if (paired && !hasNotificationAccess()) {
+            binding.notifAccessButton.visibility = View.VISIBLE
+            binding.notifAccessButton.setOnClickListener {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            }
+        } else {
+            binding.notifAccessButton.visibility = View.GONE
+        }
     }
+
+    private fun hasNotificationAccess(): Boolean =
+        NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
 
     private fun attemptPair() {
         if (!binding.consentCheckbox.isChecked) {

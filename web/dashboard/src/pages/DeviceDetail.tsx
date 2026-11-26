@@ -6,6 +6,7 @@ import {
   type EventEnvelope,
   type LocationPayload,
   type AppUsagePayload,
+  type MessagePayload,
 } from "../api.ts";
 import { LocationMap, type Point } from "../components/LocationMap.tsx";
 
@@ -44,18 +45,21 @@ export function DeviceDetail() {
   const [device, setDevice] = useState<DeviceSummary | null>(null);
   const [events, setEvents] = useState<EventEnvelope<LocationPayload>[]>([]);
   const [usage, setUsage] = useState<UsageRow[]>([]);
+  const [messages, setMessages] = useState<EventEnvelope<MessagePayload>[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [d, e, u] = await Promise.all([
+      const [d, e, u, m] = await Promise.all([
         api.getDevice(id),
         api.getEvents(id, "location", 200),
         api.getEvents(id, "app_usage", 500),
+        api.getEvents(id, "message", 100),
       ]);
       setDevice(d.device);
       setEvents(e.events as EventEnvelope<LocationPayload>[]);
       setUsage(aggregateUsage(u.events as EventEnvelope<AppUsagePayload>[]));
+      setMessages(m.events as EventEnvelope<MessagePayload>[]);
     } catch {
       setError("Could not load this device.");
     }
@@ -120,6 +124,26 @@ export function DeviceDetail() {
                 <span className="usage-name">{appName(u.packageName)}</span>
                 <span className="usage-pkg muted">{u.packageName}</span>
                 <span className="usage-time">{formatDuration(u.foregroundMs)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="panel">
+        <h2>Messages</h2>
+        {messages.length === 0 ? (
+          <p className="muted">No messages captured yet.</p>
+        ) : (
+          <ul className="messages" data-testid="messages">
+            {messages.map((m) => (
+              <li key={m.id}>
+                <div className="msg-head">
+                  <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
+                  <span className="msg-app muted">{appName(m.payload.app)}</span>
+                  <span className="msg-time muted">{new Date(m.capturedAt).toLocaleString()}</span>
+                </div>
+                <div className="msg-text">{m.payload.text}</div>
               </li>
             ))}
           </ul>

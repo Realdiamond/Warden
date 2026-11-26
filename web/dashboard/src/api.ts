@@ -17,6 +17,12 @@ export interface LocationPayload {
   battery?: number;
 }
 
+export interface MessagePayload {
+  app: string;
+  sender?: string;
+  text: string;
+}
+
 export interface AppUsagePayload {
   packageName: string;
   appLabel?: string;

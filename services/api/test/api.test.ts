@@ -121,6 +121,61 @@ test("app_usage events are stored and read back", async () => {
   assert.equal(events[0]?.payload.foregroundMs, 3_600_000);
 });
 
+test("message events round-trip (sensitive kind, encrypted at rest)", async () => {
+  const signup = await app.inject({
+    method: "POST",
+    url: "/v1/accounts",
+    payload: { email: `msg${Date.now()}@example.com`, password: "supersecret" },
+  });
+  const accountToken = signup.json().token as string;
+
+  const created = await app.inject({
+    method: "POST",
+    url: "/v1/devices",
+    headers: { authorization: `Bearer ${accountToken}` },
+    payload: { name: "Kid phone" },
+  });
+  const { deviceId, pairCode } = created.json() as { deviceId: string; pairCode: string };
+
+  const paired = await app.inject({
+    method: "POST",
+    url: "/v1/pairing",
+    payload: {
+      pairCode,
+      deviceName: "Kid phone",
+      platform: "android",
+      appVersion: "0.1.0",
+      consentAcceptedAt: new Date().toISOString(),
+    },
+  });
+  const deviceToken = paired.json().deviceToken as string;
+
+  const secret = "meet me at 4pm";
+  const reported = await app.inject({
+    method: "POST",
+    url: "/v1/events",
+    headers: { authorization: `Bearer ${deviceToken}` },
+    payload: {
+      kind: "message",
+      capturedAt: new Date().toISOString(),
+      payload: { app: "com.whatsapp", sender: "Mum", text: secret },
+    },
+  });
+  assert.equal(reported.statusCode, 201);
+
+  const read = await app.inject({
+    method: "GET",
+    url: `/v1/devices/${deviceId}/events?kind=message`,
+    headers: { authorization: `Bearer ${accountToken}` },
+  });
+  const { events } = read.json() as {
+    events: Array<{ payload: { app: string; sender: string; text: string } }>;
+  };
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.payload.text, secret);
+  assert.equal(events[0]?.payload.sender, "Mum");
+});
+
 test("a device token cannot read another account's device", async () => {
   // A random/forged account token must not read someone else's device.
   const read = await app.inject({

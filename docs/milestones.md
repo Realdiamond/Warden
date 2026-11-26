@@ -2,6 +2,17 @@
 
 Progress log for Monitor. Newest first.
 
+## Stage 3 — Messages (done)
+
+- Monitored app: `MessageListener` (NotificationListenerService) captures incoming message
+  notifications (sender + text) from common messaging apps (WhatsApp, Telegram, Messenger, SMS,
+  Instagram, Snapchat, Discord, Viber). Pairing screen links to Notification Access settings.
+- API: `message` events are a sensitive kind — encrypted at rest; decrypted only for the parent.
+- Dashboard: device page shows a "Messages" section (sender · app · time · text).
+- Verified: message round-trips through encryption (API test), message text is absent from the
+  DB file in plaintext, child APK builds, dashboard screenshot shows messages.
+- Scope note: captures incoming notifications, not full chat history or outgoing messages.
+
 ## Stage 2 — App usage (done)
 
 - Monitored app: reports per-app foreground time via UsageStatsManager every ~15 min; pairing
