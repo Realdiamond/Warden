@@ -113,6 +113,28 @@ class Api(private val baseUrl: String) {
         }
     }
 
+    /** Returns pending remote commands as (id, type) pairs. */
+    suspend fun getCommands(token: String): List<Pair<String, String>> = withContext(Dispatchers.IO) {
+        val (code, text) = get("/v1/commands", token)
+        if (code !in 200..299) return@withContext emptyList()
+        try {
+            val arr = JSONObject(text).optJSONArray("commands") ?: return@withContext emptyList()
+            (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                o.getString("id") to o.getString("type")
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun ackCommands(token: String, ids: List<String>): Boolean = withContext(Dispatchers.IO) {
+        if (ids.isEmpty()) return@withContext true
+        val body = JSONObject().put("ids", org.json.JSONArray(ids))
+        val (code, _) = post("/v1/commands/ack", body.toString(), token)
+        code in 200..299
+    }
+
     private fun get(path: String, bearer: String): Pair<Int, String> {
         val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
         connection.requestMethod = "GET"

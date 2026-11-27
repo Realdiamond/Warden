@@ -57,7 +57,18 @@ export function DeviceDetail() {
   const [messages, setMessages] = useState<EventEnvelope<MessagePayload>[]>([]);
   const [calls, setCalls] = useState<EventEnvelope<CallPayload>[]>([]);
   const [blocked, setBlocked] = useState<string[]>([]);
+  const [cmdStatus, setCmdStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  async function sendCmd(type: "lock" | "unlock") {
+    setCmdStatus("Sending…");
+    try {
+      await api.sendCommand(id, type);
+      setCmdStatus(`"${type}" sent — the phone applies it within about a minute.`);
+    } catch {
+      setCmdStatus("Could not send the command.");
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -144,6 +155,19 @@ export function DeviceDetail() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="panel">
+        <h2>Remote lock</h2>
+        <p className="muted">
+          Lock works on a normal phone (needs device-admin enabled on it). Unlocking the PIN needs
+          the phone set up as a managed device.
+        </p>
+        <div className="live-controls">
+          <button onClick={() => sendCmd("lock")}>Lock phone</button>
+          <button onClick={() => sendCmd("unlock")}>Unlock phone</button>
+          {cmdStatus && <span className="muted">{cmdStatus}</span>}
+        </div>
       </section>
 
       <section className="panel">

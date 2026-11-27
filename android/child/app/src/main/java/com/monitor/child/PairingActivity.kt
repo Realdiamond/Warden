@@ -1,6 +1,8 @@
 package com.monitor.child
 
 import android.Manifest
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -96,6 +98,20 @@ class PairingActivity : AppCompatActivity() {
             }
         } else {
             binding.screenShareButton.visibility = View.GONE
+        }
+
+        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val admin = ComponentName(this, MonitorAdminReceiver::class.java)
+        if (paired && !dpm.isAdminActive(admin)) {
+            binding.adminButton.visibility = View.VISIBLE
+            binding.adminButton.setOnClickListener {
+                val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+                    .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
+                    .putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, getString(R.string.admin_explanation))
+                startActivity(intent)
+            }
+        } else {
+            binding.adminButton.visibility = View.GONE
         }
     }
 

@@ -383,6 +383,63 @@ app.get("/v1/rules", async (c) => {
   return c.json({ blockedApps: parseBlocked(row.blocked_apps) });
 });
 
+// --- Remote commands (lock / unlock) ----------------------------------------
+
+app.post("/v1/devices/:id/commands", async (c) => {
+  const accountId = await requireAccount(c);
+  if (!accountId) return c.json({ error: "unauthorized" }, 401);
+  const deviceId = c.req.param("id");
+  const owned = await c.env.DB.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?")
+    .bind(deviceId, accountId)
+    .first();
+  if (!owned) return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json().catch(() => null);
+  const type = String(body?.type ?? "");
+  if (type !== "lock" && type !== "unlock") return c.json({ error: "invalid_body" }, 400);
+  const id = crypto.randomUUID();
+  await c.env.DB.prepare(
+    "INSERT INTO commands (id, device_id, type, created_at) VALUES (?, ?, ?, ?)",
+  )
+    .bind(id, deviceId, type, new Date().toISOString())
+    .run();
+  return c.json({ id, type }, 201);
+});
+
+app.get("/v1/commands", async (c) => {
+  const token = bearer(c.req.header("authorization"));
+  if (!token) return c.json({ error: "invalid_device_token" }, 401);
+  const dev = await c.env.DB.prepare("SELECT id FROM devices WHERE device_token_hash = ?")
+    .bind(await hashToken(token))
+    .first<{ id: string }>();
+  if (!dev) return c.json({ error: "invalid_device_token" }, 401);
+  const { results } = await c.env.DB.prepare(
+    "SELECT id, type FROM commands WHERE device_id = ? AND done_at IS NULL ORDER BY created_at ASC LIMIT 20",
+  )
+    .bind(dev.id)
+    .all<{ id: string; type: string }>();
+  return c.json({ commands: results });
+});
+
+app.post("/v1/commands/ack", async (c) => {
+  const token = bearer(c.req.header("authorization"));
+  if (!token) return c.json({ error: "invalid_device_token" }, 401);
+  const dev = await c.env.DB.prepare("SELECT id FROM devices WHERE device_token_hash = ?")
+    .bind(await hashToken(token))
+    .first<{ id: string }>();
+  if (!dev) return c.json({ error: "invalid_device_token" }, 401);
+  const body = await c.req.json().catch(() => null);
+  const ids: string[] = Array.isArray(body?.ids)
+    ? body.ids.filter((x: unknown): x is string => typeof x === "string").slice(0, 50)
+    : [];
+  const now = new Date().toISOString();
+  for (const id of ids) {
+    await c.env.DB.prepare("UPDATE commands SET done_at = ? WHERE id = ? AND device_id = ?")
+      .bind(now, id, dev.id)
+      .run();
+  }
+  return c.json({ acked: ids.length });
+});
+
 // --- Live screen relay (WebSocket) ------------------------------------------
 // WebSocket clients can't set Authorization headers, so the token is a query param.
 

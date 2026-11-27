@@ -103,6 +103,11 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ blockedApps }),
     }),
+  sendCommand: (id: string, type: "lock" | "unlock") =>
+    req<{ id: string; type: string }>(`/v1/devices/${id}/commands`, {
+      method: "POST",
+      body: JSON.stringify({ type }),
+    }),
   getEvents: (id: string, kind?: string, limit = 100) =>
     req<{ events: EventEnvelope[] }>(
       `/v1/devices/${id}/events?${new URLSearchParams({ ...(kind ? { kind } : {}), limit: String(limit) })}`,

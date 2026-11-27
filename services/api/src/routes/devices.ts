@@ -106,4 +106,23 @@ export function registerDeviceRoutes(app: FastifyInstance): void {
     );
     return reply.send({ blockedApps: body.data.blockedApps });
   });
+
+  // Parent enqueues a remote command (lock / unlock) for a device.
+  app.post("/v1/devices/:id/commands", async (req, reply) => {
+    const accountId = await requireAccount(req, reply);
+    if (!accountId) return;
+    const { id } = req.params as { id: string };
+    const owned = db.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?").get(id, accountId);
+    if (!owned) return reply.code(404).send({ error: "not_found" });
+    const body = z.object({ type: z.enum(["lock", "unlock"]) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    const commandId = randomUUID();
+    db.prepare("INSERT INTO commands (id, device_id, type, created_at) VALUES (?, ?, ?, ?)").run(
+      commandId,
+      id,
+      body.data.type,
+      new Date().toISOString(),
+    );
+    return reply.code(201).send({ id: commandId, type: body.data.type });
+  });
 }

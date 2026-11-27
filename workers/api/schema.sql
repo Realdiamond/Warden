@@ -41,3 +41,13 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_device_kind_time
   ON events(device_id, kind, captured_at DESC);
+
+CREATE TABLE IF NOT EXISTS commands (
+  id         TEXT PRIMARY KEY,
+  device_id  TEXT NOT NULL REFERENCES devices(id),
+  type       TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  done_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_commands_pending
+  ON commands(device_id) WHERE done_at IS NULL;

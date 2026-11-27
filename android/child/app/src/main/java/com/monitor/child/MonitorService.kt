@@ -5,6 +5,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -40,6 +42,7 @@ class MonitorService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var callback: LocationCallback? = null
     private var usageJob: Job? = null
+    private var commandJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -99,7 +102,50 @@ class MonitorService : Service() {
                 }
             }
         }
+        if (commandJob == null) {
+            commandJob = scope.launch {
+                while (isActive) {
+                    try {
+                        pollCommands(token)
+                    } catch (e: Exception) {
+                        // retry next cycle
+                    }
+                    delay(COMMAND_INTERVAL_MS)
+                }
+            }
+        }
         return START_STICKY
+    }
+
+    private suspend fun pollCommands(token: String) {
+        val api = Api(store.baseUrl)
+        val commands = api.getCommands(token)
+        if (commands.isEmpty()) return
+        val done = ArrayList<String>()
+        for ((id, type) in commands) {
+            executeCommand(type)
+            done.add(id) // ack either way so a command is not retried forever
+        }
+        api.ackCommands(token, done)
+    }
+
+    private fun executeCommand(type: String) {
+        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val admin = ComponentName(this, MonitorAdminReceiver::class.java)
+        if (!dpm.isAdminActive(admin)) return
+        try {
+            when (type) {
+                "lock" -> dpm.lockNow()
+                "unlock" ->
+                    // Clearing the lock only works when the app is the device owner.
+                    if (dpm.isDeviceOwnerApp(packageName)) {
+                        @Suppress("DEPRECATION")
+                        dpm.resetPassword("", 0)
+                    }
+            }
+        } catch (e: Exception) {
+            // e.g. SecurityException when not permitted on this device
+        }
     }
 
     private fun buildNotification(): Notification {
@@ -135,6 +181,7 @@ class MonitorService : Service() {
         private const val CHANNEL = "monitor_notice"
         private const val INTERVAL_MS = 60_000L
         private const val USAGE_INTERVAL_MS = 15L * 60 * 1000
+        private const val COMMAND_INTERVAL_MS = 45L * 1000
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, MonitorService::class.java))

@@ -108,5 +108,13 @@
             android:layout_marginTop="12dp"
             android:text="@string/allow_screen"
             android:visibility="gone" />
+
+        <Button
+            android:id="@+id/adminButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/enable_admin"
+            android:visibility="gone" />
     </LinearLayout>
 </ScrollView>

@@ -26,6 +26,8 @@
     <string name="screen_channel">Screen sharing</string>
     <string name="screen_notice_title">Screen sharing is on</string>
     <string name="screen_notice_text">This phone\'s screen can be viewed and controlled.</string>
+    <string name="enable_admin">Enable remote lock (device admin)</string>
+    <string name="admin_explanation">Lets the parent lock this phone remotely. Unlocking the PIN also needs this phone set up as a managed device.</string>
 
     <string name="notice_title">Monitoring is on</string>
     <string name="notice_text">Location, apps, messages, calls and screen may be monitored.</string>

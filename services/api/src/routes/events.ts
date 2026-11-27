@@ -121,4 +121,27 @@ export function registerEventRoutes(app: FastifyInstance): void {
       | undefined;
     return reply.send({ blockedApps: parseBlocked(row?.blocked_apps ?? null) });
   });
+
+  // The monitored device fetches and acknowledges remote commands.
+  app.get("/v1/commands", async (req, reply) => {
+    const device = authenticateDevice(req);
+    if (!device) return reply.code(401).send({ error: "invalid_device_token" });
+    const rows = db
+      .prepare(
+        "SELECT id, type FROM commands WHERE device_id = ? AND done_at IS NULL ORDER BY created_at ASC LIMIT 20",
+      )
+      .all(device.id);
+    return reply.send({ commands: rows });
+  });
+
+  app.post("/v1/commands/ack", async (req, reply) => {
+    const device = authenticateDevice(req);
+    if (!device) return reply.code(401).send({ error: "invalid_device_token" });
+    const body = z.object({ ids: z.array(z.string()).max(50) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    const now = new Date().toISOString();
+    const stmt = db.prepare("UPDATE commands SET done_at = ? WHERE id = ? AND device_id = ?");
+    for (const id of body.data.ids) stmt.run(now, id, device.id);
+    return reply.send({ acked: body.data.ids.length });
+  });
 }
