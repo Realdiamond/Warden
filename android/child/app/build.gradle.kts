@@ -21,9 +21,9 @@ android {
     signingConfigs {
         create("shared") {
             storeFile = file("../../signing/andsv-signing.jks")
-            storePassword = "monitor-dev"
-            keyAlias = "monitor"
-            keyPassword = "monitor-dev"
+            storePassword = "andsv-dev"
+            keyAlias = "andsv"
+            keyPassword = "andsv-dev"
         }
     }
 
