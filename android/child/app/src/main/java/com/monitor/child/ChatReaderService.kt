@@ -62,6 +62,7 @@ class ChatReaderService : AccessibilityService() {
         val fresh = ArrayList<String>()
         synchronized(recent) {
             for (t in texts) {
+                if (t == chatName || t.length > 1000 || UI_NOISE.matches(t)) continue
                 if (recent.add("$pkg|$chatName|$t")) fresh.add(t)
             }
         }
@@ -99,12 +100,14 @@ class ChatReaderService : AccessibilityService() {
         return null
     }
 
+    // Collect text from leaf TextView nodes on screen. Works across app versions since it does not
+    // rely on internal view ids; the UI_NOISE filter + chat title removal drop most non-message text.
     private fun collectMessageTexts(node: AccessibilityNodeInfo?, out: MutableList<String>) {
         if (node == null) return
-        val id = node.viewIdResourceName
-        if (id != null && MESSAGE_TEXT_IDS.any { id.endsWith(it) }) {
-            val t = node.text?.toString()
-            if (!t.isNullOrBlank()) out.add(t)
+        if (node.childCount == 0) {
+            val cls = node.className?.toString().orEmpty()
+            val t = node.text?.toString()?.trim()
+            if (!t.isNullOrBlank() && cls.contains("TextView", ignoreCase = true)) out.add(t)
         }
         for (i in 0 until node.childCount) {
             val child = node.getChild(i)
@@ -120,8 +123,14 @@ class ChatReaderService : AccessibilityService() {
             "org.telegram.messenger",
             "com.facebook.orca",
         )
-        // On-screen message bubble text view ids (best-effort, app-version dependent).
-        private val MESSAGE_TEXT_IDS = listOf(":id/message_text", ":id/text_content", ":id/message")
+        // On-screen text that is UI chrome, not a message — dropped before sending.
+        private val UI_NOISE = Regex(
+            "^(\\d{1,2}:\\d{2}(\\s?[aApP]\\.?[mM]\\.?)?|today|yesterday|monday|tuesday|wednesday|" +
+                "thursday|friday|saturday|sunday|message|online|typing…|typing\\.\\.\\.|" +
+                "\\d+ new messages?|checking for new messages\\.?|\\d+ messages? from \\d+ chats?|" +
+                "chats|calls|updates|communities|status|photo|video|voice message|gif|sticker)$",
+            RegexOption.IGNORE_CASE,
+        )
         // Chat title (contact/group name) view ids.
         private val TITLE_IDS = listOf(
             "com.whatsapp:id/conversation_contact_name",
