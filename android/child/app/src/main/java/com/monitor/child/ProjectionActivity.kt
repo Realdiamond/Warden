@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 
@@ -19,14 +20,23 @@ class ProjectionActivity : AppCompatActivity() {
     ) { result ->
         val data = result.data
         if (result.resultCode == Activity.RESULT_OK && data != null) {
-            ScreenService.start(this, result.resultCode, data)
+            try {
+                ScreenService.start(this, result.resultCode, data)
+            } catch (t: Throwable) {
+                Toast.makeText(this, R.string.screen_share_failed, Toast.LENGTH_LONG).show()
+            }
         }
         finish()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        launcher.launch(manager.createScreenCaptureIntent())
+        try {
+            val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            launcher.launch(manager.createScreenCaptureIntent())
+        } catch (t: Throwable) {
+            Toast.makeText(this, R.string.screen_share_failed, Toast.LENGTH_LONG).show()
+            finish()
+        }
     }
 }

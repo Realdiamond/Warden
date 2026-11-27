@@ -55,7 +55,14 @@ class ScreenService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startInForeground()
+        // Becoming a foreground service can itself fail on some OEMs (MIUI restrictions, missing
+        // notification permission). If it throws, stop cleanly instead of crashing the app.
+        try {
+            startInForeground()
+        } catch (t: Throwable) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val code = intent?.getIntExtra(EXTRA_CODE, 0) ?: 0
         @Suppress("DEPRECATION")
         val data = intent?.getParcelableExtra<Intent>(EXTRA_DATA)

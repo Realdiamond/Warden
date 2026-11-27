@@ -54,6 +54,13 @@ class Store(context: Context) {
             prefs.edit().putString(KEY_CRASH, value).apply()
         }
 
+    // Whether the launcher icon is currently hidden from the app drawer.
+    var iconHidden: Boolean
+        get() = prefs.getBoolean(KEY_ICON_HIDDEN, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_ICON_HIDDEN, value).apply()
+        }
+
     val isPaired: Boolean
         get() = !deviceToken.isNullOrEmpty()
 
@@ -64,6 +71,7 @@ class Store(context: Context) {
         private const val KEY_LAST_CALL = "lastCallMillis"
         private const val KEY_BLOCKED = "blockedApps"
         private const val KEY_CRASH = "lastCrash"
+        private const val KEY_ICON_HIDDEN = "iconHidden"
 
         // The deployed API. Overridable on the pairing screen during testing.
         const val DEFAULT_BASE_URL = "https://monitor-api.homegoing.workers.dev"

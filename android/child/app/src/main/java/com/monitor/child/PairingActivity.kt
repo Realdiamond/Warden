@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -114,6 +115,44 @@ class PairingActivity : AppCompatActivity() {
         } else {
             binding.adminButton.visibility = View.GONE
         }
+
+        // Hide / show the launcher icon — only on a paired (monitored) device.
+        if (paired) {
+            binding.hideIconButton.visibility = View.VISIBLE
+            binding.hideIconButton.setText(if (store.iconHidden) R.string.show_icon else R.string.hide_icon)
+            binding.hideIconButton.setOnClickListener {
+                if (store.iconHidden) {
+                    setIconHidden(false)
+                    Toast.makeText(this, R.string.icon_shown, Toast.LENGTH_LONG).show()
+                    updatePermissionButtons()
+                } else {
+                    AlertDialog.Builder(this)
+                        .setTitle(R.string.hide_icon_title)
+                        .setMessage(R.string.hide_icon_message)
+                        .setPositiveButton(R.string.confirm) { _, _ ->
+                            setIconHidden(true)
+                            Toast.makeText(this, R.string.icon_hidden, Toast.LENGTH_LONG).show()
+                            updatePermissionButtons()
+                        }
+                        .setNegativeButton(R.string.cancel, null)
+                        .show()
+                }
+            }
+        } else {
+            binding.hideIconButton.visibility = View.GONE
+        }
+    }
+
+    /** Enable/disable the launcher-icon alias. Disabling removes the icon from the app drawer. */
+    private fun setIconHidden(hidden: Boolean) {
+        val alias = ComponentName(this, "com.monitor.child.LauncherAlias")
+        val state = if (hidden) {
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        } else {
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        }
+        packageManager.setComponentEnabledSetting(alias, state, PackageManager.DONT_KILL_APP)
+        store.iconHidden = hidden
     }
 
     private fun hasNotificationAccess(): Boolean =
