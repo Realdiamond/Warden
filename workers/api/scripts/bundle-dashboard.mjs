@@ -1,6 +1,6 @@
 // Embeds the built dashboard (web/dashboard/dist) into src/assets.ts so the Worker serves it
 // directly — no separate asset upload. Assumes text assets (Vite inlines small images as data
-// URIs, so the build is HTML/CSS/JS only). Run `pnpm --filter @monitor/dashboard build` first.
+// URIs, so the build is HTML/CSS/JS only). Run `pnpm --filter @andsv/dashboard build` first.
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 import { fileURLToPath } from "node:url";

@@ -5,7 +5,7 @@
     <string name="pairing_explainer">This phone is being set up for monitoring. While it is on, the person responsible for this phone can see its location, which apps are used, incoming messages and call history, and may view this screen. A notice stays in your status bar the whole time monitoring is active. Enter the pairing code you were given and confirm you agree.</string>
 
     <string name="server_label">Server address</string>
-    <string name="server_hint">https://your-monitor-server</string>
+    <string name="server_hint">https://your-andsv-server</string>
     <string name="code_label">Pairing code</string>
     <string name="code_hint">8-digit code</string>
     <string name="consent_label">I understand this phone will be monitored, and I agree to it.</string>

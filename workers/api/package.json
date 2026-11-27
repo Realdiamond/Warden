@@ -1,5 +1,5 @@
 {
-  "name": "@monitor/api-cf",
+  "name": "@andsv/api-cf",
   "version": "0.0.0",
   "private": true,
   "type": "module",

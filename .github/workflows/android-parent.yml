@@ -2,7 +2,7 @@ name: Build parent Android app
 
 on:
   push:
-    branches: [monitor]
+    branches: [andsv]
     paths:
       - "android/parent/**"
       - ".github/workflows/android-parent.yml"
@@ -35,6 +35,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: monitor-parent-debug-apk
+          name: andsv-parent-debug-apk
           path: android/parent/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

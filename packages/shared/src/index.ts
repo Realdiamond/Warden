@@ -1,4 +1,4 @@
-// Shared contracts for Monitor. Owned here, used by every part — change rules here, not in the
+// Shared contracts for Andsv. Owned here, used by every part — change rules here, not in the
 // apps.
 
 /**

@@ -6,7 +6,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Minimal HTTP client to the Monitor API, using HttpURLConnection + org.json (no extra deps). */
+/** Minimal HTTP client to the Andsv API, using HttpURLConnection + org.json (no extra deps). */
 class Api(private val baseUrl: String) {
 
     suspend fun pair(

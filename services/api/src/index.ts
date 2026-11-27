@@ -5,7 +5,7 @@ const app = await buildServer({ logger: true });
 
 app
   .listen({ port: config.port, host: config.host })
-  .then((address) => app.log.info(`Monitor API listening on ${address}`))
+  .then((address) => app.log.info(`Andsv API listening on ${address}`))
   .catch((err) => {
     app.log.error(err);
     process.exit(1);

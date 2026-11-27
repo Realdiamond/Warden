@@ -12,7 +12,7 @@ import androidx.core.content.ContextCompat
 import org.json.JSONObject
 
 /**
- * A snapshot of which phone-side permissions Monitor currently holds. Reported to the server as a
+ * A snapshot of which phone-side permissions Andsv currently holds. Reported to the server as a
  * `status` event so the parent dashboard can show a "finish setup" checklist — the dashboard can't
  * read the phone's settings directly, and can't turn these on remotely (Android only lets the phone
  * do that), so this status is how it knows what's still missing.
@@ -37,10 +37,10 @@ object Permissions {
 
     fun deviceAdmin(ctx: Context): Boolean {
         val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        return dpm.isAdminActive(ComponentName(ctx, MonitorAdminReceiver::class.java))
+        return dpm.isAdminActive(ComponentName(ctx, AndsvAdminReceiver::class.java))
     }
 
-    /** Whether the OS is letting Monitor run freely in the background (not battery-restricted). */
+    /** Whether the OS is letting Andsv run freely in the background (not battery-restricted). */
     fun batteryUnrestricted(ctx: Context): Boolean {
         val pm = ctx.getSystemService(Context.POWER_SERVICE) as PowerManager
         return pm.isIgnoringBatteryOptimizations(ctx.packageName)

@@ -16,8 +16,8 @@ import { ASSETS } from "./assets.ts";
 interface Env {
   DB: D1Database;
   RELAY: DurableObjectNamespace;
-  MONITOR_JWT_SECRET: string;
-  MONITOR_ENCRYPTION_KEY: string;
+  ANDSV_JWT_SECRET: string;
+  ANDSV_ENCRYPTION_KEY: string;
 }
 
 /**
@@ -114,7 +114,7 @@ app.post("/v1/accounts", async (c) => {
     .bind(id, email, await hashPassword(password), new Date().toISOString())
     .run();
 
-  return c.json({ accountId: id, token: await signAccountToken(id, c.env.MONITOR_JWT_SECRET) }, 201);
+  return c.json({ accountId: id, token: await signAccountToken(id, c.env.ANDSV_JWT_SECRET) }, 201);
 });
 
 app.post("/v1/sessions", async (c) => {
@@ -129,7 +129,7 @@ app.post("/v1/sessions", async (c) => {
   if (!row || !(await verifyPassword(password, row.password_hash))) {
     return c.json({ error: "invalid_credentials" }, 401);
   }
-  return c.json({ accountId: row.id, token: await signAccountToken(row.id, c.env.MONITOR_JWT_SECRET) });
+  return c.json({ accountId: row.id, token: await signAccountToken(row.id, c.env.ANDSV_JWT_SECRET) });
 });
 
 // --- Helpers ----------------------------------------------------------------
@@ -137,7 +137,7 @@ app.post("/v1/sessions", async (c) => {
 async function requireAccount(c: { req: { header: (n: string) => string | undefined }; env: Env }) {
   const token = bearer(c.req.header("authorization"));
   if (!token) return null;
-  return verifyAccountToken(token, c.env.MONITOR_JWT_SECRET);
+  return verifyAccountToken(token, c.env.ANDSV_JWT_SECRET);
 }
 
 interface DeviceRow {
@@ -322,7 +322,7 @@ app.post("/v1/events", async (c) => {
 
   const sensitive = SENSITIVE_KINDS.has(kind);
   const stored = sensitive
-    ? await encryptJson(body.payload, c.env.MONITOR_ENCRYPTION_KEY)
+    ? await encryptJson(body.payload, c.env.ANDSV_ENCRYPTION_KEY)
     : JSON.stringify(body.payload ?? null);
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
@@ -371,7 +371,7 @@ app.get("/v1/devices/:id/events", async (c) => {
       ).bind(deviceId, limit);
 
   const { results } = await stmt.all<EventRow>();
-  const key = c.env.MONITOR_ENCRYPTION_KEY;
+  const key = c.env.ANDSV_ENCRYPTION_KEY;
   const events = await Promise.all(
     results.map(async (r) => ({
       id: r.id,
@@ -492,7 +492,7 @@ app.get("/v1/stream/source", async (c) => {
 });
 
 app.get("/v1/stream/viewer", async (c) => {
-  const accountId = await verifyAccountToken(c.req.query("token") ?? "", c.env.MONITOR_JWT_SECRET);
+  const accountId = await verifyAccountToken(c.req.query("token") ?? "", c.env.ANDSV_JWT_SECRET);
   if (!accountId) return c.json({ error: "unauthorized" }, 401);
   const deviceId = c.req.query("deviceId") ?? "";
   const owned = await c.env.DB.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?")

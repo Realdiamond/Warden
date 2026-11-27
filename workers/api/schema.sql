@@ -1,4 +1,4 @@
--- D1 schema for the Monitor API. Apply with:
+-- D1 schema for the Andsv API. Apply with:
 --   wrangler d1 execute monitor --file=./schema.sql            (local)
 --   wrangler d1 execute monitor --remote --file=./schema.sql   (deployed)
 

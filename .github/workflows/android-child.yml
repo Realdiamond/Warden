@@ -2,7 +2,7 @@ name: Build monitored Android app
 
 on:
   push:
-    branches: [monitor]
+    branches: [andsv]
     paths:
       - "android/child/**"
       - ".github/workflows/android-child.yml"
@@ -35,6 +35,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: monitor-child-debug-apk
+          name: andsv-child-debug-apk
           path: android/child/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

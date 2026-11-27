@@ -1,4 +1,4 @@
-# Monitor API — Cloudflare Worker + D1
+# Andsv API — Cloudflare Worker + D1
 
 The API as a Cloudflare Worker backed by D1 (Cloudflare's SQLite). Same behaviour and endpoints
 as the Node version in `services/api`, ported to Web Crypto and D1 so it runs on Cloudflare's free
@@ -18,13 +18,13 @@ npx wrangler d1 create monitor
 npx wrangler d1 execute monitor --remote --file=./schema.sql
 
 # 3. Set the two secrets (never commit these)
-npx wrangler secret put MONITOR_JWT_SECRET            # any long random string
-npx wrangler secret put MONITOR_ENCRYPTION_KEY        # 64 hex chars (32 bytes)
+npx wrangler secret put ANDSV_JWT_SECRET            # any long random string
+npx wrangler secret put ANDSV_ENCRYPTION_KEY        # 64 hex chars (32 bytes)
 #   generate one with:  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 # 4. Deploy
 npx wrangler deploy
-#   → https://monitor-api.<your-subdomain>.workers.dev
+#   → https://andsv-api.<your-subdomain>.workers.dev
 ```
 
 Point the apps and dashboard at that URL.

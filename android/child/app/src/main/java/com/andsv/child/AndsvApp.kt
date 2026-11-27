@@ -9,7 +9,7 @@ import java.io.StringWriter
  * on-screen for diagnosis — there is no logcat access on the monitored phone. After storing, it
  * delegates to the platform's default handler so the OS still ends the process normally.
  */
-class MonitorApp : Application() {
+class AndsvApp : Application() {
     override fun onCreate() {
         super.onCreate()
         val previous = Thread.getDefaultUncaughtExceptionHandler()

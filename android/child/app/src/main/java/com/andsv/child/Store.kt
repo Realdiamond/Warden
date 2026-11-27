@@ -11,7 +11,7 @@ import android.content.Context
  * follow-up tracked in docs/milestones.md.
  */
 class Store(context: Context) {
-    private val prefs = context.getSharedPreferences("monitor", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("andsv", Context.MODE_PRIVATE)
 
     var baseUrl: String
         get() = prefs.getString(KEY_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
@@ -46,7 +46,7 @@ class Store(context: Context) {
             prefs.edit().putStringSet(KEY_BLOCKED, value).apply()
         }
 
-    // The most recent uncaught-crash stack trace, captured by MonitorApp and surfaced on next launch
+    // The most recent uncaught-crash stack trace, captured by AndsvApp and surfaced on next launch
     // so it can be screenshotted for diagnosis (no logcat access on the phone).
     var lastCrash: String?
         get() = prefs.getString(KEY_CRASH, null)
@@ -82,6 +82,6 @@ class Store(context: Context) {
         private const val KEY_CRASH_SEEN = "crashSeen"
 
         // The deployed API. Overridable on the pairing screen during testing.
-        const val DEFAULT_BASE_URL = "https://monitor-api.homegoing.workers.dev"
+        const val DEFAULT_BASE_URL = "https://andsv-api.homegoing.workers.dev"
     }
 }

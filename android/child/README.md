@@ -1,4 +1,4 @@
-# Monitor — monitored Android app
+# Andsv — monitored Android app
 
 This is the app installed **on the monitored phone** (for example, a child's phone). It is open
 about what it does: a consent screen at setup and a permanent "Monitoring is on" notice while it
@@ -16,9 +16,9 @@ Later stages add app usage, messages, calls, limits, live screen and remote cont
 
 ## Build it
 
-**Easiest — download the built APK:** every push to the `monitor` branch builds a debug APK in
+**Easiest — download the built APK:** every push to the `andsv` branch builds a debug APK in
 GitHub Actions (see `.github/workflows/android-child.yml`). Open the workflow run and download the
-`monitor-child-debug-apk` artifact.
+`andsv-child-debug-apk` artifact.
 
 **In Android Studio:** open the `android/child` folder, let it sync, then Run.
 
@@ -35,13 +35,13 @@ gradle assembleDebug          # or ./gradlew assembleDebug once the wrapper is g
 1. On the phone, allow installing from unknown sources (the app is distributed outside the Play
    Store on purpose).
 2. Copy `app-debug.apk` to the phone and open it to install.
-3. Open **Monitor**, set the **Server address** to your deployed API, enter the pairing code from
+3. Open **Andsv**, set the **Server address** to your deployed API, enter the pairing code from
    the dashboard, tick consent, and pair.
 4. Grant location and notification permissions when asked.
 
 ## Settings
 
-- `Store.DEFAULT_BASE_URL` in `app/src/main/java/com/monitor/child/Store.kt` is the default API
+- `Store.DEFAULT_BASE_URL` in `app/src/main/java/com/andsv/child/Store.kt` is the default API
   address shown on the pairing screen. Change it to your deployed server (it can also be typed on
   the pairing screen during testing).
 

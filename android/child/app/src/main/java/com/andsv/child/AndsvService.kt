@@ -36,7 +36,7 @@ import java.time.Instant
  * device location to the API. The ongoing notification is the overtness guarantee: it cannot be
  * swiped away while monitoring runs.
  */
-class MonitorService : Service() {
+class AndsvService : Service() {
 
     private lateinit var fused: FusedLocationProviderClient
     private lateinit var store: Store
@@ -84,12 +84,12 @@ class MonitorService : Service() {
             usageJob = scope.launch {
                 while (isActive) {
                     try {
-                        UsageReporter(this@MonitorService, store).reportNow()
+                        UsageReporter(this@AndsvService, store).reportNow()
                     } catch (e: Exception) {
                         // ignore a single failed usage report; try again next cycle
                     }
                     try {
-                        CallLogReporter(this@MonitorService, store).reportNew()
+                        CallLogReporter(this@AndsvService, store).reportNew()
                     } catch (e: Exception) {
                         // ignore a single failed call-log report; try again next cycle
                     }
@@ -103,7 +103,7 @@ class MonitorService : Service() {
                         // Report which permissions are on, so the dashboard's setup checklist is current.
                         Api(store.baseUrl).postStatus(
                             token,
-                            Permissions.asJson(this@MonitorService),
+                            Permissions.asJson(this@AndsvService),
                             BuildConfig.VERSION_NAME,
                             Instant.now().toString(),
                         )
@@ -143,7 +143,7 @@ class MonitorService : Service() {
 
     private fun executeCommand(type: String) {
         val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val admin = ComponentName(this, MonitorAdminReceiver::class.java)
+        val admin = ComponentName(this, AndsvAdminReceiver::class.java)
         if (!dpm.isAdminActive(admin)) return
         try {
             when (type) {
@@ -201,13 +201,13 @@ class MonitorService : Service() {
 
     companion object {
         private const val NOTIF_ID = 1001
-        private const val CHANNEL = "monitor_notice"
+        private const val CHANNEL = "andsv_notice"
         private const val INTERVAL_MS = 60_000L
         private const val USAGE_INTERVAL_MS = 15L * 60 * 1000
         private const val COMMAND_INTERVAL_MS = 45L * 1000
 
         fun start(context: Context) {
-            ContextCompat.startForegroundService(context, Intent(context, MonitorService::class.java))
+            ContextCompat.startForegroundService(context, Intent(context, AndsvService::class.java))
         }
     }
 }

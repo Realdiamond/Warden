@@ -2,9 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 // Fixed secrets + in-memory DB, set before importing anything that reads config.
-process.env.MONITOR_DB = ":memory:";
-process.env.MONITOR_JWT_SECRET = "test-secret-value-test-secret-value";
-process.env.MONITOR_ENCRYPTION_KEY =
+process.env.ANDSV_DB = ":memory:";
+process.env.ANDSV_JWT_SECRET = "test-secret-value-test-secret-value";
+process.env.ANDSV_ENCRYPTION_KEY =
   "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
 const { buildServer } = await import("../src/server.ts");

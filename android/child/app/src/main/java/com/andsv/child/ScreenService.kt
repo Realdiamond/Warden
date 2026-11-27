@@ -102,7 +102,7 @@ class ScreenService : Service() {
             val imageReader = ImageReader.newInstance(capW, capH, PixelFormat.RGBA_8888, 2)
             reader = imageReader
             virtualDisplay = proj.createVirtualDisplay(
-                "monitor-screen",
+                "andsv-screen",
                 capW,
                 capH,
                 metrics.densityDpi,
@@ -232,7 +232,7 @@ class ScreenService : Service() {
 
     companion object {
         private const val NOTIF_ID = 1002
-        private const val CHANNEL = "monitor_screen"
+        private const val CHANNEL = "andsv_screen"
         private const val FRAME_INTERVAL_MS = 500L // ~2 frames/second
         private const val MAX_WIDTH = 480
         private const val EXTRA_CODE = "code"

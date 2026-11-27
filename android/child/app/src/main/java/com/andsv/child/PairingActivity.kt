@@ -123,7 +123,7 @@ class PairingActivity : AppCompatActivity() {
         }
 
         val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val admin = ComponentName(this, MonitorAdminReceiver::class.java)
+        val admin = ComponentName(this, AndsvAdminReceiver::class.java)
         if (paired && !dpm.isAdminActive(admin)) {
             binding.adminButton.visibility = View.VISIBLE
             binding.adminButton.setOnClickListener {
@@ -136,7 +136,7 @@ class PairingActivity : AppCompatActivity() {
             binding.adminButton.visibility = View.GONE
         }
 
-        // Battery: ask the OS to stop pausing Monitor in the background (Samsung is aggressive here,
+        // Battery: ask the OS to stop pausing Andsv in the background (Samsung is aggressive here,
         // which is what stops the chat reader and notification listener from running).
         if (paired && !Permissions.batteryUnrestricted(this)) {
             binding.batteryButton.visibility = View.VISIBLE
@@ -259,7 +259,7 @@ class PairingActivity : AppCompatActivity() {
             .setMessage(trace)
             .setPositiveButton("Copy") { _, _ ->
                 val cb = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                cb.setPrimaryClip(android.content.ClipData.newPlainText("monitor-crash", trace))
+                cb.setPrimaryClip(android.content.ClipData.newPlainText("andsv-crash", trace))
                 Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Dismiss", null)
@@ -314,7 +314,7 @@ class PairingActivity : AppCompatActivity() {
     }
 
     private fun startMonitoring() {
-        MonitorService.start(this)
+        AndsvService.start(this)
         setStatus(getString(R.string.monitoring_on), StatusTone.OK)
         binding.pairButton.isEnabled = false
     }

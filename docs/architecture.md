@@ -1,4 +1,4 @@
-# Monitor — architecture & roadmap
+# Andsv — architecture & roadmap
 
 ## What it is
 
@@ -8,7 +8,7 @@ a real phone before the next is added.
 
 ## Non-negotiable rules (the "overtness" contract)
 
-These are to Monitor what the encryption rules are to a safety app: break one and the product is
+These are to Andsv what the encryption rules are to a safety app: break one and the product is
 no longer the product.
 
 1. **Overt only.** The monitored phone always shows a permanent notice + the app's own icon. No

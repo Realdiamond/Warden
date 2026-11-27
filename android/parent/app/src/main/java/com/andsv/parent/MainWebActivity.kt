@@ -10,7 +10,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 
 /**
- * The parent app is a thin shell around the Monitor dashboard, so it is always identical to the web
+ * The parent app is a thin shell around the Andsv dashboard, so it is always identical to the web
  * version and updates automatically. Everything — sign in, devices, Today, chats, calls, location,
  * the Setup checklist, live screen — is the same responsive dashboard served from the API.
  */

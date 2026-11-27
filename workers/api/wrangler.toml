@@ -1,9 +1,9 @@
-name = "monitor-api"
+name = "andsv-api"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
 # Always re-bundle the latest built dashboard before any deploy, so `wrangler deploy` on its own
-# can never ship a stale UI (build the dashboard first: pnpm --filter @monitor/dashboard build).
+# can never ship a stale UI (build the dashboard first: pnpm --filter @andsv/dashboard build).
 [build]
 command = "node scripts/bundle-dashboard.mjs"
 
@@ -26,5 +26,5 @@ tag = "v1"
 new_sqlite_classes = ["StreamRelay"]
 
 # Secrets (set with `wrangler secret put`, never committed):
-#   wrangler secret put MONITOR_JWT_SECRET
-#   wrangler secret put MONITOR_ENCRYPTION_KEY   # 64 hex chars (32 bytes)
+#   wrangler secret put ANDSV_JWT_SECRET
+#   wrangler secret put ANDSV_ENCRYPTION_KEY   # 64 hex chars (32 bytes)

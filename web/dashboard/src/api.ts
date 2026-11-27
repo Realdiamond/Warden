@@ -74,12 +74,12 @@ export class ApiError extends Error {
   }
 }
 
-let token: string | null = localStorage.getItem("monitor_token");
+let token: string | null = localStorage.getItem("andsv_token");
 
 export function setToken(t: string | null): void {
   token = t;
-  if (t) localStorage.setItem("monitor_token", t);
-  else localStorage.removeItem("monitor_token");
+  if (t) localStorage.setItem("andsv_token", t);
+  else localStorage.removeItem("andsv_token");
 }
 
 export function getToken(): string | null {

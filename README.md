@@ -1,4 +1,4 @@
-# Monitor
+# Andsv
 
 A **consent-based family device monitoring** system. A parent (or guardian, or a company
 managing its own devices) can see activity on a monitored Android phone and set limits on it —
@@ -9,7 +9,7 @@ repository, and this branch is **not** meant to be merged into `main`.
 
 ## The rule everything else depends on
 
-Monitor is **overt**, never covert. The monitored phone always knows it is being monitored:
+Andsv is **overt**, never covert. The monitored phone always knows it is being monitored:
 
 - A permanent, visible notice and the app's own icon stay on the monitored phone.
 - Consent is recorded at setup, and the API refuses to activate a device without it.

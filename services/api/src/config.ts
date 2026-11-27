@@ -12,24 +12,24 @@ function secret(name: string): string {
 }
 
 function encryptionKey(): string {
-  const v = process.env.MONITOR_ENCRYPTION_KEY;
+  const v = process.env.ANDSV_ENCRYPTION_KEY;
   if (v && /^[0-9a-fA-F]{64}$/.test(v)) return v;
-  if (v) throw new Error("MONITOR_ENCRYPTION_KEY must be 64 hex characters (32 bytes)");
-  ephemeral.push("MONITOR_ENCRYPTION_KEY");
+  if (v) throw new Error("ANDSV_ENCRYPTION_KEY must be 64 hex characters (32 bytes)");
+  ephemeral.push("ANDSV_ENCRYPTION_KEY");
   return randomBytes(32).toString("hex");
 }
 
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   host: process.env.HOST ?? "0.0.0.0",
-  jwtSecret: secret("MONITOR_JWT_SECRET"),
+  jwtSecret: secret("ANDSV_JWT_SECRET"),
   encryptionKeyHex: encryptionKey(),
-  dbFile: process.env.MONITOR_DB ?? "monitor.db",
+  dbFile: process.env.ANDSV_DB ?? "andsv.db",
 };
 
 if (ephemeral.length > 0) {
   console.warn(
-    `[monitor] Using EPHEMERAL secrets for: ${ephemeral.join(", ")}. ` +
+    `[andsv] Using EPHEMERAL secrets for: ${ephemeral.join(", ")}. ` +
       `Set these in the environment for anything beyond local dev — otherwise a restart ` +
       `invalidates all tokens and makes stored encrypted data unreadable.`,
   );

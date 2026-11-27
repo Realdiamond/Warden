@@ -1,4 +1,4 @@
-# Monitor — parent Android app
+# Andsv — parent Android app
 
 The parent's native Android app. It does what the web dashboard does, on the phone: sign in, see
 your devices, and view a device's location. (The web dashboard remains available in any browser.)
@@ -12,7 +12,7 @@ your devices, and view a device's location. (The web dashboard remains available
 ## Build it
 
 Same as the monitored app. Every push to `monitor` builds a debug APK in GitHub Actions
-(`monitor-parent-debug-apk` artifact). Or open `android/parent` in Android Studio, or:
+(`andsv-parent-debug-apk` artifact). Or open `android/parent` in Android Studio, or:
 
 ```bash
 cd android/parent

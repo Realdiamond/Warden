@@ -1,14 +1,14 @@
 {
-  "name": "monitor",
+  "name": "andsv",
   "version": "0.0.0",
   "private": true,
-  "description": "Monitor — a consent-based family device monitoring system (parent dashboard + parent app + monitored Android app + API).",
+  "description": "Andsv — a consent-based family device monitoring system (parent dashboard + parent app + monitored Android app + API).",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "dev:api": "pnpm --filter @monitor/api dev",
+    "dev:api": "pnpm --filter @andsv/api dev",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },

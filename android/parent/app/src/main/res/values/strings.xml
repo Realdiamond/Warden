@@ -4,7 +4,7 @@
     <string name="tagline">See and manage your family\'s monitored devices.</string>
 
     <string name="server_label">Server address</string>
-    <string name="server_hint">https://your-monitor-server</string>
+    <string name="server_hint">https://your-andsv-server</string>
     <string name="email_label">Email</string>
     <string name="password_label">Password</string>
 

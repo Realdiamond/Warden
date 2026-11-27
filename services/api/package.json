@@ -1,5 +1,5 @@
 {
-  "name": "@monitor/api",
+  "name": "@andsv/api",
   "version": "0.0.0",
   "private": true,
   "type": "module",

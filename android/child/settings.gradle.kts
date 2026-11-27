@@ -15,5 +15,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "MonitorChild"
+rootProject.name = "AndsvChild"
 include(":app")

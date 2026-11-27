@@ -18,7 +18,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
-        android:name=".MonitorApp"
+        android:name=".AndsvApp"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -59,7 +59,7 @@
         </receiver>
 
         <service
-            android:name=".MonitorService"
+            android:name=".AndsvService"
             android:exported="false"
             android:foregroundServiceType="location" />
 
@@ -105,7 +105,7 @@
         </receiver>
 
         <receiver
-            android:name=".MonitorAdminReceiver"
+            android:name=".AndsvAdminReceiver"
             android:exported="true"
             android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data

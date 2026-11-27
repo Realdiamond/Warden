@@ -4,7 +4,7 @@ import android.content.Context
 
 /** Local settings for the parent app: API address and the signed-in account token (JWT). */
 class Store(context: Context) {
-    private val prefs = context.getSharedPreferences("monitor_parent", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("andsv_parent", Context.MODE_PRIVATE)
 
     var baseUrl: String
         get() = prefs.getString("baseUrl", DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
@@ -26,6 +26,6 @@ class Store(context: Context) {
     }
 
     companion object {
-        const val DEFAULT_BASE_URL = "https://monitor-api.homegoing.workers.dev"
+        const val DEFAULT_BASE_URL = "https://andsv-api.homegoing.workers.dev"
     }
 }
