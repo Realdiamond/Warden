@@ -46,6 +46,7 @@ import {
   dayLabel,
   formatCallDuration,
   formatDuration,
+  formatPairCode,
   initial,
   metersBetween,
   pluralize,
@@ -143,7 +144,7 @@ const KIND_META: Record<Kind, { label: string; icon: LucideIcon; color: string }
   chat: { label: "Chats", icon: MessageSquare, color: "var(--t-chat)" },
   call: { label: "Calls", icon: Phone, color: "var(--t-call)" },
   place: { label: "Places", icon: MapPin, color: "var(--t-place)" },
-  alert: { label: "Notifications", icon: Bell, color: "var(--t-alert)" },
+  alert: { label: "Alerts", icon: Bell, color: "var(--t-alert)" },
 };
 
 const KINDS: Kind[] = ["chat", "call", "place", "alert"];
@@ -200,7 +201,7 @@ function buildRaw(
         hour,
         kind: "alert",
         title: p.sender ?? "Unknown",
-        tag: `${appName(p.app)} notification`,
+        tag: `${appName(p.app)} alert`,
         sub: p.text,
       });
     }
@@ -271,7 +272,7 @@ function joinList(parts: string[]): string {
 function summarize(counts: Record<Kind, number>): string {
   const parts: string[] = [];
   if (counts.chat) parts.push(pluralize(counts.chat, "chat message"));
-  if (counts.alert) parts.push(pluralize(counts.alert, "notification"));
+  if (counts.alert) parts.push(pluralize(counts.alert, "alert"));
   if (counts.call) parts.push(pluralize(counts.call, "call"));
   if (counts.place) parts.push(pluralize(counts.place, "location update"));
   return parts.length ? `${joinList(parts)}.` : "Nothing captured for this day.";
@@ -472,6 +473,36 @@ export function DeviceDetail() {
     notifications: notifMsgs.length,
     calls: calls.length,
   };
+
+  // First paint before the device has loaded: show a skeleton so the header and panel don't flash
+  // empty and then jump as data arrives.
+  if (!device && !error) {
+    return (
+      <div>
+        <Link to="/devices" className="back-link">
+          <ArrowLeft size={15} />
+          All devices
+        </Link>
+        <header className="masthead">
+          <div className="skel skel-title" />
+          <div className="skel skel-line" style={{ width: 150, marginTop: "0.9rem" }} />
+        </header>
+        <div className="device-layout">
+          <nav className="device-nav" aria-hidden="true">
+            {TABS.map((t) => (
+              <div key={t.id} className="skel skel-nav" />
+            ))}
+          </nav>
+          <div className="device-body">
+            <section className="panel">
+              <div className="skel skel-line" style={{ width: "35%" }} />
+              <div className="skel skel-block" />
+            </section>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -731,20 +762,22 @@ export function DeviceDetail() {
             <section className="panel" data-testid="notifications">
               <div className="panel-head">
                 <Bell size={18} />
-                <h2>Message notifications</h2>
+                <h2>Alerts</h2>
                 {notifMsgs.length > 0 && (
-                  <span className="panel-head-meta">{pluralize(notifMsgs.length, "notification")}</span>
+                  <span className="panel-head-meta">{pluralize(notifMsgs.length, "alert")}</span>
                 )}
               </div>
               {notifMsgs.length === 0 ? (
-                <p className="panel-empty">No message notifications captured yet.</p>
+                <p className="panel-empty">
+                  Alerts are the message notifications the phone shows. None captured yet.
+                </p>
               ) : (
                 <>
                   <div className="search-box">
                     <Search size={16} />
                     <input
                       type="text"
-                      aria-label="Search notifications"
+                      aria-label="Search alerts"
                       placeholder="Search by name, app or text"
                       value={notifSearch}
                       onChange={(e) => setNotifSearch(e.target.value)}
@@ -756,7 +789,7 @@ export function DeviceDetail() {
                     )}
                   </div>
                   {notifFiltered.length === 0 ? (
-                    <p className="panel-empty">No notifications match "{notifSearch}".</p>
+                    <p className="panel-empty">No alerts match "{notifSearch}".</p>
                   ) : (
                     <ul className="messages-list" data-testid="notif-list">
                       {notifFiltered.map((m) => (
@@ -1003,7 +1036,7 @@ export function DeviceDetail() {
                     they agree. The code expires in 15 minutes.
                   </p>
                   <div className="code-row">
-                    <span className="code">{pairCode}</span>
+                    <span className="code">{formatPairCode(pairCode)}</span>
                     <button className="secondary" onClick={() => navigator.clipboard?.writeText(pairCode)}>
                       <Copy size={14} />
                       Copy

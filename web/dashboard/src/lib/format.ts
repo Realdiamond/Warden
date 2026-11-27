@@ -88,3 +88,8 @@ export function metersBetween(a: { lat: number; lon: number }, b: { lat: number;
 export function pluralize(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
+
+/** Group a pairing code into fours for readability: "48291746" -> "4829 1746". */
+export function formatPairCode(code: string): string {
+  return code.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
+}

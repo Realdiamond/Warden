@@ -17,7 +17,7 @@
   --ink: #10211c;
   --ink-2: #34463f;
   --muted: #5a6a65;
-  --faint: #86948e;
+  --faint: #63746d; /* AA: >=4.5:1 on white and on --surface-2 */
 
   --primary: #0b6b57;
   --primary-hover: #095a49;
@@ -25,6 +25,8 @@
   --primary-wash: #e2f0eb;
   --primary-soft: #8fc4b4;
 
+  /* "Active now" status — green, so coral can mean only danger/missed. */
+  --live: #0f9d58;
   --signal: #cf4421;
   --signal-wash: #fce9e3;
   --warn: #8a5a0a;
@@ -63,7 +65,7 @@
   --ink: #e9f2ee;
   --ink-2: #c3d3cb;
   --muted: #94a69e;
-  --faint: #6b7d75;
+  --faint: #7c8e84; /* AA: >=4.5:1 on the dark surfaces */
 
   --primary: #46d6a6;
   --primary-hover: #6ce3bc;
@@ -71,6 +73,7 @@
   --primary-wash: rgba(70, 214, 166, 0.12);
   --primary-soft: rgba(70, 214, 166, 0.32);
 
+  --live: #34d399;
   --signal: #ff7f5f;
   --signal-wash: rgba(255, 127, 95, 0.14);
   --warn: #e8b15a;
@@ -92,7 +95,7 @@
 body {
   margin: 0;
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 16px;
   background: var(--paper);
   color: var(--ink);
   line-height: 1.5;
@@ -159,7 +162,7 @@ button {
   cursor: pointer;
   border: 1px solid transparent;
   border-radius: var(--r-sm);
-  min-height: 40px;
+  min-height: 44px;
   padding: 0.5rem 1rem;
   background: var(--primary);
   color: var(--primary-ink);
@@ -403,6 +406,35 @@ input:focus {
   }
 }
 
+/* Loading skeleton — reserves the real layout so nothing jumps when data arrives. */
+.skel {
+  background: linear-gradient(90deg, var(--sunk) 25%, var(--surface-2) 37%, var(--sunk) 63%);
+  background-size: 400% 100%;
+  border-radius: var(--r-sm);
+  animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.skel-title {
+  height: 2.6rem;
+  width: min(60%, 320px);
+  border-radius: var(--r-md);
+}
+.skel-line {
+  height: 1rem;
+}
+.skel-nav {
+  height: 42px;
+}
+.skel-block {
+  height: 260px;
+  margin-top: 1rem;
+  border-radius: var(--r-md);
+}
+
 /* ---------- Page header ---------- */
 
 .page-header {
@@ -441,14 +473,14 @@ input:focus {
   flex-shrink: 0;
 }
 .presence.live .presence-dot {
-  background: var(--signal);
+  background: var(--live);
 }
 .presence.live .presence-dot::after {
   content: "";
   position: absolute;
   inset: -4px;
   border-radius: 50%;
-  border: 2px solid var(--signal);
+  border: 2px solid var(--live);
   opacity: 0;
   animation: pulse 2.4s ease-out infinite;
 }
@@ -617,7 +649,7 @@ input:focus {
 }
 .device-nav-item {
   justify-content: flex-start;
-  min-height: 42px;
+  min-height: 44px;
   gap: 0.7rem;
   padding: 0.5rem 0.75rem;
   background: transparent;
@@ -717,8 +749,8 @@ input:focus {
   gap: 0.3rem;
 }
 .day-step button {
-  min-height: 36px;
-  width: 36px;
+  min-height: 44px;
+  width: 44px;
   padding: 0;
 }
 
@@ -774,7 +806,7 @@ input:focus {
   height: 7px;
   margin-left: -3.5px;
   border-radius: 50%;
-  background: var(--signal);
+  background: var(--live);
 }
 .ribbon-axis {
   display: grid;
@@ -1133,10 +1165,10 @@ input:focus {
   box-shadow: none;
 }
 .search-clear {
-  width: 26px;
-  min-height: 26px;
+  width: 40px;
+  min-height: 40px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--r-sm);
   background: var(--sunk);
   color: var(--muted);
 }
@@ -1454,22 +1486,27 @@ input:focus {
     z-index: 40;
     flex-direction: row;
     gap: 0;
-    padding: 0.3rem 0.3rem calc(0.3rem + env(safe-area-inset-bottom, 0px));
-    overflow-x: auto;
+    padding: 0.25rem 0.15rem calc(0.25rem + env(safe-area-inset-bottom, 0px));
     background: color-mix(in srgb, var(--surface) 94%, transparent);
     backdrop-filter: blur(10px);
     border-top: 1px solid var(--line);
   }
+  /* All tabs share the width so every one is visible — no hidden horizontal scroll. */
   .device-nav-item {
-    flex: 1 0 auto;
+    flex: 1 1 0;
+    min-width: 0;
     flex-direction: column;
     justify-content: center;
-    gap: 0.15rem;
-    min-width: 56px;
-    min-height: 50px;
-    padding: 0.35rem 0.5rem;
-    font-size: 0.7rem;
+    gap: 0.12rem;
+    min-height: 52px;
+    padding: 0.35rem 0.15rem;
+    font-size: 0.66rem;
     white-space: nowrap;
+  }
+  .device-nav-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
   }
   .nav-count {
     display: none;

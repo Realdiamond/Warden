@@ -25,6 +25,7 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function submit(e: FormEvent) {
@@ -60,22 +61,49 @@ export function Login() {
       <div className="auth-main">
         <div className="auth-card">
           <h2>{signup ? "Create your account" : "Welcome back"}</h2>
-          <form onSubmit={submit}>
+          <form onSubmit={submit} noValidate>
             <label>
               Email
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input
+                type="email"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </label>
             <label>
               Password
               <input
                 type="password"
+                name="password"
+                autoComplete={signup ? "new-password" : "current-password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onBlur={() =>
+                  setFieldError(
+                    signup && password.length > 0 && password.length < 8
+                      ? "Use at least 8 characters."
+                      : null,
+                  )
+                }
                 required
                 minLength={8}
+                aria-describedby={fieldError ? "pw-hint" : undefined}
               />
             </label>
-            {error && <p className="error">{error}</p>}
+            {fieldError && (
+              <p className="error" id="pw-hint" role="alert">
+                {fieldError}
+              </p>
+            )}
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
             <button type="submit" disabled={busy}>
               {busy ? "Please wait…" : signup ? "Create account" : "Sign in"}
               {!busy && <ArrowRight size={16} />}

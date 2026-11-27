@@ -1,8 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Smartphone, CheckCircle2, Clock, KeyRound } from "lucide-react";
 import { api, type DeviceSummary } from "../api.ts";
-import { initial, presence } from "../lib/format.ts";
+import { formatPairCode, initial, presence } from "../lib/format.ts";
 
 export function Devices() {
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
@@ -10,6 +10,8 @@ export function Devices() {
   const [error, setError] = useState<string | null>(null);
   const [pairCode, setPairCode] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
     try {
@@ -29,11 +31,20 @@ export function Devices() {
 
   async function addDevice(e: FormEvent) {
     e.preventDefault();
-    const name = newName.trim() || "New device";
-    const r = await api.createDevice(name);
-    setPairCode(r.pairCode);
-    setNewName("");
-    refresh();
+    if (adding) return;
+    setAdding(true);
+    setError(null);
+    try {
+      const name = newName.trim() || "New device";
+      const r = await api.createDevice(name);
+      setPairCode(r.pairCode);
+      setNewName("");
+      refresh();
+    } catch {
+      setError("Could not add the device. Check your connection and try again.");
+    } finally {
+      setAdding(false);
+    }
   }
 
   if (loading) {
@@ -54,16 +65,19 @@ export function Devices() {
 
       <form className="add-device" onSubmit={addDevice}>
         <input
+          ref={nameRef}
           placeholder="Name the phone, e.g. Ada's phone"
           aria-label="Device name"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
         />
-        <button type="submit">
-          <Plus size={16} />
-          Add device
+        <button type="submit" disabled={adding}>
+          {!adding && <Plus size={16} />}
+          {adding ? "Adding…" : "Add device"}
         </button>
       </form>
+
+      {error && <p className="error">{error}</p>}
 
       {pairCode && (
         <div className="card paircode" data-testid="paircode">
@@ -71,16 +85,21 @@ export function Devices() {
             On the phone, open the Monitor app and enter this code. The person using the phone
             confirms they agree to be monitored. The code expires in 15 minutes.
           </p>
-          <div className="code">{pairCode}</div>
+          <div className="code">{formatPairCode(pairCode)}</div>
         </div>
       )}
-
-      {error && <p className="error">{error}</p>}
 
       {devices.length === 0 ? (
         <div className="empty-state">
           <Smartphone size={24} style={{ marginBottom: 8, opacity: 0.6 }} />
-          <div>No devices yet. Name a phone above to get its pairing code.</div>
+          <p style={{ margin: "0 0 1rem" }}>
+            No devices yet. Add the first phone to get a pairing code, then install the Monitor app on
+            it and enter the code.
+          </p>
+          <button onClick={() => nameRef.current?.focus()}>
+            <Plus size={16} />
+            Add your first device
+          </button>
         </div>
       ) : (
         <div className="device-grid">
@@ -106,7 +125,7 @@ export function Devices() {
                   {d.consentAcceptedAt && (
                     <span className="badge">
                       <KeyRound />
-                      Agreed
+                      Consent recorded
                     </span>
                   )}
                 </div>
