@@ -246,9 +246,10 @@ export function DeviceDetail() {
   const latest = events[0];
   const totalUsageMs = usage.reduce((sum, u) => sum + u.foregroundMs, 0);
 
-  const chatMsgs = messages.filter((m) => m.payload.source === "chat");
-  const notifMsgs = messages.filter((m) => m.payload.source !== "chat");
-  const conversations = buildConversations(chatMsgs);
+  // Build chat threads from ALL messages — on-screen captures carry a direction (two-sided), while
+  // notification captures are shown as incoming bubbles. Both render as the chat-bubble transcript.
+  const onScreenCount = messages.filter((m) => m.payload.source === "chat").length;
+  const conversations = buildConversations(messages);
   const activeKey =
     selectedConv && conversations.some((c) => c.key === selectedConv)
       ? selectedConv
@@ -330,16 +331,14 @@ export function DeviceDetail() {
         <div className="panel-head">
           <MessageSquare size={16} />
           <h2>Messages</h2>
-          {(conversations.length > 0 || notifMsgs.length > 0) && (
+          {conversations.length > 0 && (
             <span className="panel-head-meta">
-              {conversations.length} {conversations.length === 1 ? "chat" : "chats"} · {chatMsgs.length} on-screen
+              {conversations.length} {conversations.length === 1 ? "chat" : "chats"} · {onScreenCount} on-screen
             </span>
           )}
         </div>
 
-        {conversations.length === 0 && notifMsgs.length === 0 && (
-          <p className="panel-empty">No messages captured yet.</p>
-        )}
+        {conversations.length === 0 && <p className="panel-empty">No messages captured yet.</p>}
 
         {conversations.length > 0 && (
           <div className="chat" data-testid="chat">
@@ -402,24 +401,6 @@ export function DeviceDetail() {
                 </>
               )}
             </div>
-          </div>
-        )}
-
-        {notifMsgs.length > 0 && (
-          <div className="notif-block">
-            <div className="notif-head">From notifications</div>
-            <ul className="messages-list">
-              {notifMsgs.map((m) => (
-                <li key={m.id} className="message-item">
-                  <div className="msg-head">
-                    <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
-                    <span className="msg-app">{appName(m.payload.app)}</span>
-                    <span className="msg-time">{new Date(m.capturedAt).toLocaleString()}</span>
-                  </div>
-                  <div className="msg-text">{m.payload.text}</div>
-                </li>
-              ))}
-            </ul>
           </div>
         )}
       </section>
