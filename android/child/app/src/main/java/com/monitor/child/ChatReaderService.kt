@@ -104,6 +104,7 @@ class ChatReaderService : AccessibilityService() {
             }
             if (fresh.isEmpty()) return
 
+            lastCaptureAtMs = System.currentTimeMillis()
             val baseUrl = store.baseUrl
             scope.launch {
                 val api = Api(baseUrl)
@@ -197,8 +198,15 @@ class ChatReaderService : AccessibilityService() {
 
     companion object {
         // The running service, so ScreenService can dispatch remote taps through accessibility.
+        // A non-null instance also means the accessibility service is actually bound and running
+        // (Samsung can kill it while the permission still shows "on").
         @Volatile
         var instance: ChatReaderService? = null
+
+        // When the reader last captured a chat line, so the dashboard can tell "running but quiet"
+        // from "stopped".
+        @Volatile
+        var lastCaptureAtMs = 0L
 
         private val MESSAGING_APPS = setOf(
             "com.whatsapp",                // WhatsApp

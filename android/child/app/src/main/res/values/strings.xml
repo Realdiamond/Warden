@@ -27,6 +27,7 @@
     <string name="screen_notice_title">Screen sharing is on</string>
     <string name="screen_notice_text">This phone\'s screen can be viewed and controlled.</string>
     <string name="enable_admin">Enable remote lock (device admin)</string>
+    <string name="allow_background">Allow Monitor to run in the background (stops the phone pausing it)</string>
     <string name="admin_explanation">Lets the parent lock this phone remotely. Unlocking the PIN also needs this phone set up as a managed device.</string>
 
     <string name="notice_title">Monitoring is on</string>

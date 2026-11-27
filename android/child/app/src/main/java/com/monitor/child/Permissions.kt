@@ -5,6 +5,7 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -39,11 +40,24 @@ object Permissions {
         return dpm.isAdminActive(ComponentName(ctx, MonitorAdminReceiver::class.java))
     }
 
-    /** All permission states as a JSON object for the `status` event payload. */
+    /** Whether the OS is letting Monitor run freely in the background (not battery-restricted). */
+    fun batteryUnrestricted(ctx: Context): Boolean {
+        val pm = ctx.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return pm.isIgnoringBatteryOptimizations(ctx.packageName)
+    }
+
+    /**
+     * All permission states plus whether the capture services are actually running, for the `status`
+     * event. `accessibility`/`notifications` report the granted permission; `*Running` report whether
+     * the service is really bound (Samsung can kill it while the permission still shows "on").
+     */
     fun asJson(ctx: Context): JSONObject = JSONObject()
         .put("location", location(ctx))
         .put("usage", usage(ctx))
         .put("notifications", notifications(ctx))
         .put("accessibility", accessibility(ctx))
         .put("deviceAdmin", deviceAdmin(ctx))
+        .put("accessibilityRunning", ChatReaderService.instance != null)
+        .put("notificationsRunning", MessageListener.alive)
+        .put("batteryUnrestricted", batteryUnrestricted(ctx))
 }

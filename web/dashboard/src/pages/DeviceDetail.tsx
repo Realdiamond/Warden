@@ -312,9 +312,20 @@ const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "device", label: "Device", icon: Settings },
 ];
 
-type PermKey = "location" | "usage" | "deviceAdmin" | "notifications" | "accessibility";
+type PermKey =
+  | "location"
+  | "usage"
+  | "deviceAdmin"
+  | "notifications"
+  | "accessibility"
+  | "batteryUnrestricted";
+type RunKey = "accessibilityRunning" | "notificationsRunning";
 
-const CAPABILITIES: { key: PermKey; name: string; desc: string; steps?: string }[] = [
+const STALLED_NOTE =
+  "Switched on, but the phone has paused the service (common on Samsung). In the Monitor app tap " +
+  "“Allow Monitor to run in the background”, then toggle this off and on.";
+
+const CAPABILITIES: { key: PermKey; runKey?: RunKey; name: string; desc: string; steps?: string }[] = [
   { key: "location", name: "Location", desc: "Where the phone is, on the map" },
   { key: "usage", name: "App usage", desc: "Screen time and app limits" },
   {
@@ -324,19 +335,39 @@ const CAPABILITIES: { key: PermKey; name: string; desc: string; steps?: string }
     steps: "On the phone, open Monitor and tap “Enable remote lock”, then confirm.",
   },
   {
+    key: "batteryUnrestricted",
+    name: "Background running",
+    desc: "Lets Monitor keep reading chats and alerts when the phone sleeps",
+    steps: "On the phone, open Monitor and tap “Allow Monitor to run in the background”, then confirm.",
+  },
+  {
     key: "notifications",
+    runKey: "notificationsRunning",
     name: "Notifications",
     desc: "See message alerts as they arrive",
     steps: "On the phone, open Monitor and tap “Grant notification access”, then switch Monitor on.",
   },
   {
     key: "accessibility",
+    runKey: "accessibilityRunning",
     name: "Accessibility",
     desc: "Read chats in WhatsApp, Snapchat, TikTok and similar apps",
     steps:
       "On the phone: Settings → Accessibility → Monitor → turn On. If it’s greyed out: Settings → Apps → Monitor → ⋮ → Allow restricted settings, then try again.",
   },
 ];
+
+type SetupRow = (typeof CAPABILITIES)[number] & { granted: boolean; stalled: boolean; on: boolean };
+
+function buildSetupRows(perms: NonNullable<StatusPayload["permissions"]>): SetupRow[] {
+  return CAPABILITIES.map((cap) => {
+    const granted = !!perms[cap.key];
+    // When the phone is on an older app that doesn't report running-state, treat granted as on.
+    const running = cap.runKey ? perms[cap.runKey] : undefined;
+    const stalled = granted && running === false;
+    return { ...cap, granted, stalled, on: granted && !stalled };
+  }).sort((a, b) => Number(b.on) - Number(a.on) || Number(b.granted) - Number(a.granted));
+}
 
 const PAGE = 40;
 
@@ -511,13 +542,12 @@ export function DeviceDetail() {
 
   const pres = presence(device?.lastSeenAt);
 
-  // Setup checklist: which phone permissions the device last reported.
+  // Setup checklist: which phone permissions the device last reported, and whether the capture
+  // services are actually running.
   const perms = statusEvt?.payload.permissions;
-  const setupCaps = perms
-    ? [...CAPABILITIES].sort((a, b) => Number(!!perms[b.key]) - Number(!!perms[a.key]))
-    : CAPABILITIES;
-  const setupOn = perms ? CAPABILITIES.filter((c) => perms[c.key]).length : 0;
-  const setupOff = perms ? CAPABILITIES.length - setupOn : 0;
+  const setupRows = perms ? buildSetupRows(perms) : [];
+  const setupOn = setupRows.filter((r) => r.on).length;
+  const setupOff = setupRows.length - setupOn;
   const setupComplete = !!perms && setupOff === 0;
 
   const tabCount: Partial<Record<TabId, number>> = {
@@ -1063,7 +1093,7 @@ export function DeviceDetail() {
                 </span>
                 {perms && (
                   <span className={`setup-count ${setupComplete ? "ok" : ""}`}>
-                    {setupOn} of {CAPABILITIES.length} on
+                    {setupOn} of {setupRows.length} on
                   </span>
                 )}
               </div>
@@ -1076,7 +1106,7 @@ export function DeviceDetail() {
               ) : (
                 <>
                   <div className="setup-bar">
-                    <span style={{ width: `${(setupOn / CAPABILITIES.length) * 100}%` }} />
+                    <span style={{ width: `${(setupOn / setupRows.length) * 100}%` }} />
                   </div>
                   <p className="setup-note">
                     {setupComplete
@@ -1084,17 +1114,20 @@ export function DeviceDetail() {
                       : "These turn on from the phone — they can't be switched on from here. Open Monitor on the phone to finish."}
                   </p>
                   <ul className="setup-list">
-                    {setupCaps.map((cap) => {
-                      const on = !!perms[cap.key];
+                    {setupRows.map((row) => {
+                      const state = row.on ? "done" : row.stalled ? "stalled" : "todo";
                       return (
-                        <li key={cap.key} className={`setup-row ${on ? "done" : "todo"}`}>
-                          <span className="setup-ic">{on && <Check size={14} strokeWidth={3} />}</span>
+                        <li key={row.key} className={`setup-row ${state}`}>
+                          <span className="setup-ic">{row.on && <Check size={14} strokeWidth={3} />}</span>
                           <div className="setup-main">
-                            <div className="setup-name">{cap.name}</div>
-                            <div className="setup-desc">{cap.desc}</div>
-                            {!on && cap.steps && <div className="setup-steps">{cap.steps}</div>}
+                            <div className="setup-name">{row.name}</div>
+                            <div className="setup-desc">{row.desc}</div>
+                            {row.stalled && <div className="setup-steps">{STALLED_NOTE}</div>}
+                            {!row.granted && row.steps && <div className="setup-steps">{row.steps}</div>}
                           </div>
-                          <span className={`setup-state ${on ? "on" : "off"}`}>{on ? "On" : "Off"}</span>
+                          <span className={`setup-state ${row.on ? "on" : "off"}`}>
+                            {row.on ? "On" : row.stalled ? "Paused" : "Off"}
+                          </span>
                         </li>
                       );
                     })}

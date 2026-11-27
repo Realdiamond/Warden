@@ -780,6 +780,12 @@ input:focus {
 .setup-row.todo .setup-ic {
   border: 2px solid var(--line-strong);
 }
+.setup-row.stalled .setup-ic {
+  border: 2px solid var(--warn);
+}
+.setup-row.stalled .setup-name {
+  color: var(--warn);
+}
 .setup-main {
   flex: 1;
   min-width: 0;

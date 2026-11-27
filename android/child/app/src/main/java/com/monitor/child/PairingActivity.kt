@@ -136,6 +136,25 @@ class PairingActivity : AppCompatActivity() {
             binding.adminButton.visibility = View.GONE
         }
 
+        // Battery: ask the OS to stop pausing Monitor in the background (Samsung is aggressive here,
+        // which is what stops the chat reader and notification listener from running).
+        if (paired && !Permissions.batteryUnrestricted(this)) {
+            binding.batteryButton.visibility = View.VISIBLE
+            binding.batteryButton.setOnClickListener {
+                try {
+                    val intent = Intent(
+                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        android.net.Uri.parse("package:$packageName"),
+                    )
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                }
+            }
+        } else {
+            binding.batteryButton.visibility = View.GONE
+        }
+
         // Hide / show the launcher icon — always available (independent of pairing).
         binding.hideIconButton.setText(if (store.iconHidden) R.string.show_icon else R.string.hide_icon)
         binding.hideIconButton.setOnClickListener {

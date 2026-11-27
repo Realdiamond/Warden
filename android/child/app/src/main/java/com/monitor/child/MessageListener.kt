@@ -37,7 +37,18 @@ class MessageListener : NotificationListenerService() {
         store = Store(this)
     }
 
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        alive = true
+    }
+
+    override fun onListenerDisconnected() {
+        alive = false
+        super.onListenerDisconnected()
+    }
+
     override fun onDestroy() {
+        alive = false
         scope.cancel()
         super.onDestroy()
     }
@@ -61,12 +72,21 @@ class MessageListener : NotificationListenerService() {
         }
 
         val capturedAt = Instant.now().toString()
+        lastCaptureAtMs = System.currentTimeMillis()
         scope.launch {
             Api(store.baseUrl).postMessage(token, pkg, sender, text, capturedAt, source = "notification")
         }
     }
 
     companion object {
+        // Whether the notification listener is actually bound and running (Samsung can kill it while
+        // the permission still shows "on"), and when it last captured something.
+        @Volatile
+        var alive = false
+
+        @Volatile
+        var lastCaptureAtMs = 0L
+
         // WhatsApp/others post summary texts like "3 new messages" — not real content.
         private val NOISE = Regex(
             "^(\\d+ new messages?|\\d+ messages? from \\d+ chats?|checking for new messages\\.?|you have new messages|new message)$",

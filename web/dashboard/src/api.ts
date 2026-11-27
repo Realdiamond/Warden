@@ -47,6 +47,11 @@ export interface StatusPayload {
     notifications?: boolean;
     accessibility?: boolean;
     deviceAdmin?: boolean;
+    // Whether the capture services are actually running (Samsung can pause them while the
+    // permission still shows granted), and whether the OS lets the app run in the background.
+    accessibilityRunning?: boolean;
+    notificationsRunning?: boolean;
+    batteryUnrestricted?: boolean;
   };
   appVersion?: string;
 }

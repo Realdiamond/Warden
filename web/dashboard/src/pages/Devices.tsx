@@ -4,7 +4,16 @@ import { Plus, Smartphone, CheckCircle2, Clock, KeyRound, ListChecks } from "luc
 import { api, type DeviceSummary, type EventEnvelope, type StatusPayload } from "../api.ts";
 import { formatPairCode, initial, presence } from "../lib/format.ts";
 
-const PERM_KEYS = ["location", "usage", "notifications", "accessibility", "deviceAdmin"] as const;
+// Capabilities counted in the setup chip. `run` is the "is the service actually running" key — a
+// granted-but-paused service counts as not on, matching the device's Setup tab.
+const SETUP_KEYS: { key: keyof NonNullable<StatusPayload["permissions"]>; run?: keyof NonNullable<StatusPayload["permissions"]> }[] = [
+  { key: "location" },
+  { key: "usage" },
+  { key: "deviceAdmin" },
+  { key: "batteryUnrestricted" },
+  { key: "notifications", run: "notificationsRunning" },
+  { key: "accessibility", run: "accessibilityRunning" },
+];
 
 export function Devices() {
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
@@ -26,8 +35,8 @@ export function Devices() {
             const s = await api.getEvents(d.id, "status", 1);
             const perms = (s.events[0] as EventEnvelope<StatusPayload> | undefined)?.payload.permissions;
             if (!perms) return [d.id, null] as const;
-            const on = PERM_KEYS.filter((k) => perms[k]).length;
-            return [d.id, { on, total: PERM_KEYS.length }] as const;
+            const on = SETUP_KEYS.filter((c) => perms[c.key] && !(c.run && perms[c.run] === false)).length;
+            return [d.id, { on, total: SETUP_KEYS.length }] as const;
           } catch {
             return [d.id, null] as const;
           }
