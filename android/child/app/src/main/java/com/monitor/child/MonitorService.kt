@@ -89,6 +89,12 @@ class MonitorService : Service() {
                     } catch (e: Exception) {
                         // ignore a single failed call-log report; try again next cycle
                     }
+                    try {
+                        val rules = Api(store.baseUrl).getRules(token)
+                        if (rules != null) store.blockedApps = rules
+                    } catch (e: Exception) {
+                        // keep the last known block list on failure
+                    }
                     delay(USAGE_INTERVAL_MS)
                 }
             }

@@ -17,6 +17,15 @@ Progress log for Monitor. Newest first.
   messages on the dashboard served from Cloudflare.
 - Note: the Node API in `services/api` stays for local dev and the test suite.
 
+## Stage 5 — App limits (built; enforcement needs device testing)
+
+- Backend (Worker + D1 and Node): `blocked_apps` per device; parent sets it via
+  `PUT /v1/devices/:id/rules`, the device reads it via `GET /v1/rules`. Verified live + Node test.
+- Dashboard: device page has an "App limits" section listing seen apps with a Block toggle.
+- Monitored app: fetches the block list each cycle; the AccessibilityService (now watching all
+  apps) sends the user back to home when a blocked app is opened.
+- Builds cleanly; the home-kick enforcement needs testing on a real phone.
+
 ## Stage 4 — Call history (done)
 
 - Monitored app: `CallLogReporter` reports new call-log entries (number, direction, duration)

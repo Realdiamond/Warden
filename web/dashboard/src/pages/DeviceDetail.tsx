@@ -55,6 +55,7 @@ export function DeviceDetail() {
   const [usage, setUsage] = useState<UsageRow[]>([]);
   const [messages, setMessages] = useState<EventEnvelope<MessagePayload>[]>([]);
   const [calls, setCalls] = useState<EventEnvelope<CallPayload>[]>([]);
+  const [blocked, setBlocked] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -67,6 +68,7 @@ export function DeviceDetail() {
         api.getEvents(id, "call", 100),
       ]);
       setDevice(d.device);
+      setBlocked(d.device.blockedApps ?? []);
       setEvents(e.events as EventEnvelope<LocationPayload>[]);
       setUsage(aggregateUsage(u.events as EventEnvelope<AppUsagePayload>[]));
       setMessages(m.events as EventEnvelope<MessagePayload>[]);
@@ -88,6 +90,18 @@ export function DeviceDetail() {
     capturedAt: e.capturedAt,
   }));
   const latest = events[0];
+
+  const knownApps = Array.from(new Set([...usage.map((u) => u.packageName), ...blocked])).sort();
+  async function toggleBlock(pkg: string) {
+    const prev = blocked;
+    const next = blocked.includes(pkg) ? blocked.filter((p) => p !== pkg) : [...blocked, pkg];
+    setBlocked(next);
+    try {
+      await api.setRules(id, next);
+    } catch {
+      setBlocked(prev);
+    }
+  }
 
   return (
     <div>
@@ -135,6 +149,31 @@ export function DeviceDetail() {
                 <span className="usage-name">{appName(u.packageName)}</span>
                 <span className="usage-pkg muted">{u.packageName}</span>
                 <span className="usage-time">{formatDuration(u.foregroundMs)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="panel">
+        <h2>App limits</h2>
+        <p className="muted">A blocked app is sent back to the home screen when it's opened.</p>
+        {knownApps.length === 0 ? (
+          <p className="muted">No apps seen yet — they appear here once the phone reports usage.</p>
+        ) : (
+          <ul className="limits" data-testid="limits">
+            {knownApps.map((pkg) => (
+              <li key={pkg}>
+                <span className="limit-name">{appName(pkg)}</span>
+                <span className="limit-pkg muted">{pkg}</span>
+                <label className="limit-toggle">
+                  <input
+                    type="checkbox"
+                    checked={blocked.includes(pkg)}
+                    onChange={() => toggleBlock(pkg)}
+                  />
+                  Block
+                </label>
               </li>
             ))}
           </ul>

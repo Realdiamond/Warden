@@ -7,6 +7,7 @@ export interface DeviceSummary {
   pairedAt: string | null;
   consentAcceptedAt: string | null;
   lastSeenAt: string | null;
+  blockedApps?: string[];
 }
 
 export interface LocationPayload {
@@ -97,6 +98,11 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
   getDevice: (id: string) => req<{ device: DeviceSummary }>(`/v1/devices/${id}`),
+  setRules: (id: string, blockedApps: string[]) =>
+    req<{ blockedApps: string[] }>(`/v1/devices/${id}/rules`, {
+      method: "PUT",
+      body: JSON.stringify({ blockedApps }),
+    }),
   getEvents: (id: string, kind?: string, limit = 100) =>
     req<{ events: EventEnvelope[] }>(
       `/v1/devices/${id}/events?${new URLSearchParams({ ...(kind ? { kind } : {}), limit: String(limit) })}`,

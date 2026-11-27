@@ -14,6 +14,17 @@ interface DeviceRow {
   paired_at: string | null;
   consent_accepted_at: string | null;
   last_seen_at: string | null;
+  blocked_apps: string | null;
+}
+
+export function parseBlocked(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const v: unknown = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 function toSummary(r: DeviceRow): DeviceSummary {
@@ -24,11 +35,12 @@ function toSummary(r: DeviceRow): DeviceSummary {
     pairedAt: r.paired_at,
     consentAcceptedAt: r.consent_accepted_at,
     lastSeenAt: r.last_seen_at,
+    blockedApps: parseBlocked(r.blocked_apps),
   };
 }
 
 const SELECT_COLS =
-  "id, name, platform, paired_at, consent_accepted_at, last_seen_at";
+  "id, name, platform, paired_at, consent_accepted_at, last_seen_at, blocked_apps";
 
 export function registerDeviceRoutes(app: FastifyInstance): void {
   // Parent creates a device slot and gets a pair code to type into the monitored app.
@@ -77,5 +89,21 @@ export function registerDeviceRoutes(app: FastifyInstance): void {
       .get(id, accountId) as DeviceRow | undefined;
     if (!row) return reply.code(404).send({ error: "not_found" });
     return reply.send({ device: toSummary(row) });
+  });
+
+  // Parent sets which app packages are blocked on a device.
+  app.put("/v1/devices/:id/rules", async (req, reply) => {
+    const accountId = await requireAccount(req, reply);
+    if (!accountId) return;
+    const { id } = req.params as { id: string };
+    const owned = db.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?").get(id, accountId);
+    if (!owned) return reply.code(404).send({ error: "not_found" });
+    const body = z.object({ blockedApps: z.array(z.string()).max(200) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    db.prepare("UPDATE devices SET blocked_apps = ? WHERE id = ?").run(
+      JSON.stringify(body.data.blockedApps),
+      id,
+    );
+    return reply.send({ blockedApps: body.data.blockedApps });
   });
 }

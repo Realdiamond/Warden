@@ -101,6 +101,35 @@ class Api(private val baseUrl: String) {
         code in 200..299
     }
 
+    /** Fetches the block list the parent set for this device, or null on failure. */
+    suspend fun getRules(token: String): Set<String>? = withContext(Dispatchers.IO) {
+        val (code, text) = get("/v1/rules", token)
+        if (code !in 200..299) return@withContext null
+        try {
+            val arr = JSONObject(text).optJSONArray("blockedApps") ?: return@withContext emptySet()
+            (0 until arr.length()).map { arr.getString(it) }.toSet()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun get(path: String, bearer: String): Pair<Int, String> {
+        val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 15_000
+        connection.readTimeout = 15_000
+        connection.setRequestProperty("Authorization", "Bearer $bearer")
+        return try {
+            val code = connection.responseCode
+            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+            code to (stream?.bufferedReader()?.use { it.readText() }.orEmpty())
+        } catch (e: Exception) {
+            0 to "network_error"
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     private fun post(path: String, json: String, bearer: String?): Pair<Int, String> {
         val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
         connection.requestMethod = "POST"

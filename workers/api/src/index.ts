@@ -81,6 +81,17 @@ interface DeviceRow {
   paired_at: string | null;
   consent_accepted_at: string | null;
   last_seen_at: string | null;
+  blocked_apps: string | null;
+}
+
+function parseBlocked(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 function toSummary(r: DeviceRow) {
@@ -91,10 +102,12 @@ function toSummary(r: DeviceRow) {
     pairedAt: r.paired_at,
     consentAcceptedAt: r.consent_accepted_at,
     lastSeenAt: r.last_seen_at,
+    blockedApps: parseBlocked(r.blocked_apps),
   };
 }
 
-const DEVICE_COLS = "id, name, platform, paired_at, consent_accepted_at, last_seen_at";
+const DEVICE_COLS =
+  "id, name, platform, paired_at, consent_accepted_at, last_seen_at, blocked_apps";
 
 // --- Devices ----------------------------------------------------------------
 
@@ -265,6 +278,43 @@ app.get("/v1/devices/:id/events", async (c) => {
     })),
   );
   return c.json({ events });
+});
+
+// --- App limits (rules) -----------------------------------------------------
+
+// Parent sets which app packages are blocked on a device.
+app.put("/v1/devices/:id/rules", async (c) => {
+  const accountId = await requireAccount(c);
+  if (!accountId) return c.json({ error: "unauthorized" }, 401);
+  const deviceId = c.req.param("id");
+
+  const owned = await c.env.DB.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?")
+    .bind(deviceId, accountId)
+    .first();
+  if (!owned) return c.json({ error: "not_found" }, 404);
+
+  const body = await c.req.json().catch(() => null);
+  const list = Array.isArray(body?.blockedApps) ? body.blockedApps : null;
+  if (!list) return c.json({ error: "invalid_body" }, 400);
+  const blocked = list.filter((x: unknown) => typeof x === "string").slice(0, 200);
+
+  await c.env.DB.prepare("UPDATE devices SET blocked_apps = ? WHERE id = ?")
+    .bind(JSON.stringify(blocked), deviceId)
+    .run();
+  return c.json({ blockedApps: blocked });
+});
+
+// The monitored device fetches its own block list.
+app.get("/v1/rules", async (c) => {
+  const token = bearer(c.req.header("authorization"));
+  if (!token) return c.json({ error: "invalid_device_token" }, 401);
+  const row = await c.env.DB.prepare(
+    "SELECT blocked_apps FROM devices WHERE device_token_hash = ?",
+  )
+    .bind(await hashToken(token))
+    .first<{ blocked_apps: string | null }>();
+  if (!row) return c.json({ error: "invalid_device_token" }, 401);
+  return c.json({ blockedApps: parseBlocked(row.blocked_apps) });
 });
 
 // Everything that isn't an API route is served from the bundled dashboard.

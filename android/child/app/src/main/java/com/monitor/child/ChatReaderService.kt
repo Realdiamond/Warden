@@ -39,8 +39,16 @@ class ChatReaderService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event == null) return
+        if (event == null || !::store.isInitialized) return
         val pkg = event.packageName?.toString() ?: return
+        if (pkg == packageName) return
+
+        // App limits: if a blocked app comes to the foreground, send the user back to home.
+        if (pkg in store.blockedApps) {
+            performGlobalAction(GLOBAL_ACTION_HOME)
+            return
+        }
+
         if (pkg !in MESSAGING_APPS) return
         val token = store.deviceToken ?: return
 

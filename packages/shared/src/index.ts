@@ -88,6 +88,7 @@ export interface DeviceSummary {
   pairedAt: string | null;
   consentAcceptedAt: string | null;
   lastSeenAt: string | null;
+  blockedApps?: string[];
 }
 
 export interface EventEnvelope<P = unknown> {

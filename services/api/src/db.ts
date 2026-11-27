@@ -30,6 +30,7 @@ db.exec(`
     paired_at            TEXT,
     consent_accepted_at  TEXT,
     last_seen_at         TEXT,
+    blocked_apps         TEXT,
     created_at           TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_devices_account ON devices(account_id);

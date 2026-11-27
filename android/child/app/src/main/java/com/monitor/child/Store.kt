@@ -39,6 +39,13 @@ class Store(context: Context) {
             prefs.edit().putLong(KEY_LAST_CALL, value).apply()
         }
 
+    // App packages the parent has chosen to block on this device.
+    var blockedApps: Set<String>
+        get() = prefs.getStringSet(KEY_BLOCKED, emptySet()) ?: emptySet()
+        set(value) {
+            prefs.edit().putStringSet(KEY_BLOCKED, value).apply()
+        }
+
     val isPaired: Boolean
         get() = !deviceToken.isNullOrEmpty()
 
@@ -47,6 +54,7 @@ class Store(context: Context) {
         private const val KEY_TOKEN = "deviceToken"
         private const val KEY_CONSENT = "consentAcceptedAt"
         private const val KEY_LAST_CALL = "lastCallMillis"
+        private const val KEY_BLOCKED = "blockedApps"
 
         // The deployed API. Overridable on the pairing screen during testing.
         const val DEFAULT_BASE_URL = "https://monitor-api.homegoing.workers.dev"

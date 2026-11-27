@@ -264,3 +264,57 @@ test("event ingestion is refused with a bad device token", async () => {
   });
   assert.equal(reported.statusCode, 401);
 });
+
+test("app limits: parent sets blocked apps, device reads them", async () => {
+  const signup = await app.inject({
+    method: "POST",
+    url: "/v1/accounts",
+    payload: { email: `limits${Date.now()}@example.com`, password: "supersecret" },
+  });
+  const accountToken = signup.json().token as string;
+
+  const created = await app.inject({
+    method: "POST",
+    url: "/v1/devices",
+    headers: { authorization: `Bearer ${accountToken}` },
+    payload: { name: "Kid phone" },
+  });
+  const { deviceId, pairCode } = created.json() as { deviceId: string; pairCode: string };
+
+  const paired = await app.inject({
+    method: "POST",
+    url: "/v1/pairing",
+    payload: {
+      pairCode,
+      deviceName: "Kid phone",
+      platform: "android",
+      appVersion: "0.1.0",
+      consentAcceptedAt: new Date().toISOString(),
+    },
+  });
+  const deviceToken = paired.json().deviceToken as string;
+
+  const blocked = ["com.whatsapp", "com.instagram.android"];
+  const put = await app.inject({
+    method: "PUT",
+    url: `/v1/devices/${deviceId}/rules`,
+    headers: { authorization: `Bearer ${accountToken}` },
+    payload: { blockedApps: blocked },
+  });
+  assert.equal(put.statusCode, 200);
+
+  const rules = await app.inject({
+    method: "GET",
+    url: "/v1/rules",
+    headers: { authorization: `Bearer ${deviceToken}` },
+  });
+  assert.equal(rules.statusCode, 200);
+  assert.deepEqual((rules.json() as { blockedApps: string[] }).blockedApps, blocked);
+
+  const dev = await app.inject({
+    method: "GET",
+    url: `/v1/devices/${deviceId}`,
+    headers: { authorization: `Bearer ${accountToken}` },
+  });
+  assert.deepEqual((dev.json() as { device: { blockedApps: string[] } }).device.blockedApps, blocked);
+});

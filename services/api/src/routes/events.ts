@@ -6,6 +6,7 @@ import { requireAccount, bearerToken } from "../auth.ts";
 import { hashToken, encryptJson, decryptJson } from "../crypto.ts";
 import { isEventKind, isSensitiveKind } from "../shared.ts";
 import type { EventKind } from "../shared.ts";
+import { parseBlocked } from "./devices.ts";
 
 interface AuthedDevice {
   id: string;
@@ -109,5 +110,15 @@ export function registerEventRoutes(app: FastifyInstance): void {
       payload: r.encrypted ? decryptJson(r.payload) : JSON.parse(r.payload),
     }));
     return reply.send({ events });
+  });
+
+  // The monitored device fetches its own block list.
+  app.get("/v1/rules", async (req, reply) => {
+    const device = authenticateDevice(req);
+    if (!device) return reply.code(401).send({ error: "invalid_device_token" });
+    const row = db.prepare("SELECT blocked_apps FROM devices WHERE id = ?").get(device.id) as
+      | { blocked_apps: string | null }
+      | undefined;
+    return reply.send({ blockedApps: parseBlocked(row?.blocked_apps ?? null) });
   });
 }
