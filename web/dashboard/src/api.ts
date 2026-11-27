@@ -29,6 +29,8 @@ export interface MessagePayload {
   sender?: string;
   text: string;
   source?: string; // "notification" | "chat"
+  direction?: string; // "in" (received) | "out" (sent) — on-screen captures only
+  conversation?: string; // chat title (contact/group), for grouping on-screen captures
 }
 
 export interface AppUsagePayload {

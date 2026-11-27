@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -61,9 +61,91 @@ function formatDuration(ms: number): string {
   return m ? `${h} h ${m} min` : `${h} h`;
 }
 
+const APP_NAMES: Record<string, string> = {
+  "com.whatsapp": "WhatsApp",
+  "com.whatsapp.w4b": "WhatsApp Business",
+  "org.telegram.messenger": "Telegram",
+  "com.facebook.orca": "Messenger",
+  "com.instagram.android": "Instagram",
+  "com.snapchat.android": "Snapchat",
+  "com.zhiliaoapp.musically": "TikTok",
+  "com.ss.android.ugc.trill": "TikTok",
+  "org.thoughtcrime.securesms": "Signal",
+};
+
 function appName(pkg: string): string {
+  if (APP_NAMES[pkg]) return APP_NAMES[pkg];
   const parts = pkg.split(".");
   return parts[parts.length - 1] || pkg;
+}
+
+interface ChatMsg {
+  id: string;
+  text: string;
+  direction: "in" | "out";
+  conversation: string;
+  app: string;
+  at: string;
+}
+
+interface Conversation {
+  key: string;
+  name: string;
+  app: string;
+  messages: ChatMsg[]; // ascending by time
+  last: ChatMsg;
+}
+
+/** Group on-screen ("chat") captures into conversation threads, most-recent thread first. */
+function buildConversations(chat: EventEnvelope<MessagePayload>[]): Conversation[] {
+  const byKey = new Map<string, ChatMsg[]>();
+  for (const m of chat) {
+    const name = m.payload.conversation ?? m.payload.sender ?? "Unknown";
+    const key = `${m.payload.app}|${name}`;
+    const cm: ChatMsg = {
+      id: m.id,
+      text: m.payload.text,
+      direction: m.payload.direction === "out" ? "out" : "in",
+      conversation: name,
+      app: m.payload.app,
+      at: m.capturedAt,
+    };
+    const arr = byKey.get(key);
+    if (arr) arr.push(cm);
+    else byKey.set(key, [cm]);
+  }
+  return [...byKey.entries()]
+    .map(([key, msgs]) => {
+      const asc = [...msgs].sort((a, b) => a.at.localeCompare(b.at));
+      return { key, name: asc[0].conversation, app: asc[0].app, messages: asc, last: asc[asc.length - 1] };
+    })
+    .sort((a, b) => b.last.at.localeCompare(a.last.at));
+}
+
+function initial(name: string): string {
+  const c = name.trim()[0];
+  return c ? c.toUpperCase() : "?";
+}
+
+function shortTime(at: string): string {
+  return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function dayLabel(at: string): string {
+  const d = new Date(at);
+  const today = new Date();
+  const yest = new Date();
+  yest.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yest.toDateString()) return "Yesterday";
+  return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** A stable hue per conversation name, for the avatar chip. */
+function avatarHue(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return h;
 }
 
 function callIcon(direction: string) {
@@ -82,6 +164,7 @@ export function DeviceDetail() {
   const [blocked, setBlocked] = useState<string[]>([]);
   const [cmdStatus, setCmdStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [selectedConv, setSelectedConv] = useState<string | null>(null);
 
   async function sendCmd(type: "lock" | "unlock") {
     setCmdStatus("Sending…");
@@ -126,6 +209,15 @@ export function DeviceDetail() {
   }));
   const latest = events[0];
   const totalUsageMs = usage.reduce((sum, u) => sum + u.foregroundMs, 0);
+
+  const chatMsgs = messages.filter((m) => m.payload.source === "chat");
+  const notifMsgs = messages.filter((m) => m.payload.source !== "chat");
+  const conversations = buildConversations(chatMsgs);
+  const activeKey =
+    selectedConv && conversations.some((c) => c.key === selectedConv)
+      ? selectedConv
+      : conversations[0]?.key ?? null;
+  const active = conversations.find((c) => c.key === activeKey) ?? null;
 
   const knownApps = Array.from(new Set([...usage.map((u) => u.packageName), ...blocked])).sort();
   async function toggleBlock(pkg: string) {
@@ -198,27 +290,101 @@ export function DeviceDetail() {
         </div>
       </div>
 
-      <section className="panel">
+      <section className="panel" data-testid="messages">
         <div className="panel-head">
           <MessageSquare size={16} />
           <h2>Messages</h2>
+          {(conversations.length > 0 || notifMsgs.length > 0) && (
+            <span className="panel-head-meta">
+              {conversations.length} {conversations.length === 1 ? "chat" : "chats"} · {chatMsgs.length} on-screen
+            </span>
+          )}
         </div>
-        {messages.length === 0 ? (
+
+        {conversations.length === 0 && notifMsgs.length === 0 && (
           <p className="panel-empty">No messages captured yet.</p>
-        ) : (
-          <ul className="messages-list" data-testid="messages">
-            {messages.map((m) => (
-              <li key={m.id} className={`message-item ${m.payload.source === "chat" ? "on-screen" : ""}`}>
-                <div className="msg-head">
-                  <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
-                  <span className="msg-app">{appName(m.payload.app)}</span>
-                  {m.payload.source === "chat" && <span className="msg-src">on-screen</span>}
-                  <span className="msg-time">{new Date(m.capturedAt).toLocaleString()}</span>
-                </div>
-                <div className="msg-text">{m.payload.text}</div>
-              </li>
-            ))}
-          </ul>
+        )}
+
+        {conversations.length > 0 && (
+          <div className="chat" data-testid="chat">
+            <aside className="chat-list">
+              {conversations.map((c) => (
+                <button
+                  key={c.key}
+                  className={`conv ${c.key === activeKey ? "active" : ""}`}
+                  onClick={() => setSelectedConv(c.key)}
+                >
+                  <span className="conv-avatar" style={{ background: `hsl(${avatarHue(c.name)} 55% 42%)` }}>
+                    {initial(c.name)}
+                  </span>
+                  <span className="conv-main">
+                    <span className="conv-top">
+                      <span className="conv-name">{c.name}</span>
+                      <span className="conv-time">{shortTime(c.last.at)}</span>
+                    </span>
+                    <span className="conv-preview">
+                      {c.last.direction === "out" && <span className="conv-you">You: </span>}
+                      {c.last.text}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </aside>
+
+            <div className="chat-thread" data-testid="chat-thread">
+              {active && (
+                <>
+                  <div className="thread-head">
+                    <span
+                      className="conv-avatar sm"
+                      style={{ background: `hsl(${avatarHue(active.name)} 55% 42%)` }}
+                    >
+                      {initial(active.name)}
+                    </span>
+                    <div className="thread-id">
+                      <div className="thread-name">{active.name}</div>
+                      <div className="thread-app">{appName(active.app)}</div>
+                    </div>
+                  </div>
+                  <div className="thread-body">
+                    {active.messages.map((m, i) => {
+                      const prev = active.messages[i - 1];
+                      const showDay = !prev || new Date(prev.at).toDateString() !== new Date(m.at).toDateString();
+                      return (
+                        <Fragment key={m.id}>
+                          {showDay && <div className="day-chip">{dayLabel(m.at)}</div>}
+                          <div className={`bubble-row ${m.direction}`}>
+                            <div className={`bubble ${m.direction}`}>
+                              <span className="bubble-text">{m.text}</span>
+                              <span className="bubble-time">{shortTime(m.at)}</span>
+                            </div>
+                          </div>
+                        </Fragment>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {notifMsgs.length > 0 && (
+          <div className="notif-block">
+            <div className="notif-head">From notifications</div>
+            <ul className="messages-list">
+              {notifMsgs.map((m) => (
+                <li key={m.id} className="message-item">
+                  <div className="msg-head">
+                    <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
+                    <span className="msg-app">{appName(m.payload.app)}</span>
+                    <span className="msg-time">{new Date(m.capturedAt).toLocaleString()}</span>
+                  </div>
+                  <div className="msg-text">{m.payload.text}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 

@@ -3,6 +3,7 @@ package com.monitor.child
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.graphics.Rect
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlinx.coroutines.CoroutineScope
@@ -18,8 +19,17 @@ import java.util.Collections
  * Accessibility API. Captures both sides of a conversation as it is viewed/scrolled — more than
  * notifications, but only what is actually on screen (not archived or unopened chats).
  *
- * This depends on each app's on-screen layout (view ids), so it is best-effort and may need tuning
- * per app version. Reported as `message` events with source "chat".
+ * For each on-screen message it also works out the *direction* from where the bubble sits: every
+ * chat app draws messages you received on the left and messages you sent on the right, so a bubble
+ * whose horizontal centre is past the screen midpoint is "out" (sent), otherwise "in" (received).
+ * That lets the dashboard render a real left/right chat transcript grouped by conversation.
+ *
+ * Media (photos, voice notes, video, stickers, documents) has no readable text, so it is captured
+ * as a labelled placeholder from the element's content description — the actual media is only
+ * visible through the live screen view, not here.
+ *
+ * This is best-effort and depends on each app's on-screen layout; it may need tuning per app
+ * version. Reported as `message` events with source "chat".
  */
 class ChatReaderService : AccessibilityService() {
 
@@ -34,6 +44,9 @@ class ChatReaderService : AccessibilityService() {
                 size > 500
         },
     )
+
+    /** One captured on-screen line: the display text, its side ("in"/"out"), and a dedup key. */
+    private data class Line(val text: String, val direction: String, val key: String = text)
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -64,16 +77,19 @@ class ChatReaderService : AccessibilityService() {
 
         val root = rootInActiveWindow ?: return
         val chatName = extractTitle(root, pkg)
-        val texts = ArrayList<String>()
-        collectMessageTexts(root, texts)
+        val winBounds = Rect()
+        root.getBoundsInScreen(winBounds)
+        val midX = if (winBounds.width() > 0) winBounds.centerX() else 540
+        val lines = ArrayList<Line>()
+        collectLines(root, midX, lines)
         root.recycle()
-        if (texts.isEmpty()) return
+        if (lines.isEmpty()) return
 
-        val fresh = ArrayList<String>()
+        val fresh = ArrayList<Line>()
         synchronized(recent) {
-            for (t in texts) {
-                if (t == chatName || t.length > 1000 || UI_NOISE.matches(t)) continue
-                if (recent.add("$pkg|$chatName|$t")) fresh.add(t)
+            for (l in lines) {
+                if (l.text == chatName || l.text.length > 1000 || UI_NOISE.matches(l.text)) continue
+                if (recent.add("$pkg|$chatName|${l.direction}|${l.key}")) fresh.add(l)
             }
         }
         if (fresh.isEmpty()) return
@@ -81,8 +97,12 @@ class ChatReaderService : AccessibilityService() {
         val baseUrl = store.baseUrl
         scope.launch {
             val api = Api(baseUrl)
-            for (t in fresh) {
-                api.postMessage(token, pkg, chatName, t, Instant.now().toString(), source = "chat")
+            for (l in fresh) {
+                val sender = if (l.direction == "out") "You" else chatName
+                api.postMessage(
+                    token, pkg, sender, l.text, Instant.now().toString(),
+                    source = "chat", direction = l.direction, conversation = chatName,
+                )
             }
         }
     }
@@ -111,19 +131,54 @@ class ChatReaderService : AccessibilityService() {
         return null
     }
 
-    // Collect text from leaf TextView nodes on screen. Works across app versions since it does not
-    // rely on internal view ids; the UI_NOISE filter + chat title removal drop most non-message text.
-    private fun collectMessageTexts(node: AccessibilityNodeInfo?, out: MutableList<String>) {
+    /**
+     * Walk the tree. For each leaf TextView, capture its text and which side of the screen it sits
+     * on. For media elements (recognised by content description), capture a labelled placeholder.
+     */
+    private fun collectLines(node: AccessibilityNodeInfo?, midX: Int, out: MutableList<Line>) {
         if (node == null) return
+        val cls = node.className?.toString().orEmpty()
+        val isText = cls.contains("TextView", ignoreCase = true)
+        val desc = node.contentDescription?.toString()?.trim()
+
         if (node.childCount == 0) {
-            val cls = node.className?.toString().orEmpty()
             val t = node.text?.toString()?.trim()
-            if (!t.isNullOrBlank() && cls.contains("TextView", ignoreCase = true)) out.add(t)
+            if (!t.isNullOrBlank() && isText) {
+                out.add(Line(t, sideOf(node, midX)))
+            } else if (!desc.isNullOrBlank()) {
+                mediaLabel(desc)?.let { out.add(Line(it, sideOf(node, midX), key = desc)) }
+            }
+        } else if (!desc.isNullOrBlank() && !isText) {
+            // A media bubble (image/voice container) often carries its label on a parent view.
+            mediaLabel(desc)?.let { out.add(Line(it, sideOf(node, midX), key = desc)) }
         }
+
         for (i in 0 until node.childCount) {
             val child = node.getChild(i)
-            collectMessageTexts(child, out)
+            collectLines(child, midX, out)
             child?.recycle()
+        }
+    }
+
+    private fun sideOf(node: AccessibilityNodeInfo, midX: Int): String {
+        val r = Rect()
+        node.getBoundsInScreen(r)
+        return if (r.centerX() >= midX) "out" else "in"
+    }
+
+    /** Maps a content description to a clean media placeholder, or null if it is not a media bubble. */
+    private fun mediaLabel(desc: String): String? {
+        val d = desc.lowercase()
+        // Skip chrome that happens to contain media words (header call buttons, the contact avatar).
+        if (d.contains("call") || d.contains("profile") || d.contains("avatar")) return null
+        return when {
+            d.contains("voice message") || d.contains("audio message") || d.contains("voice note") -> "🎤 Voice message"
+            d.contains("sticker") -> "💟 Sticker"
+            d.contains("gif") -> "🎬 GIF"
+            d.contains("video") -> "🎥 Video"
+            d.contains("photo") || d.contains("image") || d.contains("picture") -> "📷 Photo"
+            d.contains("document") || d.contains("file attached") -> "📎 Document"
+            else -> null
         }
     }
 
@@ -133,23 +188,31 @@ class ChatReaderService : AccessibilityService() {
         var instance: ChatReaderService? = null
 
         private val MESSAGING_APPS = setOf(
-            "com.whatsapp",
-            "com.whatsapp.w4b",
-            "org.telegram.messenger",
-            "com.facebook.orca",
+            "com.whatsapp",                // WhatsApp
+            "com.whatsapp.w4b",            // WhatsApp Business
+            "org.telegram.messenger",      // Telegram
+            "com.facebook.orca",           // Messenger
+            "com.instagram.android",       // Instagram (DMs)
+            "com.snapchat.android",        // Snapchat (best-effort; the app resists capture)
+            "com.zhiliaoapp.musically",    // TikTok
+            "com.ss.android.ugc.trill",    // TikTok (alt region)
+            "org.thoughtcrime.securesms",  // Signal
         )
-        // On-screen text that is UI chrome, not a message — dropped before sending.
+        // On-screen text that is UI chrome, not a message — dropped before sending. (Plain media
+        // words stay here; real media is surfaced separately via content descriptions.)
         private val UI_NOISE = Regex(
             "^(\\d{1,2}:\\d{2}(\\s?[aApP]\\.?[mM]\\.?)?|today|yesterday|monday|tuesday|wednesday|" +
                 "thursday|friday|saturday|sunday|message|online|typing…|typing\\.\\.\\.|" +
                 "\\d+ new messages?|checking for new messages\\.?|\\d+ messages? from \\d+ chats?|" +
-                "chats|calls|updates|communities|status|photo|video|voice message|gif|sticker)$",
+                "chats|calls|updates|communities|status|reels|photo|video|voice message|gif|sticker)$",
             RegexOption.IGNORE_CASE,
         )
         // Chat title (contact/group name) view ids.
         private val TITLE_IDS = listOf(
             "com.whatsapp:id/conversation_contact_name",
             "org.telegram.messenger:id/action_bar_title",
+            "com.instagram.android:id/thread_title",
+            "org.thoughtcrime.securesms:id/conversation_title",
         )
     }
 }
