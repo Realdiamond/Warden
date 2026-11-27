@@ -27,10 +27,16 @@ export function LocationMap({ points }: { points: Point[] }) {
 
   useEffect(() => {
     if (!elRef.current || mapRef.current) return;
-    const map = L.map(elRef.current).setView([9.082, 8.6753], 6); // Nigeria overview
+    const map = L.map(elRef.current, { zoomControl: true, attributionControl: true }).setView(
+      [9.082, 8.6753],
+      6,
+    ); // Nigeria overview
+    // Standard OSM tiles, recolored dark via CSS filter (no API key required, unlike hosted dark
+    // basemaps such as CartoDB's, which now gate free tiles behind an account).
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap contributors",
       maxZoom: 19,
+      className: "map-tiles-dark",
     }).addTo(map);
     mapRef.current = map;
     layerRef.current = L.layerGroup().addTo(map);
@@ -49,7 +55,7 @@ export function LocationMap({ points }: { points: Point[] }) {
     if (points.length === 0) return;
 
     const latlngs = points.map((p) => [p.lat, p.lon] as [number, number]);
-    L.polyline(latlngs, { color: "#2563eb", weight: 3, opacity: 0.5 }).addTo(layer);
+    L.polyline(latlngs, { color: "#7c6cf6", weight: 3, opacity: 0.6 }).addTo(layer);
 
     const latest = points[0];
     L.marker([latest.lat, latest.lon], { icon })

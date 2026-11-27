@@ -110,3 +110,19 @@ Progress log for Monitor. Newest first.
 - `web/dashboard`: parent signs in, sees a device's location on a map + history.
 - `android/child`: consent screen, permanent notice, pairing, location reporting.
 - `android/parent`: same views as the dashboard, native.
+
+## Dashboard redesign — premium dark UI (done)
+
+- Full visual rebuild of the web dashboard: dark-first design system (near-black surfaces,
+  violet/indigo accent, muted status colors), Inter + JetBrains Mono (Google Fonts), lucide-react
+  icons throughout, 8/12/16px radius scale, border-as-shadow technique, consistent spacing.
+- New sidebar app shell (brand, nav, sign out) replacing the old topbar.
+- Devices page: card grid with status badges, glowing pairing-code reveal, icon empty state.
+- Device page: stat-card row (messages/calls/screen-time/location-fix counts) above the existing
+  sections; toggle switches for app limits; icon-led rows for calls/usage/limits; live-screen and
+  remote-lock controls restyled with icon buttons.
+- Map switched from the default OSM light tiles to a dark-filtered OSM layer (the earlier
+  CartoDB dark basemap now requires an API key and was rendering "API KEY REQUIRED" tiles — this
+  is the one real bug the visual QA pass caught and fixed before shipping).
+- Verified with Playwright screenshots against the live Cloudflare deployment: login, devices
+  (empty + pairing-code states), and a fully populated device detail page.

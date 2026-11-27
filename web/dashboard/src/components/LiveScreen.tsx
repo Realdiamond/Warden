@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { MonitorPlay, Square, MousePointerClick } from "lucide-react";
 import { getToken } from "../api.ts";
 
 function wsBase(): string {
@@ -76,26 +77,36 @@ export function LiveScreen({ deviceId }: { deviceId: string }) {
     <div>
       <div className="live-controls">
         {!active ? (
-          <button onClick={start}>View screen</button>
+          <button className="secondary" onClick={start}>
+            <MonitorPlay size={15} />
+            View screen
+          </button>
         ) : (
-          <button onClick={stop}>Stop</button>
+          <button className="danger-btn" onClick={stop}>
+            <Square size={14} />
+            Stop
+          </button>
         )}
         {active && (
-          <label className="live-toggle">
-            <input type="checkbox" checked={control} onChange={(e) => setControl(e.target.checked)} />
+          <label className={`switch ${control ? "active" : ""}`}>
+            <MousePointerClick size={14} />
             Control (tap)
+            <input type="checkbox" checked={control} onChange={(e) => setControl(e.target.checked)} />
+            <span className="switch-track" />
           </label>
         )}
         {status && <span className="muted">{status}</span>}
       </div>
       {active && (
-        <img
-          ref={imgRef}
-          className={`live-img ${control ? "live-control" : ""}`}
-          alt="Live screen"
-          onClick={onImageClick}
-          data-testid="live-img"
-        />
+        <div className="live-frame">
+          <img
+            ref={imgRef}
+            className={`live-img ${control ? "live-control" : ""}`}
+            alt="Live screen"
+            onClick={onImageClick}
+            data-testid="live-img"
+          />
+        </div>
       )}
     </div>
   );

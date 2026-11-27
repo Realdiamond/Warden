@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { ShieldCheck, ArrowRight } from "lucide-react";
 import { useAuth } from "../auth.tsx";
 import { ApiError } from "../api.ts";
 
@@ -42,7 +43,12 @@ export function Login() {
   return (
     <div className="auth">
       <div className="auth-card">
-        <h1 className="brand">Monitor</h1>
+        <div className="brand">
+          <span className="brand-mark">
+            <ShieldCheck size={18} strokeWidth={2.4} />
+          </span>
+          Monitor
+        </div>
         <p className="muted">Consent-based family device monitoring.</p>
         <form onSubmit={submit}>
           <label>
@@ -61,7 +67,8 @@ export function Login() {
           </label>
           {error && <p className="error">{error}</p>}
           <button type="submit" disabled={busy}>
-            {mode === "signup" ? "Create account" : "Sign in"}
+            {busy ? "" : mode === "signup" ? "Create account" : "Sign in"}
+            {!busy && <ArrowRight size={15} />}
           </button>
         </form>
         <button className="link" onClick={() => setMode(mode === "signup" ? "login" : "signup")}>
