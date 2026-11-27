@@ -11,12 +11,27 @@ android {
         applicationId = "com.monitor.parent"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
+    }
+
+    // Stable signing key (committed under android/signing) shared across builds — see the child
+    // app's build file for why: without it, updates fail to install with "App not installed".
+    signingConfigs {
+        create("shared") {
+            storeFile = file("../../signing/monitor-signing.jks")
+            storePassword = "monitor-dev"
+            keyAlias = "monitor"
+            keyPassword = "monitor-dev"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         release {
+            signingConfig = signingConfigs.getByName("shared")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

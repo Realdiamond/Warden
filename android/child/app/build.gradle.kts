@@ -11,12 +11,28 @@ android {
         applicationId = "com.monitor.child"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
+    }
+
+    // A single stable signing key (committed under android/signing) so every build — local and CI —
+    // is signed identically. Without this, each build machine uses its own throwaway debug key and
+    // Android refuses to install the update over a differently-signed copy ("App not installed").
+    signingConfigs {
+        create("shared") {
+            storeFile = file("../../signing/monitor-signing.jks")
+            storePassword = "monitor-dev"
+            keyAlias = "monitor"
+            keyPassword = "monitor-dev"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         release {
+            signingConfig = signingConfigs.getByName("shared")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
