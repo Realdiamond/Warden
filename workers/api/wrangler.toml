@@ -7,11 +7,11 @@ compatibility_date = "2024-11-01"
 [build]
 command = "node scripts/bundle-dashboard.mjs"
 
-# D1 database binding. After `wrangler d1 create monitor`, paste the printed database_id here.
+# D1 database binding. After `wrangler d1 create andsv`, paste the printed database_id here.
 [[d1_databases]]
 binding = "DB"
-database_name = "monitor"
-database_id = "30c71574-ee81-4b0b-ad1c-eeae7e17314a"
+database_name = "andsv"
+database_id = "351054b1-7040-496b-906e-a271337eb094"
 
 # The dashboard is bundled into the Worker script itself (see scripts/bundle-dashboard.mjs,
 # run automatically by `pnpm deploy`), so there is no separate asset upload.
