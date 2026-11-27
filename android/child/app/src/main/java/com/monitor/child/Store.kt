@@ -46,6 +46,14 @@ class Store(context: Context) {
             prefs.edit().putStringSet(KEY_BLOCKED, value).apply()
         }
 
+    // The most recent uncaught-crash stack trace, captured by MonitorApp and surfaced on next launch
+    // so it can be screenshotted for diagnosis (no logcat access on the phone).
+    var lastCrash: String?
+        get() = prefs.getString(KEY_CRASH, null)
+        set(value) {
+            prefs.edit().putString(KEY_CRASH, value).apply()
+        }
+
     val isPaired: Boolean
         get() = !deviceToken.isNullOrEmpty()
 
@@ -55,6 +63,7 @@ class Store(context: Context) {
         private const val KEY_CONSENT = "consentAcceptedAt"
         private const val KEY_LAST_CALL = "lastCallMillis"
         private const val KEY_BLOCKED = "blockedApps"
+        private const val KEY_CRASH = "lastCrash"
 
         // The deployed API. Overridable on the pairing screen during testing.
         const val DEFAULT_BASE_URL = "https://monitor-api.homegoing.workers.dev"

@@ -42,6 +42,7 @@ class PairingActivity : AppCompatActivity() {
         binding = ActivityPairingBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        showLastCrashIfAny()
         binding.baseUrl.setText(store.baseUrl)
 
         if (store.isPaired) {
@@ -158,6 +159,22 @@ class PairingActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /** If the app crashed last time, show the saved stack trace so it can be screenshotted/copied. */
+    private fun showLastCrashIfAny() {
+        val trace = store.lastCrash ?: return
+        store.lastCrash = null
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Last crash — please screenshot or copy")
+            .setMessage(trace)
+            .setPositiveButton("Copy") { _, _ ->
+                val cb = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cb.setPrimaryClip(android.content.ClipData.newPlainText("monitor-crash", trace))
+                Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Dismiss", null)
+            .show()
     }
 
     private enum class StatusTone { NEUTRAL, OK, DANGER }

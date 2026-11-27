@@ -75,35 +75,48 @@ class ChatReaderService : AccessibilityService() {
         if (pkg !in MESSAGING_APPS) return
         val token = store.deviceToken ?: return
 
-        val root = rootInActiveWindow ?: return
-        val chatName = extractTitle(root, pkg)
-        val winBounds = Rect()
-        root.getBoundsInScreen(winBounds)
-        val midX = if (winBounds.width() > 0) winBounds.centerX() else 540
-        val lines = ArrayList<Line>()
-        collectLines(root, midX, lines)
-        root.recycle()
-        if (lines.isEmpty()) return
-
-        val fresh = ArrayList<Line>()
-        synchronized(recent) {
-            for (l in lines) {
-                if (l.text == chatName || l.text.length > 1000 || UI_NOISE.matches(l.text)) continue
-                if (recent.add("$pkg|$chatName|${l.direction}|${l.key}")) fresh.add(l)
+        // Reading the screen tree is best-effort and touches app-specific layouts; never let a hiccup
+        // here (a recycled node, an odd layout) crash the whole app process.
+        try {
+            val root = rootInActiveWindow ?: return
+            val chatName: String?
+            val lines = ArrayList<Line>()
+            try {
+                chatName = extractTitle(root, pkg)
+                val winBounds = Rect()
+                root.getBoundsInScreen(winBounds)
+                val midX = if (winBounds.width() > 0) winBounds.centerX() else 540
+                collectLines(root, midX, lines)
+            } finally {
+                try {
+                    root.recycle()
+                } catch (_: Throwable) {
+                }
             }
-        }
-        if (fresh.isEmpty()) return
+            if (lines.isEmpty()) return
 
-        val baseUrl = store.baseUrl
-        scope.launch {
-            val api = Api(baseUrl)
-            for (l in fresh) {
-                val sender = if (l.direction == "out") "You" else chatName
-                api.postMessage(
-                    token, pkg, sender, l.text, Instant.now().toString(),
-                    source = "chat", direction = l.direction, conversation = chatName,
-                )
+            val fresh = ArrayList<Line>()
+            synchronized(recent) {
+                for (l in lines) {
+                    if (l.text == chatName || l.text.length > 1000 || UI_NOISE.matches(l.text)) continue
+                    if (recent.add("$pkg|$chatName|${l.direction}|${l.key}")) fresh.add(l)
+                }
             }
+            if (fresh.isEmpty()) return
+
+            val baseUrl = store.baseUrl
+            scope.launch {
+                val api = Api(baseUrl)
+                for (l in fresh) {
+                    val sender = if (l.direction == "out") "You" else chatName
+                    api.postMessage(
+                        token, pkg, sender, l.text, Instant.now().toString(),
+                        source = "chat", direction = l.direction, conversation = chatName,
+                    )
+                }
+            }
+        } catch (_: Throwable) {
+            // best-effort screen reading — swallow and wait for the next event
         }
     }
 

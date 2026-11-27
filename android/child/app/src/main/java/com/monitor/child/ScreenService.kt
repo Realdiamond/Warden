@@ -64,38 +64,54 @@ class ScreenService : Service() {
             return START_NOT_STICKY
         }
 
-        val metrics = DisplayMetrics()
-        @Suppress("DEPRECATION")
-        (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(metrics)
-        screenW = metrics.widthPixels
-        screenH = metrics.heightPixels
-        val scale = minOf(1f, MAX_WIDTH.toFloat() / screenW)
-        capW = (screenW * scale).toInt().coerceAtLeast(1)
-        capH = (screenH * scale).toInt().coerceAtLeast(1)
+        // MediaProjection APIs are strict on newer Android versions and vary by OEM; a failure here
+        // must stop the service cleanly, not crash the app.
+        try {
+            val metrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(metrics)
+            screenW = metrics.widthPixels
+            screenH = metrics.heightPixels
+            val scale = minOf(1f, MAX_WIDTH.toFloat() / screenW)
+            capW = (screenW * scale).toInt().coerceAtLeast(1)
+            capH = (screenH * scale).toInt().coerceAtLeast(1)
 
-        val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        projection = manager.getMediaProjection(code, data)
-        projection?.registerCallback(object : MediaProjection.Callback() {
-            override fun onStop() {
+            val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            val proj = manager.getMediaProjection(code, data)
+            if (proj == null) {
                 cleanup()
                 stopSelf()
+                return START_NOT_STICKY
             }
-        }, null)
+            projection = proj
+            // Android 14+ requires a registered callback before createVirtualDisplay.
+            proj.registerCallback(object : MediaProjection.Callback() {
+                override fun onStop() {
+                    cleanup()
+                    stopSelf()
+                }
+            }, null)
 
-        reader = ImageReader.newInstance(capW, capH, PixelFormat.RGBA_8888, 2)
-        virtualDisplay = projection?.createVirtualDisplay(
-            "monitor-screen",
-            capW,
-            capH,
-            metrics.densityDpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            reader!!.surface,
-            null,
-            null,
-        )
-        reader?.setOnImageAvailableListener({ r -> onFrame(r) }, null)
-        connect()
-        return START_STICKY
+            val imageReader = ImageReader.newInstance(capW, capH, PixelFormat.RGBA_8888, 2)
+            reader = imageReader
+            virtualDisplay = proj.createVirtualDisplay(
+                "monitor-screen",
+                capW,
+                capH,
+                metrics.densityDpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                imageReader.surface,
+                null,
+                null,
+            )
+            imageReader.setOnImageAvailableListener({ r -> onFrame(r) }, null)
+            connect()
+            return START_STICKY
+        } catch (t: Throwable) {
+            cleanup()
+            stopSelf()
+            return START_NOT_STICKY
+        }
     }
 
     private fun connect() {
