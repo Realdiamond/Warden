@@ -20,6 +20,7 @@ export interface LocationPayload {
 
 export interface CallPayload {
   number?: string;
+  name?: string; // cached contact name from the phone, if the number is in contacts
   direction: string;
   durationSec: number;
 }

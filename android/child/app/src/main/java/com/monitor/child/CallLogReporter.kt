@@ -20,6 +20,7 @@ class CallLogReporter(private val context: Context, private val store: Store) {
         val since = store.lastCallMillis
         val projection = arrayOf(
             CallLog.Calls.NUMBER,
+            CallLog.Calls.CACHED_NAME, // the contact name as saved on the phone, if the number is known
             CallLog.Calls.TYPE,
             CallLog.Calls.DATE,
             CallLog.Calls.DURATION,
@@ -42,12 +43,14 @@ class CallLogReporter(private val context: Context, private val store: Store) {
 
         cursor.use { c ->
             val numberIdx = c.getColumnIndex(CallLog.Calls.NUMBER)
+            val nameIdx = c.getColumnIndex(CallLog.Calls.CACHED_NAME)
             val typeIdx = c.getColumnIndex(CallLog.Calls.TYPE)
             val dateIdx = c.getColumnIndex(CallLog.Calls.DATE)
             val durationIdx = c.getColumnIndex(CallLog.Calls.DURATION)
 
             while (c.moveToNext()) {
                 val number = if (numberIdx >= 0) c.getString(numberIdx) else null
+                val name = if (nameIdx >= 0) c.getString(nameIdx)?.takeIf { it.isNotBlank() } else null
                 val type = if (typeIdx >= 0) c.getInt(typeIdx) else 0
                 val date = if (dateIdx >= 0) c.getLong(dateIdx) else 0L
                 val duration = if (durationIdx >= 0) c.getLong(durationIdx) else 0L
@@ -60,7 +63,7 @@ class CallLogReporter(private val context: Context, private val store: Store) {
                     CallLog.Calls.REJECTED_TYPE -> "rejected"
                     else -> "other"
                 }
-                api.postCall(token, number, direction, duration, Instant.ofEpochMilli(date).toString())
+                api.postCall(token, number, name, direction, duration, Instant.ofEpochMilli(date).toString())
             }
         }
 

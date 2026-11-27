@@ -24,6 +24,7 @@ import {
   Bell,
   Search,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import {
   api,
@@ -155,6 +156,18 @@ function avatarHue(name: string): number {
   return h;
 }
 
+type TabId = "chats" | "notifications" | "calls" | "location" | "apps" | "live" | "device";
+
+const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
+  { id: "chats", label: "Chats", icon: MessageSquare },
+  { id: "notifications", label: "Alerts", icon: Bell },
+  { id: "calls", label: "Calls", icon: Phone },
+  { id: "location", label: "Location", icon: MapPin },
+  { id: "apps", label: "Apps", icon: AppWindow },
+  { id: "live", label: "Live", icon: ScreenShare },
+  { id: "device", label: "Device", icon: Settings },
+];
+
 function callIcon(direction: string) {
   if (direction === "incoming") return <PhoneIncoming size={15} />;
   if (direction === "outgoing") return <PhoneOutgoing size={15} />;
@@ -174,6 +187,8 @@ export function DeviceDetail() {
   const [error, setError] = useState<string | null>(null);
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [notifSearch, setNotifSearch] = useState("");
+  const [callSearch, setCallSearch] = useState("");
+  const [tab, setTab] = useState<TabId>("chats");
   const [pairCode, setPairCode] = useState<string | null>(null);
   const [relinkBusy, setRelinkBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -272,6 +287,16 @@ export function DeviceDetail() {
       })
     : notifMsgs;
 
+  // Calls are searchable by contact name or number.
+  const callQuery = callSearch.trim().toLowerCase();
+  const callsFiltered = callQuery
+    ? calls.filter((c) => {
+        const name = (c.payload.name ?? "").toLowerCase();
+        const number = (c.payload.number ?? "").toLowerCase();
+        return name.includes(callQuery) || number.includes(callQuery);
+      })
+    : calls;
+
   const knownApps = Array.from(new Set([...usage.map((u) => u.packageName), ...blocked])).sort();
   async function toggleBlock(pkg: string) {
     const prev = blocked;
@@ -343,6 +368,25 @@ export function DeviceDetail() {
         </div>
       </div>
 
+      <div className="device-layout">
+      <nav className="device-nav" data-testid="device-nav">
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              className={`device-nav-item ${tab === t.id ? "active" : ""}`}
+              onClick={() => setTab(t.id)}
+            >
+              <Icon size={18} />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="device-body">
+        {tab === "chats" && (
       <section className="panel" data-testid="messages">
         <div className="panel-head">
           <MessageSquare size={16} />
@@ -425,7 +469,9 @@ export function DeviceDetail() {
           </div>
         )}
       </section>
+        )}
 
+        {tab === "notifications" && (
       <section className="panel" data-testid="notifications">
         <div className="panel-head">
           <Bell size={16} />
@@ -473,7 +519,10 @@ export function DeviceDetail() {
           </>
         )}
       </section>
+        )}
 
+        {tab === "live" && (
+          <>
       <section className="panel">
         <div className="panel-head">
           <Lock size={16} />
@@ -507,7 +556,10 @@ export function DeviceDetail() {
         </p>
         <LiveScreen deviceId={id} />
       </section>
+          </>
+        )}
 
+        {tab === "location" && (
       <section className="panel">
         <div className="panel-head">
           <MapPin size={16} />
@@ -524,7 +576,10 @@ export function DeviceDetail() {
         )}
         <LocationMap points={points} />
       </section>
+        )}
 
+        {tab === "apps" && (
+          <>
       <section className="panel">
         <div className="panel-head">
           <AppWindow size={16} />
@@ -582,31 +637,64 @@ export function DeviceDetail() {
           </ul>
         )}
       </section>
+          </>
+        )}
 
+        {tab === "calls" && (
       <section className="panel">
         <div className="panel-head">
           <Phone size={16} />
           <h2>Calls</h2>
+          {calls.length > 0 && (
+            <span className="panel-head-meta">
+              {calls.length} {calls.length === 1 ? "call" : "calls"}
+            </span>
+          )}
         </div>
         {calls.length === 0 ? (
           <p className="panel-empty">No calls captured yet.</p>
         ) : (
-          <ul className="row-list" data-testid="calls">
-            {calls.map((c) => (
-              <li key={c.id} className="row-item">
-                <span className="row-icon">{callIcon(c.payload.direction)}</span>
-                <div className="row-main">
-                  <span className="row-title mono">{c.payload.number ?? "Unknown"}</span>
-                  <span className="row-sub">{formatCallDuration(c.payload.durationSec)}</span>
-                </div>
-                <span className={`call-dir call-${c.payload.direction}`}>{c.payload.direction}</span>
-                <span className="row-time">{new Date(c.capturedAt).toLocaleString()}</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="search-box">
+              <Search size={15} />
+              <input
+                type="text"
+                placeholder="Search by name or number…"
+                value={callSearch}
+                onChange={(e) => setCallSearch(e.target.value)}
+              />
+              {callSearch && (
+                <button className="search-clear" onClick={() => setCallSearch("")} aria-label="Clear">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            {callsFiltered.length === 0 ? (
+              <p className="panel-empty">No calls match "{callSearch}".</p>
+            ) : (
+              <ul className="row-list" data-testid="calls">
+                {callsFiltered.map((c) => (
+                  <li key={c.id} className="row-item">
+                    <span className="row-icon">{callIcon(c.payload.direction)}</span>
+                    <div className="row-main">
+                      <span className="row-title">{c.payload.name ?? c.payload.number ?? "Unknown"}</span>
+                      <span className="row-sub mono">
+                        {c.payload.name ? `${c.payload.number ?? ""} · ` : ""}
+                        {formatCallDuration(c.payload.durationSec)}
+                      </span>
+                    </div>
+                    <span className={`call-dir call-${c.payload.direction}`}>{c.payload.direction}</span>
+                    <span className="row-time">{new Date(c.capturedAt).toLocaleString()}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </section>
+        )}
 
+        {tab === "location" && (
       <section className="panel">
         <div className="panel-head">
           <HistoryIcon size={16} />
@@ -625,7 +713,9 @@ export function DeviceDetail() {
           </ul>
         )}
       </section>
+        )}
 
+        {tab === "device" && (
       <section className="panel" data-testid="device-manage">
         <div className="panel-head">
           <Settings size={16} />
@@ -666,6 +756,9 @@ export function DeviceDetail() {
           </div>
         )}
       </section>
+        )}
+      </div>
+      </div>
     </div>
   );
 }

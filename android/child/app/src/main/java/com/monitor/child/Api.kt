@@ -51,12 +51,14 @@ class Api(private val baseUrl: String) {
     suspend fun postCall(
         token: String,
         number: String?,
+        name: String?,
         direction: String,
         durationSec: Long,
         capturedAt: String,
     ): Boolean = withContext(Dispatchers.IO) {
         val payload = JSONObject().put("direction", direction).put("durationSec", durationSec)
         if (number != null) payload.put("number", number)
+        if (name != null) payload.put("name", name)
         val body = JSONObject()
             .put("kind", "call")
             .put("capturedAt", capturedAt)

@@ -1083,6 +1083,94 @@ input:focus {
   color: var(--faint);
   margin-bottom: 0.6rem;
 }
+/* ---------- Device-level navigation (sidebar on web / bottom bar on mobile) ---------- */
+.device-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.1rem;
+  margin-top: 0.4rem;
+}
+.device-nav {
+  flex-shrink: 0;
+  width: 168px;
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+}
+.device-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.14s var(--ease), color 0.14s var(--ease);
+}
+.device-nav-item:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+.device-nav-item.active {
+  background: var(--brand-wash);
+  color: var(--brand-dim);
+}
+.device-nav-item svg {
+  flex-shrink: 0;
+}
+.device-body {
+  flex: 1;
+  min-width: 0;
+}
+.device-body .panel {
+  margin-bottom: 1rem;
+}
+@media (max-width: 720px) {
+  .device-layout {
+    display: block;
+  }
+  .device-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: auto;
+    z-index: 40;
+    flex-direction: row;
+    gap: 0.1rem;
+    border: none;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    padding: 0.3rem 0.3rem calc(0.3rem + env(safe-area-inset-bottom, 0px));
+    overflow-x: auto;
+    background: var(--bg-elevated);
+  }
+  .device-nav-item {
+    flex: 1 0 auto;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+  .device-body {
+    padding-bottom: 72px;
+  }
+}
+
 .search-box {
   display: flex;
   align-items: center;
