@@ -48,7 +48,7 @@ class PairingActivity : AppCompatActivity() {
             binding.pairCode.isEnabled = false
             binding.consentCheckbox.isEnabled = false
             binding.pairButton.isEnabled = false
-            binding.status.text = getString(R.string.already_paired)
+            setStatus(getString(R.string.already_paired), StatusTone.OK)
             ensureLocationPermissions()
             return
         }
@@ -140,7 +140,7 @@ class PairingActivity : AppCompatActivity() {
         val consentAt = Instant.now().toString()
 
         binding.pairButton.isEnabled = false
-        binding.status.text = getString(R.string.pairing)
+        setStatus(getString(R.string.pairing), StatusTone.NEUTRAL)
 
         lifecycleScope.launch {
             val deviceName = Build.MODEL ?: "Android device"
@@ -149,15 +149,27 @@ class PairingActivity : AppCompatActivity() {
                 is PairResult.Success -> {
                     store.deviceToken = result.deviceToken
                     store.consentAcceptedAt = consentAt
-                    binding.status.text = getString(R.string.paired_ok)
+                    setStatus(getString(R.string.paired_ok), StatusTone.OK)
                     ensureLocationPermissions()
                 }
                 is PairResult.Failure -> {
                     binding.pairButton.isEnabled = true
-                    binding.status.text = getString(R.string.pair_failed, result.error)
+                    setStatus(getString(R.string.pair_failed, result.error), StatusTone.DANGER)
                 }
             }
         }
+    }
+
+    private enum class StatusTone { NEUTRAL, OK, DANGER }
+
+    private fun setStatus(text: String, tone: StatusTone) {
+        binding.status.text = text
+        val colorRes = when (tone) {
+            StatusTone.OK -> R.color.ok
+            StatusTone.DANGER -> R.color.danger
+            StatusTone.NEUTRAL -> R.color.ink_dim
+        }
+        binding.status.setTextColor(ContextCompat.getColor(this, colorRes))
     }
 
     private fun ensureLocationPermissions() {
@@ -197,7 +209,7 @@ class PairingActivity : AppCompatActivity() {
 
     private fun startMonitoring() {
         MonitorService.start(this)
-        binding.status.text = getString(R.string.monitoring_on)
+        setStatus(getString(R.string.monitoring_on), StatusTone.OK)
         binding.pairButton.isEnabled = false
     }
 }

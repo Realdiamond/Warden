@@ -126,3 +126,22 @@ Progress log for Monitor. Newest first.
   is the one real bug the visual QA pass caught and fixed before shipping).
 - Verified with Playwright screenshots against the live Cloudflare deployment: login, devices
   (empty + pairing-code states), and a fully populated device detail page.
+
+## Android apps redesign — matching premium dark UI (done)
+
+- Both Android apps (monitor-child, monitor-parent) restyled to match the web dashboard's design
+  language: forced dark theme (not system-dependent), violet/indigo brand color (#7C6CF6),
+  near-black surfaces with subtle borders, 10-16dp corner radii, card-style panels.
+- New shared resources per app: colors.xml (full token set), themes.xml (Theme.Material3.Dark
+  base), styles.xml (EditText/Button widget styles), hand-drawn vector icons (check, check-circle,
+  clock, device), pill/chip/panel drawables.
+- Child app (monitor-child): pairing screen rebuilt — brand mark, card-wrapped form, styled
+  inputs/checkbox/buttons, color-coded status text (success/error/neutral) via a new setStatus
+  helper in PairingActivity.
+- Parent app (monitor-parent): login screen rebuilt with the same card treatment; device list rows
+  rebuilt in DevicesActivity.kt as icon-chip + name/meta + colored status pill cards (mirrors the
+  web device-card); device detail screen (activity_device.xml) restructured into separate panel
+  cards per section (Messages, Calls, Location, History) with monospace data formatting.
+- Both apps verified with a clean Gradle build (BUILD SUCCESSFUL) after the redesign; on-device
+  visual confirmation still needed, same as all Android work in this project — this environment
+  cannot render Android UI to screenshot it.

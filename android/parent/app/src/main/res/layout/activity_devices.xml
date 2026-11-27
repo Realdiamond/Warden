@@ -2,44 +2,57 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/bg"
     android:orientation="vertical"
     android:padding="20dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
+
+        <FrameLayout
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/bg_brand_mark">
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_check" />
+        </FrameLayout>
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
             android:layout_weight="1"
-            android:layout_gravity="center_vertical"
             android:text="@string/devices_title"
-            android:textColor="@color/brand"
-            android:textSize="24sp"
+            android:textColor="@color/ink"
+            android:textSize="22sp"
             android:textStyle="bold" />
 
         <Button
             android:id="@+id/signOut"
-            style="?android:attr/borderlessButtonStyle"
+            style="@style/Widget.Monitor.Button.Secondary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/sign_out"
-            android:textColor="@color/brand" />
+            android:text="@string/sign_out" />
     </LinearLayout>
 
     <TextView
         android:id="@+id/status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textColor="@color/muted" />
+        android:layout_marginTop="10dp"
+        android:textColor="@color/muted"
+        android:textSize="14sp" />
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="12dp">
+        android:layout_marginTop="6dp">
 
         <LinearLayout
             android:id="@+id/list"
