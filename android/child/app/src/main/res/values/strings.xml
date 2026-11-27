@@ -22,6 +22,10 @@
     <string name="grant_notifications">Grant notification access (needed for message monitoring)</string>
     <string name="grant_accessibility">Grant accessibility access (read chats as they are opened)</string>
     <string name="accessibility_description">Reads messages from the screen in messaging apps when a chat is open, so they can be monitored with consent.</string>
+    <string name="allow_screen">Allow screen sharing</string>
+    <string name="screen_channel">Screen sharing</string>
+    <string name="screen_notice_title">Screen sharing is on</string>
+    <string name="screen_notice_text">This phone\'s screen can be viewed and controlled.</string>
 
     <string name="notice_title">Monitoring is on</string>
     <string name="notice_text">Location, apps, messages, calls and screen may be monitored.</string>

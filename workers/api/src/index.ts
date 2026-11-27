@@ -15,8 +15,74 @@ import { ASSETS } from "./assets.ts";
 
 interface Env {
   DB: D1Database;
+  RELAY: DurableObjectNamespace;
   MONITOR_JWT_SECRET: string;
   MONITOR_ENCRYPTION_KEY: string;
+}
+
+/**
+ * Per-device relay for live screen view and remote control. The monitored device connects as the
+ * "source" (sends screen frames); the parent dashboard connects as a "viewer" (receives frames,
+ * sends control commands). Frames go source→viewers; control messages go viewer→source.
+ */
+export class StreamRelay implements DurableObject {
+  private source: WebSocket | null = null;
+  private viewers = new Set<WebSocket>();
+
+  constructor(
+    _state: DurableObjectState,
+    _env: Env,
+  ) {}
+
+  async fetch(request: Request): Promise<Response> {
+    const role = new URL(request.url).searchParams.get("role");
+    const pair = new WebSocketPair();
+    const client = pair[0];
+    const server = pair[1];
+    server.accept();
+
+    if (role === "source") {
+      this.source?.close(1000, "replaced");
+      this.source = server;
+      this.notifySource();
+      server.addEventListener("message", (e) => {
+        for (const v of this.viewers) {
+          try {
+            v.send(e.data);
+          } catch {
+            this.viewers.delete(v);
+          }
+        }
+      });
+      server.addEventListener("close", () => {
+        if (this.source === server) this.source = null;
+      });
+    } else {
+      this.viewers.add(server);
+      this.notifySource();
+      server.addEventListener("message", (e) => {
+        try {
+          this.source?.send(e.data);
+        } catch {
+          /* source gone */
+        }
+      });
+      server.addEventListener("close", () => {
+        this.viewers.delete(server);
+        this.notifySource();
+      });
+    }
+
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  private notifySource() {
+    try {
+      this.source?.send(JSON.stringify({ type: "viewers", count: this.viewers.size }));
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 const EVENT_KINDS = ["location", "app_usage", "message", "call", "screen", "control", "status"];
@@ -316,6 +382,36 @@ app.get("/v1/rules", async (c) => {
   if (!row) return c.json({ error: "invalid_device_token" }, 401);
   return c.json({ blockedApps: parseBlocked(row.blocked_apps) });
 });
+
+// --- Live screen relay (WebSocket) ------------------------------------------
+// WebSocket clients can't set Authorization headers, so the token is a query param.
+
+app.get("/v1/stream/source", async (c) => {
+  const token = c.req.query("token") ?? "";
+  const row = await c.env.DB.prepare("SELECT id FROM devices WHERE device_token_hash = ?")
+    .bind(await hashToken(token))
+    .first<{ id: string }>();
+  if (!row) return c.json({ error: "unauthorized" }, 401);
+  return relayFetch(c.env, row.id, "source", c.req.raw);
+});
+
+app.get("/v1/stream/viewer", async (c) => {
+  const accountId = await verifyAccountToken(c.req.query("token") ?? "", c.env.MONITOR_JWT_SECRET);
+  if (!accountId) return c.json({ error: "unauthorized" }, 401);
+  const deviceId = c.req.query("deviceId") ?? "";
+  const owned = await c.env.DB.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?")
+    .bind(deviceId, accountId)
+    .first();
+  if (!owned) return c.json({ error: "not_found" }, 404);
+  return relayFetch(c.env, deviceId, "viewer", c.req.raw);
+});
+
+function relayFetch(env: Env, deviceId: string, role: string, req: Request): Promise<Response> {
+  const stub = env.RELAY.get(env.RELAY.idFromName(deviceId));
+  const url = new URL(req.url);
+  url.searchParams.set("role", role);
+  return stub.fetch(new Request(url.toString(), req));
+}
 
 // Everything that isn't an API route is served from the bundled dashboard.
 // A path with no matching file falls back to index.html so the single-page app can route it.

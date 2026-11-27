@@ -205,6 +205,33 @@ input {
   margin-bottom: 1.25rem;
 }
 
+.live-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.live-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.live-img {
+  max-width: 320px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0b0b0b;
+  display: block;
+}
+.live-img.live-control {
+  cursor: crosshair;
+  border-color: var(--brand);
+}
+
 .map {
   height: 360px;
   width: 100%;

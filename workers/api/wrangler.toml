@@ -11,6 +11,15 @@ database_id = "30c71574-ee81-4b0b-ad1c-eeae7e17314a"
 # The dashboard is bundled into the Worker script itself (see scripts/bundle-dashboard.mjs,
 # run automatically by `pnpm deploy`), so there is no separate asset upload.
 
+# Durable Object relay for live screen view + remote control (one instance per device).
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "StreamRelay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["StreamRelay"]
+
 # Secrets (set with `wrangler secret put`, never committed):
 #   wrangler secret put MONITOR_JWT_SECRET
 #   wrangler secret put MONITOR_ENCRYPTION_KEY   # 64 hex chars (32 bytes)

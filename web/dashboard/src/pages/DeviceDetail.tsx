@@ -17,6 +17,7 @@ function formatCallDuration(sec: number): string {
   return m ? `${m}m ${s}s` : `${s}s`;
 }
 import { LocationMap, type Point } from "../components/LocationMap.tsx";
+import { LiveScreen } from "../components/LiveScreen.tsx";
 
 interface UsageRow {
   packageName: string;
@@ -143,6 +144,15 @@ export function DeviceDetail() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="panel">
+        <h2>Live screen</h2>
+        <p className="muted">
+          The phone shows an indicator while you watch. The person approves screen sharing once on
+          the phone. Tick "Control" to tap on the phone by clicking the image.
+        </p>
+        <LiveScreen deviceId={id} />
       </section>
 
       <section className="panel">

@@ -1,6 +1,8 @@
 package com.monitor.child
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.graphics.Path
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +38,14 @@ class ChatReaderService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         store = Store(this)
+        instance = this
+    }
+
+    /** Perform a tap at screen coordinates — used for remote control. */
+    fun tap(x: Float, y: Float) {
+        val path = Path().apply { moveTo(x, y) }
+        val stroke = GestureDescription.StrokeDescription(path, 0, 50)
+        dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -80,6 +90,7 @@ class ChatReaderService : AccessibilityService() {
     override fun onInterrupt() {}
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         scope.cancel()
         super.onDestroy()
     }
@@ -117,6 +128,10 @@ class ChatReaderService : AccessibilityService() {
     }
 
     companion object {
+        // The running service, so ScreenService can dispatch remote taps through accessibility.
+        @Volatile
+        var instance: ChatReaderService? = null
+
         private val MESSAGING_APPS = setOf(
             "com.whatsapp",
             "com.whatsapp.w4b",

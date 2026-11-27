@@ -88,6 +88,15 @@ class PairingActivity : AppCompatActivity() {
         } else {
             binding.accessibilityButton.visibility = View.GONE
         }
+
+        if (paired) {
+            binding.screenShareButton.visibility = View.VISIBLE
+            binding.screenShareButton.setOnClickListener {
+                startActivity(Intent(this, ProjectionActivity::class.java))
+            }
+        } else {
+            binding.screenShareButton.visibility = View.GONE
+        }
     }
 
     private fun hasNotificationAccess(): Boolean =
