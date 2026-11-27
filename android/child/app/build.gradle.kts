@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "com.monitor.child"
+    namespace = "com.andsv.child"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.monitor.child"
+        applicationId = "com.andsv.child"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
-        versionName = "0.3.3"
+        versionCode = 11
+        versionName = "0.4.0"
     }
 
     // A single stable signing key (committed under android/signing) so every build — local and CI —
@@ -20,7 +20,7 @@ android {
     // Android refuses to install the update over a differently-signed copy ("App not installed").
     signingConfigs {
         create("shared") {
-            storeFile = file("../../signing/monitor-signing.jks")
+            storeFile = file("../../signing/andsv-signing.jks")
             storePassword = "monitor-dev"
             keyAlias = "monitor"
             keyPassword = "monitor-dev"

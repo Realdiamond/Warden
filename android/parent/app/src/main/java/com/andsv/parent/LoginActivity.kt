@@ -1,11 +1,11 @@
-package com.monitor.parent
+package com.andsv.parent
 
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.monitor.parent.databinding.ActivityLoginBinding
+import com.andsv.parent.databinding.ActivityLoginBinding
 import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {

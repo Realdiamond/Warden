@@ -1,12 +1,28 @@
+<!-- Andsv mark: a plain green shield (mint->pine gradient), no inner mark.
+     The adaptive background (@color/ic_launcher_background) is transparent,
+     so the icon reads as a floating green shield. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M54,38c-11,0 -18.6,8.2 -21,16c2.4,7.8 10,16 21,16s18.6,-8.2 21,-16C72.6,46.2 65,38 54,38zM54,62c-4.4,0 -8,-3.6 -8,-8s3.6,-8 8,-8 8,3.6 8,8 -3.6,8 -8,8z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M54,48c-3.3,0 -6,2.7 -6,6s2.7,6 6,6 6,-2.7 6,-6 -2.7,-6 -6,-6z" />
+    <group
+        android:scaleX="3.5"
+        android:scaleY="3.5"
+        android:translateX="12"
+        android:translateY="12">
+        <path
+            android:pathData="M12,2.2C12,2.2 16,4.2 19.5,5 19.8,5.1 20,5.35 20,5.65V11c0,5.3 -3.6,8.7 -8,10.7C7.6,19.7 4,16.3 4,11V5.65c0,-0.3 0.2,-0.55 0.5,-0.65C8,4.2 12,2.2 12,2.2Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="12" android:startY="2"
+                    android:endX="12" android:endY="22"
+                    android:type="linear">
+                    <item android:offset="0" android:color="#FF2CC39B" />
+                    <item android:offset="1" android:color="#FF0B6B57" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
 </vector>

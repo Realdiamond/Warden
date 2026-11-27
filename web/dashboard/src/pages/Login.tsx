@@ -49,7 +49,7 @@ export function Login() {
       <div className="auth-aside">
         <span className="brand">
           <Logo size={32} />
-          Monitor
+          Andsv
         </span>
         <div>
           <h1>See how the family's phones are doing.</h1>

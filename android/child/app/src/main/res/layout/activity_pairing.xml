@@ -59,14 +59,14 @@
             android:padding="18dp">
 
             <TextView
-                style="@style/Text.Monitor.Label"
+                style="@style/Text.Andsv.Label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/server_label" />
 
             <EditText
                 android:id="@+id/baseUrl"
-                style="@style/Widget.Monitor.EditText"
+                style="@style/Widget.Andsv.EditText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -75,7 +75,7 @@
                 android:inputType="textUri" />
 
             <TextView
-                style="@style/Text.Monitor.Label"
+                style="@style/Text.Andsv.Label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -83,7 +83,7 @@
 
             <EditText
                 android:id="@+id/pairCode"
-                style="@style/Widget.Monitor.EditText"
+                style="@style/Widget.Andsv.EditText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -106,7 +106,7 @@
 
             <Button
                 android:id="@+id/pairButton"
-                style="@style/Widget.Monitor.Button.Primary"
+                style="@style/Widget.Andsv.Button.Primary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
@@ -130,7 +130,7 @@
 
             <Button
                 android:id="@+id/usageAccessButton"
-                style="@style/Widget.Monitor.Button.Secondary"
+                style="@style/Widget.Andsv.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
@@ -139,7 +139,7 @@
 
             <Button
                 android:id="@+id/notifAccessButton"
-                style="@style/Widget.Monitor.Button.Secondary"
+                style="@style/Widget.Andsv.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
@@ -148,7 +148,7 @@
 
             <Button
                 android:id="@+id/accessibilityButton"
-                style="@style/Widget.Monitor.Button.Secondary"
+                style="@style/Widget.Andsv.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
@@ -157,7 +157,7 @@
 
             <Button
                 android:id="@+id/screenShareButton"
-                style="@style/Widget.Monitor.Button.Secondary"
+                style="@style/Widget.Andsv.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
@@ -166,7 +166,7 @@
 
             <Button
                 android:id="@+id/adminButton"
-                style="@style/Widget.Monitor.Button.Secondary"
+                style="@style/Widget.Andsv.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
@@ -175,7 +175,7 @@
 
             <Button
                 android:id="@+id/batteryButton"
-                style="@style/Widget.Monitor.Button.Secondary"
+                style="@style/Widget.Andsv.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
@@ -184,7 +184,7 @@
 
             <Button
                 android:id="@+id/hideIconButton"
-                style="@style/Widget.Monitor.Button.Secondary"
+                style="@style/Widget.Andsv.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
@@ -192,7 +192,7 @@
 
             <Button
                 android:id="@+id/errorLogButton"
-                style="@style/Widget.Monitor.Button.Secondary"
+                style="@style/Widget.Andsv.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"

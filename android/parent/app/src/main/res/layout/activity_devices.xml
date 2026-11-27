@@ -35,7 +35,7 @@
 
         <Button
             android:id="@+id/signOut"
-            style="@style/Widget.Monitor.Button.Secondary"
+            style="@style/Widget.Andsv.Button.Secondary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/sign_out" />

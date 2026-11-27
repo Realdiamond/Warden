@@ -322,8 +322,8 @@ type PermKey =
 type RunKey = "accessibilityRunning" | "notificationsRunning";
 
 const STALLED_NOTE =
-  "Switched on, but the phone has paused the service (common on Samsung). In the Monitor app tap " +
-  "“Allow Monitor to run in the background”, then toggle this off and on.";
+  "Switched on, but the phone has paused the service (common on Samsung). In the Andsv app tap " +
+  "“Allow Andsv to run in the background”, then toggle this off and on.";
 
 const CAPABILITIES: { key: PermKey; runKey?: RunKey; name: string; desc: string; steps?: string }[] = [
   { key: "location", name: "Location", desc: "Where the phone is, on the map" },
@@ -332,20 +332,20 @@ const CAPABILITIES: { key: PermKey; runKey?: RunKey; name: string; desc: string;
     key: "deviceAdmin",
     name: "Remote lock",
     desc: "Lock the phone from here",
-    steps: "On the phone, open Monitor and tap “Enable remote lock”, then confirm.",
+    steps: "On the phone, open Andsv and tap “Enable remote lock”, then confirm.",
   },
   {
     key: "batteryUnrestricted",
     name: "Background running",
-    desc: "Lets Monitor keep reading chats and alerts when the phone sleeps",
-    steps: "On the phone, open Monitor and tap “Allow Monitor to run in the background”, then confirm.",
+    desc: "Lets Andsv keep reading chats and alerts when the phone sleeps",
+    steps: "On the phone, open Andsv and tap “Allow Andsv to run in the background”, then confirm.",
   },
   {
     key: "notifications",
     runKey: "notificationsRunning",
     name: "Notifications",
     desc: "See message alerts as they arrive",
-    steps: "On the phone, open Monitor and tap “Grant notification access”, then switch Monitor on.",
+    steps: "On the phone, open Andsv and tap “Grant notification access”, then switch Andsv on.",
   },
   {
     key: "accessibility",
@@ -353,7 +353,7 @@ const CAPABILITIES: { key: PermKey; runKey?: RunKey; name: string; desc: string;
     name: "Accessibility",
     desc: "Read chats in WhatsApp, Snapchat, TikTok and similar apps",
     steps:
-      "On the phone: Settings → Accessibility → Monitor → turn On. If it’s greyed out: Settings → Apps → Monitor → ⋮ → Allow restricted settings, then try again.",
+      "On the phone: Settings → Accessibility → Andsv → turn On. If it’s greyed out: Settings → Apps → Andsv → ⋮ → Allow restricted settings, then try again.",
   },
 ];
 
@@ -775,7 +775,7 @@ export function DeviceDetail() {
                 <p className="panel-empty">
                   Chats appear here when the phone's screen reader sees a conversation open in WhatsApp,
                   Snapchat, TikTok, Telegram and similar apps. On the phone, turn on{" "}
-                  <strong>Accessibility</strong> for Monitor.
+                  <strong>Accessibility</strong> for Andsv.
                 </p>
               ) : (
                 <div className="chat" data-testid="chat">
@@ -1065,7 +1065,7 @@ export function DeviceDetail() {
                   <h2>Remote lock</h2>
                 </div>
                 <p className="muted">
-                  Locking works once device admin is turned on in the Monitor app. Unlocking a PIN needs the
+                  Locking works once device admin is turned on in the Andsv app. Unlocking a PIN needs the
                   phone to be set up as a managed device.
                 </p>
                 <div className="live-controls">
@@ -1100,7 +1100,7 @@ export function DeviceDetail() {
 
               {!perms ? (
                 <p className="panel-empty">
-                  Setup status hasn't been reported yet. Update the Monitor app on the phone to{" "}
+                  Setup status hasn't been reported yet. Update the Andsv app on the phone to{" "}
                   <strong>v0.3.1 or newer</strong> and open it once, then check back here.
                 </p>
               ) : (
@@ -1111,7 +1111,7 @@ export function DeviceDetail() {
                   <p className="setup-note">
                     {setupComplete
                       ? "Everything is on and reporting from the phone."
-                      : "These turn on from the phone — they can't be switched on from here. Open Monitor on the phone to finish."}
+                      : "These turn on from the phone — they can't be switched on from here. Open Andsv on the phone to finish."}
                   </p>
                   <ul className="setup-list">
                     {setupRows.map((row) => {
@@ -1134,7 +1134,7 @@ export function DeviceDetail() {
                   </ul>
                   <p className="setup-foot">
                     Last checked {new Date(statusEvt!.capturedAt).toLocaleString()}
-                    {statusEvt!.payload.appVersion ? ` · Monitor ${statusEvt!.payload.appVersion}` : ""}
+                    {statusEvt!.payload.appVersion ? ` · Andsv ${statusEvt!.payload.appVersion}` : ""}
                   </p>
                 </>
               )}
@@ -1173,7 +1173,7 @@ export function DeviceDetail() {
               {pairCode && (
                 <div className="card paircode" data-testid="relink-code" style={{ marginTop: "1.1rem", marginBottom: 0 }}>
                   <p>
-                    On the phone, open the Monitor app and enter this code. The person using the phone confirms
+                    On the phone, open the Andsv app and enter this code. The person using the phone confirms
                     they agree. The code expires in 15 minutes.
                   </p>
                   <div className="code-row">

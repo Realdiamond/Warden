@@ -109,7 +109,7 @@ export function Devices() {
       {pairCode && (
         <div className="card paircode" data-testid="paircode">
           <p>
-            On the phone, open the Monitor app and enter this code. The person using the phone
+            On the phone, open the Andsv app and enter this code. The person using the phone
             confirms they agree to be monitored. The code expires in 15 minutes.
           </p>
           <div className="code">{formatPairCode(pairCode)}</div>
@@ -120,7 +120,7 @@ export function Devices() {
         <div className="empty-state">
           <Smartphone size={24} style={{ marginBottom: 8, opacity: 0.6 }} />
           <p style={{ margin: "0 0 1rem" }}>
-            No devices yet. Add the first phone to get a pairing code, then install the Monitor app on
+            No devices yet. Add the first phone to get a pairing code, then install the Andsv app on
             it and enter the code.
           </p>
           <button onClick={() => nameRef.current?.focus()}>

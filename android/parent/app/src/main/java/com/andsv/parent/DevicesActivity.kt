@@ -1,4 +1,4 @@
-package com.monitor.parent
+package com.andsv.parent
 
 import android.content.Intent
 import android.graphics.Typeface
@@ -13,7 +13,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.monitor.parent.databinding.ActivityDevicesBinding
+import com.andsv.parent.databinding.ActivityDevicesBinding
 import kotlinx.coroutines.launch
 
 class DevicesActivity : AppCompatActivity() {

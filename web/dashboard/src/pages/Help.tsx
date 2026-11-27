@@ -19,7 +19,7 @@ export function Help() {
         </div>
         <ol className="help-steps">
           <li>On the dashboard, open Devices and tap Add device, then name the phone.</li>
-          <li>Install the Monitor app on that phone and open it.</li>
+          <li>Install the Andsvapp on that phone and open it.</li>
           <li>Type the pairing code from the dashboard into the app. The person using the phone taps to agree — a notice then stays in their status bar the whole time.</li>
         </ol>
       </section>
@@ -50,8 +50,8 @@ export function Help() {
         </div>
         <p className="muted">
           The two-sided chat view comes from the phone's screen reader. On the phone: Settings →
-          Accessibility → Monitor → turn On. If it's greyed out (common on Samsung): Settings → Apps →
-          Monitor → ⋮ → Allow restricted settings, then turn it on. Message <em>notifications</em> show
+          Accessibility → Andsv→ turn On. If it's greyed out (common on Samsung): Settings → Apps →
+          Andsv→ ⋮ → Allow restricted settings, then turn it on. Message <em>notifications</em> show
           under Alerts and don't need this.
         </p>
       </section>
@@ -62,7 +62,7 @@ export function Help() {
           <h2>Screen share closes the app</h2>
         </div>
         <p className="muted">
-          Make sure the phone is on the latest Monitor app. If it still closes, reopen Monitor on the
+          Make sure the phone is on the latest Andsvapp. If it still closes, reopen Andsvon the
           phone and tap "View last error log", then send that text to whoever set this up.
         </p>
       </section>
@@ -73,9 +73,9 @@ export function Help() {
           <h2>Hiding and reopening the app on the phone</h2>
         </div>
         <p className="muted">
-          In the Monitor app you can hide its icon from the phone's app list (the monitoring notice
+          In the Andsvapp you can hide its icon from the phone's app list (the monitoring notice
           still stays visible). To reopen it afterwards: tap the ongoing "Monitoring is on"
-          notification, or go to Settings → Apps → Monitor → Open.
+          notification, or go to Settings → Apps → Andsv→ Open.
         </p>
       </section>
 
@@ -85,7 +85,7 @@ export function Help() {
           <h2>What's monitored, and consent</h2>
         </div>
         <p className="muted">
-          Monitor is open, not hidden: the person using the phone agrees before pairing, and a notice
+          Andsvis open, not hidden: the person using the phone agrees before pairing, and a notice
           stays in their status bar whenever monitoring is running. It is for phones you are
           responsible for, with the agreement of the person using them.
         </p>

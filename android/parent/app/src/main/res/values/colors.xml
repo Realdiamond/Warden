@@ -33,5 +33,5 @@
     <color name="error">#FF7F5F</color>
 
     <color name="card_border">#14FFFFFF</color>
-    <color name="ic_launcher_background">#0B6B57</color>
+    <color name="ic_launcher_background">#00000000</color>
 </resources>

@@ -57,14 +57,14 @@
             android:padding="18dp">
 
             <TextView
-                style="@style/Text.Monitor.Label"
+                style="@style/Text.Andsv.Label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/server_label" />
 
             <EditText
                 android:id="@+id/baseUrl"
-                style="@style/Widget.Monitor.EditText"
+                style="@style/Widget.Andsv.EditText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -73,7 +73,7 @@
                 android:inputType="textUri" />
 
             <TextView
-                style="@style/Text.Monitor.Label"
+                style="@style/Text.Andsv.Label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -81,7 +81,7 @@
 
             <EditText
                 android:id="@+id/email"
-                style="@style/Widget.Monitor.EditText"
+                style="@style/Widget.Andsv.EditText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -89,7 +89,7 @@
                 android:inputType="textEmailAddress" />
 
             <TextView
-                style="@style/Text.Monitor.Label"
+                style="@style/Text.Andsv.Label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -97,7 +97,7 @@
 
             <EditText
                 android:id="@+id/password"
-                style="@style/Widget.Monitor.EditText"
+                style="@style/Widget.Andsv.EditText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -106,7 +106,7 @@
 
             <Button
                 android:id="@+id/submit"
-                style="@style/Widget.Monitor.Button.Primary"
+                style="@style/Widget.Andsv.Button.Primary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"

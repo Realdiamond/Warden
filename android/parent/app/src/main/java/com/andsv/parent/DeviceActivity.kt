@@ -1,11 +1,11 @@
-package com.monitor.parent
+package com.andsv.parent
 
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.monitor.parent.databinding.ActivityDeviceBinding
+import com.andsv.parent.databinding.ActivityDeviceBinding
 import kotlinx.coroutines.launch
 
 class DeviceActivity : AppCompatActivity() {

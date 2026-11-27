@@ -32,7 +32,7 @@ export function App() {
         <div className="sidebar-brand">
           <Link to="/devices" className="brand">
             <Logo size={30} />
-            Monitor
+            Andsv
           </Link>
         </div>
         <nav className="sidebar-nav">

@@ -1,4 +1,4 @@
-package com.monitor.child
+package com.andsv.child
 
 import android.Manifest
 import android.app.admin.DevicePolicyManager
@@ -16,7 +16,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.monitor.child.databinding.ActivityPairingBinding
+import com.andsv.child.databinding.ActivityPairingBinding
 import kotlinx.coroutines.launch
 import java.time.Instant
 

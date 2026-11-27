@@ -1,4 +1,4 @@
-package com.monitor.parent
+package com.andsv.parent
 
 import android.annotation.SuppressLint
 import android.os.Bundle

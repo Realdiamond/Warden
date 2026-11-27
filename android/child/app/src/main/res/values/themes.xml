@@ -2,7 +2,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Always dark — this app deliberately never follows the system light/dark setting, to match
          the parent dashboard's design. -->
-    <style name="Theme.MonitorChild" parent="Theme.Material3.Dark.NoActionBar">
+    <style name="Theme.AndsvChild" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/brand</item>
         <item name="colorOnPrimary">@color/on_brand</item>
         <item name="colorSecondary">@color/brand_dim</item>

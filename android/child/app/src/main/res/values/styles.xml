@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Widget.Monitor.EditText" parent="android:Widget">
+    <style name="Widget.Andsv.EditText" parent="android:Widget">
         <item name="android:background">@drawable/bg_input</item>
         <item name="android:paddingStart">14dp</item>
         <item name="android:paddingEnd">14dp</item>
@@ -11,7 +11,7 @@
         <item name="android:textSize">15sp</item>
     </style>
 
-    <style name="Widget.Monitor.Button.Secondary" parent="Widget.Material3.Button.OutlinedButton">
+    <style name="Widget.Andsv.Button.Secondary" parent="Widget.Material3.Button.OutlinedButton">
         <item name="strokeColor">@color/border_strong</item>
         <item name="android:textColor">@color/ink</item>
         <item name="rippleColor">@color/brand_wash</item>
@@ -19,13 +19,13 @@
         <item name="cornerRadius">10dp</item>
     </style>
 
-    <style name="Widget.Monitor.Button.Primary" parent="Widget.Material3.Button">
+    <style name="Widget.Andsv.Button.Primary" parent="Widget.Material3.Button">
         <item name="android:textAllCaps">false</item>
         <item name="cornerRadius">10dp</item>
         <item name="android:textStyle">bold</item>
     </style>
 
-    <style name="Text.Monitor.Label" parent="android:Widget">
+    <style name="Text.Andsv.Label" parent="android:Widget">
         <item name="android:textColor">@color/muted</item>
         <item name="android:textSize">13sp</item>
         <item name="android:textStyle">bold</item>

@@ -1,4 +1,4 @@
-package com.monitor.child
+package com.andsv.child
 
 import android.content.Intent
 import android.os.Bundle

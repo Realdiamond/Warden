@@ -4,22 +4,22 @@ plugins {
 }
 
 android {
-    namespace = "com.monitor.parent"
+    namespace = "com.andsv.parent"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.monitor.parent"
+        applicationId = "com.andsv.parent"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 5
+        versionName = "0.4.0"
     }
 
     // Stable signing key (committed under android/signing) shared across builds — see the child
     // app's build file for why: without it, updates fail to install with "App not installed".
     signingConfigs {
         create("shared") {
-            storeFile = file("../../signing/monitor-signing.jks")
+            storeFile = file("../../signing/andsv-signing.jks")
             storePassword = "monitor-dev"
             keyAlias = "monitor"
             keyPassword = "monitor-dev"
