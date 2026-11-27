@@ -62,6 +62,25 @@ class PairingActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updatePermissionButtons()
+        reportStatus()
+    }
+
+    /** Push the current permission states so the dashboard's setup checklist updates right away. */
+    private fun reportStatus() {
+        val token = store.deviceToken ?: return
+        val baseUrl = store.baseUrl
+        lifecycleScope.launch {
+            try {
+                Api(baseUrl).postStatus(
+                    token,
+                    Permissions.asJson(this@PairingActivity),
+                    BuildConfig.VERSION_NAME,
+                    Instant.now().toString(),
+                )
+            } catch (e: Exception) {
+                // non-critical
+            }
+        }
     }
 
     private fun updatePermissionButtons() {

@@ -99,6 +99,17 @@ class MonitorService : Service() {
                     } catch (e: Exception) {
                         // keep the last known block list on failure
                     }
+                    try {
+                        // Report which permissions are on, so the dashboard's setup checklist is current.
+                        Api(store.baseUrl).postStatus(
+                            token,
+                            Permissions.asJson(this@MonitorService),
+                            BuildConfig.VERSION_NAME,
+                            Instant.now().toString(),
+                        )
+                    } catch (e: Exception) {
+                        // non-critical; try again next cycle
+                    }
                     delay(USAGE_INTERVAL_MS)
                 }
             }

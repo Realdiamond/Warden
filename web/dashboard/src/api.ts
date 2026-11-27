@@ -40,6 +40,17 @@ export interface AppUsagePayload {
   foregroundMs: number;
 }
 
+export interface StatusPayload {
+  permissions?: {
+    location?: boolean;
+    usage?: boolean;
+    notifications?: boolean;
+    accessibility?: boolean;
+    deviceAdmin?: boolean;
+  };
+  appVersion?: string;
+}
+
 export interface EventEnvelope<P = unknown> {
   id: string;
   deviceId: string;

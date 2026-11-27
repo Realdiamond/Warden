@@ -27,6 +27,8 @@ import {
   Sun,
   ChevronLeft,
   ChevronRight,
+  ListChecks,
+  Check,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -37,6 +39,7 @@ import {
   type AppUsagePayload,
   type MessagePayload,
   type CallPayload,
+  type StatusPayload,
 } from "../api.ts";
 import { LocationMap, type Point } from "../components/LocationMap.tsx";
 import { LiveScreen } from "../components/LiveScreen.tsx";
@@ -286,7 +289,16 @@ function hourLabel(h: number): string {
 
 /* ---------------------------------------------------------------- navigation */
 
-type TabId = "today" | "chats" | "notifications" | "calls" | "location" | "apps" | "live" | "device";
+type TabId =
+  | "today"
+  | "chats"
+  | "notifications"
+  | "calls"
+  | "location"
+  | "apps"
+  | "live"
+  | "setup"
+  | "device";
 
 const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "today", label: "Today", icon: Sun },
@@ -296,7 +308,34 @@ const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "location", label: "Location", icon: MapPin },
   { id: "apps", label: "Apps", icon: AppWindow },
   { id: "live", label: "Live", icon: ScreenShare },
+  { id: "setup", label: "Setup", icon: ListChecks },
   { id: "device", label: "Device", icon: Settings },
+];
+
+type PermKey = "location" | "usage" | "deviceAdmin" | "notifications" | "accessibility";
+
+const CAPABILITIES: { key: PermKey; name: string; desc: string; steps?: string }[] = [
+  { key: "location", name: "Location", desc: "Where the phone is, on the map" },
+  { key: "usage", name: "App usage", desc: "Screen time and app limits" },
+  {
+    key: "deviceAdmin",
+    name: "Remote lock",
+    desc: "Lock the phone from here",
+    steps: "On the phone, open Monitor and tap “Enable remote lock”, then confirm.",
+  },
+  {
+    key: "notifications",
+    name: "Notifications",
+    desc: "See message alerts as they arrive",
+    steps: "On the phone, open Monitor and tap “Grant notification access”, then switch Monitor on.",
+  },
+  {
+    key: "accessibility",
+    name: "Accessibility",
+    desc: "Read chats in WhatsApp, Snapchat, TikTok and similar apps",
+    steps:
+      "On the phone: Settings → Accessibility → Monitor → turn On. If it’s greyed out: Settings → Apps → Monitor → ⋮ → Allow restricted settings, then try again.",
+  },
 ];
 
 const PAGE = 40;
@@ -312,6 +351,7 @@ export function DeviceDetail() {
   const [messages, setMessages] = useState<EventEnvelope<MessagePayload>[]>([]);
   const [calls, setCalls] = useState<EventEnvelope<CallPayload>[]>([]);
   const [blocked, setBlocked] = useState<string[]>([]);
+  const [statusEvt, setStatusEvt] = useState<EventEnvelope<StatusPayload> | null>(null);
   const [cmdStatus, setCmdStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
@@ -330,12 +370,13 @@ export function DeviceDetail() {
 
   const load = useCallback(async () => {
     try {
-      const [d, e, u, m, c] = await Promise.all([
+      const [d, e, u, m, c, s] = await Promise.all([
         api.getDevice(id),
         api.getEvents(id, "location", 200),
         api.getEvents(id, "app_usage", 500),
         api.getEvents(id, "message", 200),
         api.getEvents(id, "call", 100),
+        api.getEvents(id, "status", 1),
       ]);
       setDevice(d.device);
       setBlocked(d.device.blockedApps ?? []);
@@ -343,6 +384,7 @@ export function DeviceDetail() {
       setUsage(aggregateUsage(u.events as EventEnvelope<AppUsagePayload>[]));
       setMessages(m.events as EventEnvelope<MessagePayload>[]);
       setCalls(c.events as EventEnvelope<CallPayload>[]);
+      setStatusEvt((s.events[0] as EventEnvelope<StatusPayload>) ?? null);
       setError(null);
     } catch {
       setError("Could not load this device. Check your connection and refresh.");
@@ -468,10 +510,21 @@ export function DeviceDetail() {
   }
 
   const pres = presence(device?.lastSeenAt);
+
+  // Setup checklist: which phone permissions the device last reported.
+  const perms = statusEvt?.payload.permissions;
+  const setupCaps = perms
+    ? [...CAPABILITIES].sort((a, b) => Number(!!perms[b.key]) - Number(!!perms[a.key]))
+    : CAPABILITIES;
+  const setupOn = perms ? CAPABILITIES.filter((c) => perms[c.key]).length : 0;
+  const setupOff = perms ? CAPABILITIES.length - setupOn : 0;
+  const setupComplete = !!perms && setupOff === 0;
+
   const tabCount: Partial<Record<TabId, number>> = {
     chats: conversations.length,
     notifications: notifMsgs.length,
     calls: calls.length,
+    setup: perms && setupOff > 0 ? setupOff : undefined,
   };
 
   // First paint before the device has loaded: show a skeleton so the header and panel don't flash
@@ -545,7 +598,7 @@ export function DeviceDetail() {
               >
                 <Icon size={18} />
                 <span>{t.label}</span>
-                {count ? <span className="nav-count">{count}</span> : null}
+                {count ? <span className={`nav-count ${t.id === "setup" ? "warn" : ""}`}>{count}</span> : null}
               </button>
             );
           })}
@@ -998,6 +1051,61 @@ export function DeviceDetail() {
                 </div>
               </section>
             </>
+          )}
+
+          {/* ------------------------------------------------------------- Setup */}
+          {tab === "setup" && (
+            <section className={`panel setup ${setupComplete ? "complete" : ""}`} data-testid="setup">
+              <div className="setup-head">
+                <span className="setup-title">
+                  <ListChecks size={20} />
+                  {setupComplete ? "Setup complete" : "Finish setup"}
+                </span>
+                {perms && (
+                  <span className={`setup-count ${setupComplete ? "ok" : ""}`}>
+                    {setupOn} of {CAPABILITIES.length} on
+                  </span>
+                )}
+              </div>
+
+              {!perms ? (
+                <p className="panel-empty">
+                  Setup status hasn't been reported yet. Update the Monitor app on the phone to{" "}
+                  <strong>v0.3.1 or newer</strong> and open it once, then check back here.
+                </p>
+              ) : (
+                <>
+                  <div className="setup-bar">
+                    <span style={{ width: `${(setupOn / CAPABILITIES.length) * 100}%` }} />
+                  </div>
+                  <p className="setup-note">
+                    {setupComplete
+                      ? "Everything is on and reporting from the phone."
+                      : "These turn on from the phone — they can't be switched on from here. Open Monitor on the phone to finish."}
+                  </p>
+                  <ul className="setup-list">
+                    {setupCaps.map((cap) => {
+                      const on = !!perms[cap.key];
+                      return (
+                        <li key={cap.key} className={`setup-row ${on ? "done" : "todo"}`}>
+                          <span className="setup-ic">{on && <Check size={14} strokeWidth={3} />}</span>
+                          <div className="setup-main">
+                            <div className="setup-name">{cap.name}</div>
+                            <div className="setup-desc">{cap.desc}</div>
+                            {!on && cap.steps && <div className="setup-steps">{cap.steps}</div>}
+                          </div>
+                          <span className={`setup-state ${on ? "on" : "off"}`}>{on ? "On" : "Off"}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <p className="setup-foot">
+                    Last checked {new Date(statusEvt!.capturedAt).toLocaleString()}
+                    {statusEvt!.payload.appVersion ? ` · Monitor ${statusEvt!.payload.appVersion}` : ""}
+                  </p>
+                </>
+              )}
+            </section>
           )}
 
           {/* ------------------------------------------------------------- Device */}

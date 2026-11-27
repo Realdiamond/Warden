@@ -31,6 +31,21 @@ class Api(private val baseUrl: String) {
         }
     }
 
+    suspend fun postStatus(
+        token: String,
+        permissions: org.json.JSONObject,
+        appVersion: String,
+        capturedAt: String,
+    ): Boolean = withContext(Dispatchers.IO) {
+        val payload = JSONObject().put("permissions", permissions).put("appVersion", appVersion)
+        val body = JSONObject()
+            .put("kind", "status")
+            .put("capturedAt", capturedAt)
+            .put("payload", payload)
+        val (code, _) = post("/v1/events", body.toString(), token)
+        code in 200..299
+    }
+
     suspend fun postAppUsage(
         token: String,
         packageName: String,
