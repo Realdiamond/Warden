@@ -41,8 +41,8 @@
     <string name="hide_icon">Hide app icon from the app drawer</string>
     <string name="show_icon">Show app icon in the app drawer</string>
     <string name="hide_icon_title">Hide the Monitor icon?</string>
-    <string name="hide_icon_message">The Monitor icon will be removed from the app list. Monitoring keeps running and the status-bar notice stays visible.\n\nTo open Monitor again, use any of these:\n\n•  Tap the ongoing \"Monitoring is on\" notification (most reliable)\n•  Settings → Apps → Monitor → Open\n•  Dial *#*#5465#*#* in the phone dialer (not all phones support this)\n\nNote this down before continuing.</string>
-    <string name="icon_hidden">Icon hidden. Reopen via the monitoring notification, or Settings → Apps → Monitor → Open.</string>
+    <string name="hide_icon_message">The Monitor icon will be removed from the app list. Monitoring keeps running and the status-bar notice stays visible.\n\nSamsung keeps a cached app list, so after you confirm you may need to RESTART the phone (or lock and unlock it) for the icon to disappear.\n\nTo open Monitor again, use any of these:\n\n•  Tap the ongoing \"Monitoring is on\" notification (most reliable)\n•  Settings → Apps → Monitor → Open\n•  Dial *#*#5465#*#* in the phone dialer (not all phones support this)\n\nNote this down before continuing.</string>
+    <string name="icon_hidden">Icon hidden. Restart the phone if it\'s still showing. Reopen via the monitoring notification, or Settings → Apps → Monitor → Open.</string>
     <string name="icon_shown">Icon is now visible in the app drawer.</string>
     <string name="confirm">Continue</string>
     <string name="cancel">Cancel</string>

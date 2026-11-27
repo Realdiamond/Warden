@@ -30,19 +30,20 @@
             android:name=".PairingActivity"
             android:exported="false" />
 
-        <!-- The launcher entry is an alias so it can be enabled/disabled to show or hide the app
-             icon without affecting the activity itself. Disabling it hides the icon from the drawer;
-             monitoring keeps running and the status-bar notice stays up. -->
-        <activity-alias
-            android:name=".LauncherAlias"
-            android:targetActivity=".PairingActivity"
+        <!-- The launcher entry is its own activity so it can be disabled to hide the app icon from
+             the drawer; monitoring keeps running and the status-bar notice stays up. One UI caches
+             the drawer, so a reboot (or lock/unlock) applies the change. -->
+        <activity
+            android:name=".LauncherActivity"
             android:exported="true"
-            android:enabled="true">
+            android:enabled="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.NoDisplay">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity-alias>
+        </activity>
 
         <!-- Re-entry when the icon is hidden: dial *#*#5465#*#* in the phone dialer to open the app.
              Works on devices whose dialer broadcasts secret codes (Android 9+, most OEMs incl. MIUI). -->

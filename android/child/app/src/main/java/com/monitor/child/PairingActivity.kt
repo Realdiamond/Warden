@@ -177,15 +177,16 @@ class PairingActivity : AppCompatActivity() {
         }
     }
 
-    /** Enable/disable the launcher-icon alias. Disabling removes the icon from the app drawer. */
+    /** Enable/disable the launcher activity. Disabling removes the icon from the app drawer (One UI
+     *  applies it after a reboot or lock/unlock). */
     private fun setIconHidden(hidden: Boolean) {
-        val alias = ComponentName(this, "com.monitor.child.LauncherAlias")
+        val launcher = ComponentName(this, LauncherActivity::class.java)
         val state = if (hidden) {
             PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         } else {
             PackageManager.COMPONENT_ENABLED_STATE_ENABLED
         }
-        packageManager.setComponentEnabledSetting(alias, state, PackageManager.DONT_KILL_APP)
+        packageManager.setComponentEnabledSetting(launcher, state, PackageManager.DONT_KILL_APP)
         store.iconHidden = hidden
     }
 
