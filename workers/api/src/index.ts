@@ -219,6 +219,45 @@ app.get("/v1/devices/:id", async (c) => {
   return c.json({ device: toSummary(row) });
 });
 
+// Regenerate a pairing code for an existing device, so the parent can re-link the same device
+// entry (e.g. after reinstalling the app on the phone). Resets the paired state and old token.
+app.post("/v1/devices/:id/pair-code", async (c) => {
+  const accountId = await requireAccount(c);
+  if (!accountId) return c.json({ error: "unauthorized" }, 401);
+  const id = c.req.param("id");
+  const owned = await c.env.DB.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?")
+    .bind(id, accountId)
+    .first();
+  if (!owned) return c.json({ error: "not_found" }, 404);
+  const pairCode = randomPairCode();
+  const now = Date.now();
+  await c.env.DB.prepare(
+    `UPDATE devices
+       SET pair_code = ?, pair_code_expires_at = ?, paired_at = NULL, device_token_hash = NULL
+     WHERE id = ?`,
+  )
+    .bind(pairCode, new Date(now + PAIR_CODE_TTL_MS).toISOString(), id)
+    .run();
+  return c.json({ pairCode, pairCodeExpiresInMs: PAIR_CODE_TTL_MS });
+});
+
+// Delete a device and everything it reported (events + queued commands).
+app.delete("/v1/devices/:id", async (c) => {
+  const accountId = await requireAccount(c);
+  if (!accountId) return c.json({ error: "unauthorized" }, 401);
+  const id = c.req.param("id");
+  const owned = await c.env.DB.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?")
+    .bind(id, accountId)
+    .first();
+  if (!owned) return c.json({ error: "not_found" }, 404);
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM events WHERE device_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM commands WHERE device_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM devices WHERE id = ?").bind(id),
+  ]);
+  return c.json({ deleted: true });
+});
+
 // --- Pairing ----------------------------------------------------------------
 
 app.post("/v1/pairing", async (c) => {

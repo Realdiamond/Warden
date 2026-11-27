@@ -91,6 +91,36 @@ export function registerDeviceRoutes(app: FastifyInstance): void {
     return reply.send({ device: toSummary(row) });
   });
 
+  // Parent regenerates a pairing code to re-link the same device (e.g. after reinstalling the app).
+  app.post("/v1/devices/:id/pair-code", async (req, reply) => {
+    const accountId = await requireAccount(req, reply);
+    if (!accountId) return;
+    const { id } = req.params as { id: string };
+    const owned = db.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?").get(id, accountId);
+    if (!owned) return reply.code(404).send({ error: "not_found" });
+    const pairCode = randomPairCode();
+    const now = Date.now();
+    db.prepare(
+      `UPDATE devices
+         SET pair_code = ?, pair_code_expires_at = ?, paired_at = NULL, device_token_hash = NULL
+       WHERE id = ?`,
+    ).run(pairCode, new Date(now + PAIR_CODE_TTL_MS).toISOString(), id);
+    return reply.send({ pairCode, pairCodeExpiresInMs: PAIR_CODE_TTL_MS });
+  });
+
+  // Parent deletes a device and everything it reported.
+  app.delete("/v1/devices/:id", async (req, reply) => {
+    const accountId = await requireAccount(req, reply);
+    if (!accountId) return;
+    const { id } = req.params as { id: string };
+    const owned = db.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?").get(id, accountId);
+    if (!owned) return reply.code(404).send({ error: "not_found" });
+    db.prepare("DELETE FROM events WHERE device_id = ?").run(id);
+    db.prepare("DELETE FROM commands WHERE device_id = ?").run(id);
+    db.prepare("DELETE FROM devices WHERE id = ?").run(id);
+    return reply.send({ deleted: true });
+  });
+
   // Parent sets which app packages are blocked on a device.
   app.put("/v1/devices/:id/rules", async (req, reply) => {
     const accountId = await requireAccount(req, reply);

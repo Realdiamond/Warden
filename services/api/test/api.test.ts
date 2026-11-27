@@ -377,3 +377,143 @@ test("app limits: parent sets blocked apps, device reads them", async () => {
   });
   assert.deepEqual((dev.json() as { device: { blockedApps: string[] } }).device.blockedApps, blocked);
 });
+
+test("re-link: regenerate a pairing code lets the same device pair again", async () => {
+  const signup = await app.inject({
+    method: "POST",
+    url: "/v1/accounts",
+    payload: { email: "relink@example.com", password: "supersecret" },
+  });
+  const accountToken = signup.json().token as string;
+
+  const created = await app.inject({
+    method: "POST",
+    url: "/v1/devices",
+    headers: { authorization: `Bearer ${accountToken}` },
+    payload: { name: "Relink phone" },
+  });
+  const { deviceId, pairCode } = created.json() as { deviceId: string; pairCode: string };
+
+  // Pair once.
+  const paired = await app.inject({
+    method: "POST",
+    url: "/v1/pairing",
+    payload: {
+      pairCode,
+      deviceName: "Relink phone",
+      platform: "android",
+      appVersion: "0.1.0",
+      consentAcceptedAt: new Date().toISOString(),
+    },
+  });
+  assert.equal(paired.statusCode, 201);
+
+  // The old code was consumed on pairing, so reusing it is refused.
+  const again = await app.inject({
+    method: "POST",
+    url: "/v1/pairing",
+    payload: {
+      pairCode,
+      deviceName: "Relink phone",
+      platform: "android",
+      appVersion: "0.1.0",
+      consentAcceptedAt: new Date().toISOString(),
+    },
+  });
+  assert.equal(again.statusCode, 404); // invalid_pair_code (code cleared on pair)
+
+  // Regenerate a code for the same device.
+  const relink = await app.inject({
+    method: "POST",
+    url: `/v1/devices/${deviceId}/pair-code`,
+    headers: { authorization: `Bearer ${accountToken}` },
+  });
+  assert.equal(relink.statusCode, 200);
+  const newCode = (relink.json() as { pairCode: string }).pairCode;
+  assert.notEqual(newCode, pairCode);
+
+  // Device now reads as unpaired.
+  const dev = await app.inject({
+    method: "GET",
+    url: `/v1/devices/${deviceId}`,
+    headers: { authorization: `Bearer ${accountToken}` },
+  });
+  assert.equal((dev.json() as { device: { pairedAt: string | null } }).device.pairedAt, null);
+
+  // The same device pairs again with the new code, keeping its id.
+  const repaired = await app.inject({
+    method: "POST",
+    url: "/v1/pairing",
+    payload: {
+      pairCode: newCode,
+      deviceName: "Relink phone",
+      platform: "android",
+      appVersion: "0.1.0",
+      consentAcceptedAt: new Date().toISOString(),
+    },
+  });
+  assert.equal(repaired.statusCode, 201);
+  assert.equal((repaired.json() as { deviceId: string }).deviceId, deviceId);
+});
+
+test("delete: removes a device and its events", async () => {
+  const signup = await app.inject({
+    method: "POST",
+    url: "/v1/accounts",
+    payload: { email: "del@example.com", password: "supersecret" },
+  });
+  const accountToken = signup.json().token as string;
+
+  const created = await app.inject({
+    method: "POST",
+    url: "/v1/devices",
+    headers: { authorization: `Bearer ${accountToken}` },
+    payload: { name: "Doomed phone" },
+  });
+  const { deviceId, pairCode } = created.json() as { deviceId: string; pairCode: string };
+
+  const paired = await app.inject({
+    method: "POST",
+    url: "/v1/pairing",
+    payload: {
+      pairCode,
+      deviceName: "Doomed phone",
+      platform: "android",
+      appVersion: "0.1.0",
+      consentAcceptedAt: new Date().toISOString(),
+    },
+  });
+  const deviceToken = paired.json().deviceToken as string;
+
+  await app.inject({
+    method: "POST",
+    url: "/v1/events",
+    headers: { authorization: `Bearer ${deviceToken}` },
+    payload: { kind: "location", capturedAt: new Date().toISOString(), payload: { lat: 1, lon: 2 } },
+  });
+
+  const del = await app.inject({
+    method: "DELETE",
+    url: `/v1/devices/${deviceId}`,
+    headers: { authorization: `Bearer ${accountToken}` },
+  });
+  assert.equal(del.statusCode, 200);
+  assert.equal((del.json() as { deleted: boolean }).deleted, true);
+
+  // Device is gone.
+  const gone = await app.inject({
+    method: "GET",
+    url: `/v1/devices/${deviceId}`,
+    headers: { authorization: `Bearer ${accountToken}` },
+  });
+  assert.equal(gone.statusCode, 404);
+
+  // It no longer appears in the list.
+  const list = await app.inject({
+    method: "GET",
+    url: "/v1/devices",
+    headers: { authorization: `Bearer ${accountToken}` },
+  });
+  const ids = (list.json() as { devices: Array<{ id: string }> }).devices.map((d) => d.id);
+  assert.equal(ids.includes(deviceId), false);
+});

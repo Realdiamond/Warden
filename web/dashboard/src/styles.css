@@ -590,6 +590,17 @@ input:focus {
   color: #fff;
   text-indent: 0.35em; /* visually re-center for the trailing letter-spacing */
 }
+.code-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.code-row .code {
+  margin-top: 0;
+}
 
 .device-grid {
   display: grid;

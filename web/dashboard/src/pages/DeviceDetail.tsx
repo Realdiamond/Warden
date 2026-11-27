@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   MessageSquare,
@@ -17,6 +17,10 @@ import {
   PhoneIncoming,
   PhoneOutgoing,
   PhoneMissed,
+  RefreshCw,
+  Trash2,
+  Copy,
+  Settings,
 } from "lucide-react";
 import {
   api,
@@ -156,6 +160,7 @@ function callIcon(direction: string) {
 
 export function DeviceDetail() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const [device, setDevice] = useState<DeviceSummary | null>(null);
   const [events, setEvents] = useState<EventEnvelope<LocationPayload>[]>([]);
   const [usage, setUsage] = useState<UsageRow[]>([]);
@@ -165,6 +170,37 @@ export function DeviceDetail() {
   const [cmdStatus, setCmdStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
+  const [pairCode, setPairCode] = useState<string | null>(null);
+  const [relinkBusy, setRelinkBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  async function relink() {
+    setRelinkBusy(true);
+    try {
+      const r = await api.relinkDevice(id);
+      setPairCode(r.pairCode);
+      await load();
+    } catch {
+      setError("Could not generate a pairing code.");
+    } finally {
+      setRelinkBusy(false);
+    }
+  }
+
+  async function removeDevice() {
+    const name = device?.name ?? "this device";
+    if (!window.confirm(`Delete ${name}? This removes the device and all of its captured data. This cannot be undone.`)) {
+      return;
+    }
+    setDeleteBusy(true);
+    try {
+      await api.deleteDevice(id);
+      navigate("/devices");
+    } catch {
+      setError("Could not delete the device.");
+      setDeleteBusy(false);
+    }
+  }
 
   async function sendCmd(type: "lock" | "unlock") {
     setCmdStatus("Sending…");
@@ -537,6 +573,47 @@ export function DeviceDetail() {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section className="panel" data-testid="device-manage">
+        <div className="panel-head">
+          <Settings size={16} />
+          <h2>Device</h2>
+        </div>
+        <p className="muted">
+          Re-link this device to pair the app again (for example after reinstalling it on the phone),
+          or remove the device and all of its data.
+        </p>
+        <div className="live-controls">
+          <button className="secondary" onClick={relink} disabled={relinkBusy}>
+            <RefreshCw size={15} />
+            {relinkBusy ? "Generating…" : "Re-link (new pairing code)"}
+          </button>
+          <button className="danger-btn" onClick={removeDevice} disabled={deleteBusy}>
+            <Trash2 size={15} />
+            {deleteBusy ? "Deleting…" : "Delete device"}
+          </button>
+        </div>
+        {pairCode && (
+          <div className="card paircode" data-testid="relink-code" style={{ marginTop: "0.9rem" }}>
+            <p>
+              On the monitored phone, open the Monitor app and enter this pairing code. The person
+              using that phone confirms consent. The code expires in 15 minutes.
+            </p>
+            <div className="code-row">
+              <span className="code">{pairCode}</span>
+              <button
+                className="secondary"
+                onClick={() => {
+                  navigator.clipboard?.writeText(pairCode);
+                }}
+              >
+                <Copy size={14} />
+                Copy
+              </button>
+            </div>
+          </div>
         )}
       </section>
     </div>

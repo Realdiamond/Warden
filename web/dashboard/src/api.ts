@@ -70,7 +70,10 @@ export function getToken(): string | null {
 }
 
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = { "content-type": "application/json" };
+  const headers: Record<string, string> = {};
+  // Only declare a JSON body when one is actually sent — a strict server rejects an empty body
+  // carrying a JSON content-type (e.g. the bodyless pair-code / delete requests).
+  if (init.body != null) headers["content-type"] = "application/json";
   if (token) headers.authorization = `Bearer ${token}`;
   const res = await fetch(BASE + path, { ...init, headers });
   const body: unknown = res.status === 204 ? null : await res.json().catch(() => null);
@@ -100,6 +103,11 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
   getDevice: (id: string) => req<{ device: DeviceSummary }>(`/v1/devices/${id}`),
+  relinkDevice: (id: string) =>
+    req<{ pairCode: string; pairCodeExpiresInMs: number }>(`/v1/devices/${id}/pair-code`, {
+      method: "POST",
+    }),
+  deleteDevice: (id: string) => req<{ deleted: boolean }>(`/v1/devices/${id}`, { method: "DELETE" }),
   setRules: (id: string, blockedApps: string[]) =>
     req<{ blockedApps: string[] }>(`/v1/devices/${id}/rules`, {
       method: "PUT",
