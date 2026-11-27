@@ -2,6 +2,11 @@ name = "monitor-api"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
+# Always re-bundle the latest built dashboard before any deploy, so `wrangler deploy` on its own
+# can never ship a stale UI (build the dashboard first: pnpm --filter @monitor/dashboard build).
+[build]
+command = "node scripts/bundle-dashboard.mjs"
+
 # D1 database binding. After `wrangler d1 create monitor`, paste the printed database_id here.
 [[d1_databases]]
 binding = "DB"
