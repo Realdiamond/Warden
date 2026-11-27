@@ -61,6 +61,13 @@ class Store(context: Context) {
             prefs.edit().putBoolean(KEY_ICON_HIDDEN, value).apply()
         }
 
+    // Whether the stored crash has already been auto-shown once (so it isn't shown every launch).
+    var crashSeen: Boolean
+        get() = prefs.getBoolean(KEY_CRASH_SEEN, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CRASH_SEEN, value).apply()
+        }
+
     val isPaired: Boolean
         get() = !deviceToken.isNullOrEmpty()
 
@@ -72,6 +79,7 @@ class Store(context: Context) {
         private const val KEY_BLOCKED = "blockedApps"
         private const val KEY_CRASH = "lastCrash"
         private const val KEY_ICON_HIDDEN = "iconHidden"
+        private const val KEY_CRASH_SEEN = "crashSeen"
 
         // The deployed API. Overridable on the pairing screen during testing.
         const val DEFAULT_BASE_URL = "https://monitor-api.homegoing.workers.dev"

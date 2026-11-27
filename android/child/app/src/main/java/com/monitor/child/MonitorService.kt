@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
@@ -159,12 +160,23 @@ class MonitorService : Service() {
             channel.description = getString(R.string.notice_desc)
             manager.createNotificationChannel(channel)
         }
+        // Tapping the ongoing notice opens the app — the reliable way back in when the icon is hidden.
+        val openIntent = Intent(this, PairingActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_IMMUTABLE
+        } else {
+            0
+        }
+        val contentIntent = PendingIntent.getActivity(this, 0, openIntent, pendingFlags)
+
         return NotificationCompat.Builder(this, CHANNEL)
             .setContentTitle(getString(R.string.notice_title))
             .setContentText(getString(R.string.notice_text))
             .setSmallIcon(R.drawable.ic_notice)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setContentIntent(contentIntent)
             .build()
     }
 

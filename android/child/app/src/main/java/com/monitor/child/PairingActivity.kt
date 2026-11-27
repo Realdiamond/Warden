@@ -44,6 +44,7 @@ class PairingActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         showLastCrashIfAny()
+        binding.errorLogButton.setOnClickListener { showErrorLog() }
         binding.baseUrl.setText(store.baseUrl)
 
         if (store.isPaired) {
@@ -116,30 +117,25 @@ class PairingActivity : AppCompatActivity() {
             binding.adminButton.visibility = View.GONE
         }
 
-        // Hide / show the launcher icon — only on a paired (monitored) device.
-        if (paired) {
-            binding.hideIconButton.visibility = View.VISIBLE
-            binding.hideIconButton.setText(if (store.iconHidden) R.string.show_icon else R.string.hide_icon)
-            binding.hideIconButton.setOnClickListener {
-                if (store.iconHidden) {
-                    setIconHidden(false)
-                    Toast.makeText(this, R.string.icon_shown, Toast.LENGTH_LONG).show()
-                    updatePermissionButtons()
-                } else {
-                    AlertDialog.Builder(this)
-                        .setTitle(R.string.hide_icon_title)
-                        .setMessage(R.string.hide_icon_message)
-                        .setPositiveButton(R.string.confirm) { _, _ ->
-                            setIconHidden(true)
-                            Toast.makeText(this, R.string.icon_hidden, Toast.LENGTH_LONG).show()
-                            updatePermissionButtons()
-                        }
-                        .setNegativeButton(R.string.cancel, null)
-                        .show()
-                }
+        // Hide / show the launcher icon — always available (independent of pairing).
+        binding.hideIconButton.setText(if (store.iconHidden) R.string.show_icon else R.string.hide_icon)
+        binding.hideIconButton.setOnClickListener {
+            if (store.iconHidden) {
+                setIconHidden(false)
+                Toast.makeText(this, R.string.icon_shown, Toast.LENGTH_LONG).show()
+                updatePermissionButtons()
+            } else {
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.hide_icon_title)
+                    .setMessage(R.string.hide_icon_message)
+                    .setPositiveButton(R.string.confirm) { _, _ ->
+                        setIconHidden(true)
+                        Toast.makeText(this, R.string.icon_hidden, Toast.LENGTH_LONG).show()
+                        updatePermissionButtons()
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
             }
-        } else {
-            binding.hideIconButton.visibility = View.GONE
         }
     }
 
@@ -200,12 +196,27 @@ class PairingActivity : AppCompatActivity() {
         }
     }
 
-    /** If the app crashed last time, show the saved stack trace so it can be screenshotted/copied. */
+    /** Auto-show the last crash once, right after it happened. */
     private fun showLastCrashIfAny() {
         val trace = store.lastCrash ?: return
-        store.lastCrash = null
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Last crash — please screenshot or copy")
+        if (store.crashSeen) return
+        store.crashSeen = true
+        showCrashDialog(trace)
+    }
+
+    /** The "View last error log" button — show the last saved crash, or say there is none. */
+    private fun showErrorLog() {
+        val trace = store.lastCrash
+        if (trace == null) {
+            Toast.makeText(this, R.string.no_error, Toast.LENGTH_LONG).show()
+            return
+        }
+        showCrashDialog(trace)
+    }
+
+    private fun showCrashDialog(trace: String) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.last_error_title)
             .setMessage(trace)
             .setPositiveButton("Copy") { _, _ ->
                 val cb = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager

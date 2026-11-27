@@ -17,7 +17,9 @@ class MonitorApp : Application() {
             try {
                 val sw = StringWriter()
                 throwable.printStackTrace(PrintWriter(sw))
-                Store(this).lastCrash = "thread=${thread.name}\n$sw".take(5000)
+                val store = Store(this)
+                store.lastCrash = "thread=${thread.name}\n$sw".take(5000)
+                store.crashSeen = false
             } catch (_: Throwable) {
                 // never let the crash handler itself throw
             }
