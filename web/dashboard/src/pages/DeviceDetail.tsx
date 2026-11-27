@@ -21,6 +21,9 @@ import {
   Trash2,
   Copy,
   Settings,
+  Bell,
+  Search,
+  X,
 } from "lucide-react";
 import {
   api,
@@ -170,6 +173,7 @@ export function DeviceDetail() {
   const [cmdStatus, setCmdStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
+  const [notifSearch, setNotifSearch] = useState("");
   const [pairCode, setPairCode] = useState<string | null>(null);
   const [relinkBusy, setRelinkBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -246,15 +250,27 @@ export function DeviceDetail() {
   const latest = events[0];
   const totalUsageMs = usage.reduce((sum, u) => sum + u.foregroundMs, 0);
 
-  // Build chat threads from ALL messages — on-screen captures carry a direction (two-sided), while
-  // notification captures are shown as incoming bubbles. Both render as the chat-bubble transcript.
-  const onScreenCount = messages.filter((m) => m.payload.source === "chat").length;
-  const conversations = buildConversations(messages);
+  // Chat-bubble transcript comes ONLY from the on-screen (accessibility) reader — those are the
+  // real two-sided chats captured when WhatsApp/Snapchat/TikTok etc. are opened on the phone.
+  const chatMsgs = messages.filter((m) => m.payload.source === "chat");
+  const notifMsgs = messages.filter((m) => m.payload.source !== "chat");
+  const conversations = buildConversations(chatMsgs);
   const activeKey =
     selectedConv && conversations.some((c) => c.key === selectedConv)
       ? selectedConv
       : conversations[0]?.key ?? null;
   const active = conversations.find((c) => c.key === activeKey) ?? null;
+
+  // Notification messages are a separate searchable list (filter by sender name, app or text).
+  const notifQuery = notifSearch.trim().toLowerCase();
+  const notifFiltered = notifQuery
+    ? notifMsgs.filter((m) => {
+        const sender = (m.payload.sender ?? "").toLowerCase();
+        const text = (m.payload.text ?? "").toLowerCase();
+        const app = appName(m.payload.app).toLowerCase();
+        return sender.includes(notifQuery) || text.includes(notifQuery) || app.includes(notifQuery);
+      })
+    : notifMsgs;
 
   const knownApps = Array.from(new Set([...usage.map((u) => u.packageName), ...blocked])).sort();
   async function toggleBlock(pkg: string) {
@@ -330,15 +346,20 @@ export function DeviceDetail() {
       <section className="panel" data-testid="messages">
         <div className="panel-head">
           <MessageSquare size={16} />
-          <h2>Messages</h2>
+          <h2>Chats</h2>
           {conversations.length > 0 && (
             <span className="panel-head-meta">
-              {conversations.length} {conversations.length === 1 ? "chat" : "chats"} · {onScreenCount} on-screen
+              from screen reader · {conversations.length} {conversations.length === 1 ? "chat" : "chats"}
             </span>
           )}
         </div>
 
-        {conversations.length === 0 && <p className="panel-empty">No messages captured yet.</p>}
+        {conversations.length === 0 && (
+          <p className="panel-empty">
+            No on-screen chats yet. These are read when WhatsApp, Snapchat, TikTok, Telegram, etc. are
+            opened on the phone — turn on <strong>Accessibility</strong> for Monitor on the phone to capture them.
+          </p>
+        )}
 
         {conversations.length > 0 && (
           <div className="chat" data-testid="chat">
@@ -402,6 +423,54 @@ export function DeviceDetail() {
               )}
             </div>
           </div>
+        )}
+      </section>
+
+      <section className="panel" data-testid="notifications">
+        <div className="panel-head">
+          <Bell size={16} />
+          <h2>Message notifications</h2>
+          {notifMsgs.length > 0 && (
+            <span className="panel-head-meta">
+              {notifMsgs.length} {notifMsgs.length === 1 ? "notification" : "notifications"}
+            </span>
+          )}
+        </div>
+        {notifMsgs.length === 0 ? (
+          <p className="panel-empty">No message notifications captured yet.</p>
+        ) : (
+          <>
+            <div className="search-box">
+              <Search size={15} />
+              <input
+                type="text"
+                placeholder="Search by name, app or text…"
+                value={notifSearch}
+                onChange={(e) => setNotifSearch(e.target.value)}
+              />
+              {notifSearch && (
+                <button className="search-clear" onClick={() => setNotifSearch("")} aria-label="Clear">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            {notifFiltered.length === 0 ? (
+              <p className="panel-empty">No notifications match "{notifSearch}".</p>
+            ) : (
+              <ul className="messages-list" data-testid="notif-list">
+                {notifFiltered.map((m) => (
+                  <li key={m.id} className="message-item">
+                    <div className="msg-head">
+                      <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
+                      <span className="msg-app">{appName(m.payload.app)}</span>
+                      <span className="msg-time">{new Date(m.capturedAt).toLocaleString()}</span>
+                    </div>
+                    <div className="msg-text">{m.payload.text}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </section>
 
