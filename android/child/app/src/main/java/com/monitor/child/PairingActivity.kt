@@ -79,10 +79,27 @@ class PairingActivity : AppCompatActivity() {
         } else {
             binding.notifAccessButton.visibility = View.GONE
         }
+
+        if (paired && !hasAccessibilityAccess()) {
+            binding.accessibilityButton.visibility = View.VISIBLE
+            binding.accessibilityButton.setOnClickListener {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        } else {
+            binding.accessibilityButton.visibility = View.GONE
+        }
     }
 
     private fun hasNotificationAccess(): Boolean =
         NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+
+    private fun hasAccessibilityAccess(): Boolean {
+        val enabled = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+        ) ?: return false
+        return enabled.split(":").any { it.startsWith("$packageName/") }
+    }
 
     private fun attemptPair() {
         if (!binding.consentCheckbox.isChecked) {

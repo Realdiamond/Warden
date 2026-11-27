@@ -71,9 +71,11 @@ class Api(private val baseUrl: String) {
         sender: String?,
         text: String,
         capturedAt: String,
+        source: String? = null,
     ): Boolean = withContext(Dispatchers.IO) {
         val payload = JSONObject().put("app", app).put("text", text)
         if (sender != null) payload.put("sender", sender)
+        if (source != null) payload.put("source", source)
         val body = JSONObject()
             .put("kind", "message")
             .put("capturedAt", capturedAt)

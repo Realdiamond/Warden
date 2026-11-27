@@ -45,7 +45,7 @@ class MessageListener : NotificationListenerService() {
 
         val capturedAt = Instant.now().toString()
         scope.launch {
-            Api(store.baseUrl).postMessage(token, pkg, sender, text, capturedAt)
+            Api(store.baseUrl).postMessage(token, pkg, sender, text, capturedAt, source = "notification")
         }
     }
 

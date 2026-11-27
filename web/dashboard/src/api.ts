@@ -27,6 +27,7 @@ export interface MessagePayload {
   app: string;
   sender?: string;
   text: string;
+  source?: string; // "notification" | "chat"
 }
 
 export interface AppUsagePayload {

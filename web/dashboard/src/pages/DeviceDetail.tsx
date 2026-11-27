@@ -170,6 +170,7 @@ export function DeviceDetail() {
                 <div className="msg-head">
                   <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
                   <span className="msg-app muted">{appName(m.payload.app)}</span>
+                  {m.payload.source === "chat" && <span className="msg-src">on-screen</span>}
                   <span className="msg-time muted">{new Date(m.capturedAt).toLocaleString()}</span>
                 </div>
                 <div className="msg-text">{m.payload.text}</div>

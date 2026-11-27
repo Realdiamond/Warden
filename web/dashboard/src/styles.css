@@ -307,6 +307,14 @@ input {
 .msg-sender {
   font-weight: 600;
 }
+.msg-src {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4458c8;
+}
 .msg-time {
   margin-left: auto;
 }

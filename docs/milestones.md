@@ -27,6 +27,18 @@ Progress log for Monitor. Newest first.
 - Scope note: call *history* only — call audio/recording is not available to a normal app on
   modern Android.
 
+## Stage 3b — On-screen chat reader (built, needs device testing)
+
+- Monitored app: `ChatReaderService` (AccessibilityService) reads messages from the screen in
+  WhatsApp/Telegram/Messenger as chats are opened/scrolled; reports them as `message` events with
+  source "chat" (notification-captured ones are source "notification").
+- Deduped via a bounded LRU so the same visible messages aren't re-sent on every scroll.
+- Pairing screen links to Accessibility settings to grant it.
+- Dashboard tags on-screen-captured messages with an "on-screen" badge.
+- Honest limits: only what is opened on screen (not archived/unopened chats, not the stored DB);
+  depends on each app's on-screen layout (view ids), so it needs testing + tuning on a real phone.
+- Builds cleanly; behaviour must be verified on-device.
+
 ## Stage 3 — Messages (done)
 
 - Monitored app: `MessageListener` (NotificationListenerService) captures incoming message
