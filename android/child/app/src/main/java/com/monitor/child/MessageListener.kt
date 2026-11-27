@@ -9,6 +9,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.util.Collections
 
 /**
  * Captures incoming message notifications (sender + text) from common messaging apps and reports
@@ -22,6 +23,14 @@ class MessageListener : NotificationListenerService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var store: Store
+
+    // Bounded set of recently-sent fingerprints so re-posted notifications aren't duplicated.
+    private val recent: MutableSet<String> = Collections.newSetFromMap(
+        object : LinkedHashMap<String, Boolean>(256, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean =
+                size > 300
+        },
+    )
 
     override fun onCreate() {
         super.onCreate()
@@ -38,10 +47,18 @@ class MessageListener : NotificationListenerService() {
         val pkg = sbn.packageName ?: return
         if (pkg == packageName || pkg !in MESSAGING_APPS) return
 
+        // Skip WhatsApp's "N new messages" roll-up summary notifications.
+        if ((sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
+
         val extras = sbn.notification.extras
         val sender = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-        if (text.isNullOrBlank()) return
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+        if (text.isNullOrBlank() || NOISE.matches(text)) return
+
+        // De-duplicate: WhatsApp re-posts the same notification as a chat updates.
+        synchronized(recent) {
+            if (!recent.add("$pkg|$sender|$text")) return
+        }
 
         val capturedAt = Instant.now().toString()
         scope.launch {
@@ -50,6 +67,12 @@ class MessageListener : NotificationListenerService() {
     }
 
     companion object {
+        // WhatsApp/others post summary texts like "3 new messages" — not real content.
+        private val NOISE = Regex(
+            "^(\\d+ new messages?|\\d+ messages? from \\d+ chats?|checking for new messages\\.?|you have new messages|new message)$",
+            RegexOption.IGNORE_CASE,
+        )
+
         private val MESSAGING_APPS = setOf(
             "com.whatsapp",
             "com.whatsapp.w4b",

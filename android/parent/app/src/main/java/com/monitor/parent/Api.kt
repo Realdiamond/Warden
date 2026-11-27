@@ -22,6 +22,21 @@ data class LocationEvent(
     val capturedAt: String,
 )
 
+data class MessageItem(
+    val app: String,
+    val sender: String?,
+    val text: String,
+    val source: String?,
+    val capturedAt: String,
+)
+
+data class CallItem(
+    val number: String?,
+    val direction: String,
+    val durationSec: Long,
+    val capturedAt: String,
+)
+
 class Api(private val baseUrl: String, private val token: String? = null) {
 
     suspend fun authenticate(email: String, password: String, signup: Boolean): AuthResult =
@@ -65,6 +80,43 @@ class Api(private val baseUrl: String, private val token: String? = null) {
                     p.getDouble("lat"),
                     p.getDouble("lon"),
                     if (p.has("accuracyM")) p.getDouble("accuracyM") else null,
+                    o.getString("capturedAt"),
+                )
+            }
+        }
+
+    suspend fun messages(deviceId: String, limit: Int = 100): List<MessageItem> =
+        withContext(Dispatchers.IO) {
+            val path = "/v1/devices/" + URLEncoder.encode(deviceId, "UTF-8") + "/events?kind=message&limit=" + limit
+            val (code, text) = request("GET", path, null)
+            if (code !in 200..299) return@withContext emptyList()
+            val arr = JSONObject(text).getJSONArray("events")
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val p = o.optJSONObject("payload") ?: return@mapNotNull null
+                MessageItem(
+                    p.optString("app"),
+                    p.optStringOrNull("sender"),
+                    p.optString("text"),
+                    p.optStringOrNull("source"),
+                    o.getString("capturedAt"),
+                )
+            }
+        }
+
+    suspend fun calls(deviceId: String, limit: Int = 100): List<CallItem> =
+        withContext(Dispatchers.IO) {
+            val path = "/v1/devices/" + URLEncoder.encode(deviceId, "UTF-8") + "/events?kind=call&limit=" + limit
+            val (code, text) = request("GET", path, null)
+            if (code !in 200..299) return@withContext emptyList()
+            val arr = JSONObject(text).getJSONArray("events")
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val p = o.optJSONObject("payload") ?: return@mapNotNull null
+                CallItem(
+                    p.optStringOrNull("number"),
+                    p.optString("direction"),
+                    p.optLong("durationSec"),
                     o.getString("capturedAt"),
                 )
             }

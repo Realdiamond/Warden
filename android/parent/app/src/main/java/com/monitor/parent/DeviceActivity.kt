@@ -40,16 +40,37 @@ class DeviceActivity : AppCompatActivity() {
         val token = store.token ?: return
         binding.status.text = getString(R.string.loading)
         lifecycleScope.launch {
-            val events = Api(store.baseUrl, token).locationEvents(deviceId, 200)
+            val api = Api(store.baseUrl, token)
+            val events = api.locationEvents(deviceId, 200)
+            val msgs = api.messages(deviceId, 100)
+            val calls = api.calls(deviceId, 100)
+
+            binding.status.text = ""
+
+            binding.messages.text = if (msgs.isEmpty()) {
+                getString(R.string.none)
+            } else {
+                msgs.joinToString("\n\n") { m ->
+                    val tag = if (m.source == "chat") " · on-screen" else ""
+                    "${m.sender ?: "Unknown"} · ${appLabel(m.app)}$tag\n${m.text}"
+                }
+            }
+
+            binding.calls.text = if (calls.isEmpty()) {
+                getString(R.string.none)
+            } else {
+                calls.joinToString("\n") { c ->
+                    "${c.direction}  ${c.number ?: "Unknown"}  ${c.durationSec}s"
+                }
+            }
+
             latest = events.firstOrNull()
             val first = events.firstOrNull()
             if (first == null) {
-                binding.status.text = getString(R.string.no_location)
-                binding.latest.text = ""
-                binding.history.text = ""
+                binding.latest.text = getString(R.string.no_location)
+                binding.history.text = getString(R.string.none)
                 binding.openMap.isEnabled = false
             } else {
-                binding.status.text = ""
                 binding.latest.text = getString(R.string.latest_fmt, first.lat, first.lon, first.capturedAt)
                 binding.openMap.isEnabled = true
                 binding.history.text = events.joinToString("\n") {
@@ -58,4 +79,6 @@ class DeviceActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun appLabel(pkg: String): String = pkg.substringAfterLast('.')
 }

@@ -125,6 +125,27 @@ export function DeviceDetail() {
       {error && <p className="error">{error}</p>}
 
       <section className="panel">
+        <h2>Messages</h2>
+        {messages.length === 0 ? (
+          <p className="muted">No messages captured yet.</p>
+        ) : (
+          <ul className="messages" data-testid="messages">
+            {messages.map((m) => (
+              <li key={m.id}>
+                <div className="msg-head">
+                  <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
+                  <span className="msg-app muted">{appName(m.payload.app)}</span>
+                  {m.payload.source === "chat" && <span className="msg-src">on-screen</span>}
+                  <span className="msg-time muted">{new Date(m.capturedAt).toLocaleString()}</span>
+                </div>
+                <div className="msg-text">{m.payload.text}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="panel">
         <h2>Location</h2>
         {latest ? (
           <p className="muted" data-testid="latest-loc">
@@ -192,27 +213,6 @@ export function DeviceDetail() {
                 <span className="call-num">{c.payload.number ?? "Unknown"}</span>
                 <span className="muted">{formatCallDuration(c.payload.durationSec)}</span>
                 <span className="call-time muted">{new Date(c.capturedAt).toLocaleString()}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="panel">
-        <h2>Messages</h2>
-        {messages.length === 0 ? (
-          <p className="muted">No messages captured yet.</p>
-        ) : (
-          <ul className="messages" data-testid="messages">
-            {messages.map((m) => (
-              <li key={m.id}>
-                <div className="msg-head">
-                  <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
-                  <span className="msg-app muted">{appName(m.payload.app)}</span>
-                  {m.payload.source === "chat" && <span className="msg-src">on-screen</span>}
-                  <span className="msg-time muted">{new Date(m.capturedAt).toLocaleString()}</span>
-                </div>
-                <div className="msg-text">{m.payload.text}</div>
               </li>
             ))}
           </ul>
