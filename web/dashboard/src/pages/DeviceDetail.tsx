@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -24,6 +24,9 @@ import {
   Bell,
   Search,
   X,
+  Sun,
+  ChevronLeft,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -37,13 +40,20 @@ import {
 } from "../api.ts";
 import { LocationMap, type Point } from "../components/LocationMap.tsx";
 import { LiveScreen } from "../components/LiveScreen.tsx";
+import {
+  appName,
+  avatarHue,
+  dayLabel,
+  formatCallDuration,
+  formatDuration,
+  initial,
+  metersBetween,
+  pluralize,
+  presence,
+  shortTime,
+} from "../lib/format.ts";
 
-function formatCallDuration(sec: number): string {
-  if (sec <= 0) return "—";
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return m ? `${m}m ${s}s` : `${s}s`;
-}
+/* ---------------------------------------------------------------- data shaping */
 
 interface UsageRow {
   packageName: string;
@@ -60,31 +70,10 @@ function aggregateUsage(events: EventEnvelope<AppUsagePayload>[]): UsageRow[] {
     .sort((a, b) => b.foregroundMs - a.foregroundMs);
 }
 
-function formatDuration(ms: number): string {
-  const min = Math.round(ms / 60_000);
-  if (min < 1) return "<1 min";
-  if (min < 60) return `${min} min`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m ? `${h} h ${m} min` : `${h} h`;
-}
-
-const APP_NAMES: Record<string, string> = {
-  "com.whatsapp": "WhatsApp",
-  "com.whatsapp.w4b": "WhatsApp Business",
-  "org.telegram.messenger": "Telegram",
-  "com.facebook.orca": "Messenger",
-  "com.instagram.android": "Instagram",
-  "com.snapchat.android": "Snapchat",
-  "com.zhiliaoapp.musically": "TikTok",
-  "com.ss.android.ugc.trill": "TikTok",
-  "org.thoughtcrime.securesms": "Signal",
-};
-
-function appName(pkg: string): string {
-  if (APP_NAMES[pkg]) return APP_NAMES[pkg];
-  const parts = pkg.split(".");
-  return parts[parts.length - 1] || pkg;
+function callIcon(direction: string) {
+  if (direction === "incoming") return <PhoneIncoming size={16} />;
+  if (direction === "outgoing") return <PhoneOutgoing size={16} />;
+  return <PhoneMissed size={16} />;
 }
 
 interface ChatMsg {
@@ -100,16 +89,20 @@ interface Conversation {
   key: string;
   name: string;
   app: string;
-  messages: ChatMsg[]; // ascending by time
+  messages: ChatMsg[];
   last: ChatMsg;
 }
 
-/** Group on-screen ("chat") captures into conversation threads, most-recent thread first. */
+function convKeyOf(app: string, name: string): string {
+  return `${app}|${name}`;
+}
+
+/** Group on-screen captures into conversation threads, most recent thread first. */
 function buildConversations(chat: EventEnvelope<MessagePayload>[]): Conversation[] {
   const byKey = new Map<string, ChatMsg[]>();
   for (const m of chat) {
     const name = m.payload.conversation ?? m.payload.sender ?? "Unknown";
-    const key = `${m.payload.app}|${name}`;
+    const key = convKeyOf(m.payload.app, name);
     const cm: ChatMsg = {
       id: m.id,
       text: m.payload.text,
@@ -130,35 +123,172 @@ function buildConversations(chat: EventEnvelope<MessagePayload>[]): Conversation
     .sort((a, b) => b.last.at.localeCompare(a.last.at));
 }
 
-function initial(name: string): string {
-  const c = name.trim()[0];
-  return c ? c.toUpperCase() : "?";
+/* ---------------------------------------------------------------- today timeline */
+
+type Kind = "chat" | "call" | "place" | "alert";
+
+interface TlItem {
+  id: string;
+  at: string;
+  hour: number;
+  kind: Kind;
+  title: string;
+  tag?: string;
+  sub?: string;
+  count?: number;
+  convKey?: string;
 }
 
-function shortTime(at: string): string {
-  return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const KIND_META: Record<Kind, { label: string; icon: LucideIcon; color: string }> = {
+  chat: { label: "Chats", icon: MessageSquare, color: "var(--t-chat)" },
+  call: { label: "Calls", icon: Phone, color: "var(--t-call)" },
+  place: { label: "Places", icon: MapPin, color: "var(--t-place)" },
+  alert: { label: "Notifications", icon: Bell, color: "var(--t-alert)" },
+};
+
+const KINDS: Kind[] = ["chat", "call", "place", "alert"];
+
+function dayBounds(offset: number): [number, number, Date] {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() + offset);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return [start.getTime(), end.getTime(), start];
 }
 
-function dayLabel(at: string): string {
-  const d = new Date(at);
-  const today = new Date();
-  const yest = new Date();
-  yest.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === yest.toDateString()) return "Yesterday";
-  return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+const CALL_WORDS: Record<string, string> = {
+  incoming: "Incoming call",
+  outgoing: "Outgoing call",
+  missed: "Missed call",
+  rejected: "Declined call",
+};
+
+/** Every captured event inside the chosen day as a flat list (not yet grouped or filtered). */
+function buildRaw(
+  [from, to]: [number, number, Date],
+  messages: EventEnvelope<MessagePayload>[],
+  calls: EventEnvelope<CallPayload>[],
+  locations: EventEnvelope<LocationPayload>[],
+): TlItem[] {
+  const inDay = (at: string) => {
+    const t = new Date(at).getTime();
+    return t >= from && t < to;
+  };
+  const items: TlItem[] = [];
+
+  for (const m of messages) {
+    if (!inDay(m.capturedAt)) continue;
+    const p = m.payload;
+    const hour = new Date(m.capturedAt).getHours();
+    if (p.source === "chat") {
+      const name = p.conversation ?? p.sender ?? "Unknown";
+      items.push({
+        id: m.id,
+        at: m.capturedAt,
+        hour,
+        kind: "chat",
+        title: name,
+        tag: appName(p.app),
+        sub: `${p.direction === "out" ? "You: " : ""}${p.text}`,
+        convKey: convKeyOf(p.app, name),
+      });
+    } else {
+      items.push({
+        id: m.id,
+        at: m.capturedAt,
+        hour,
+        kind: "alert",
+        title: p.sender ?? "Unknown",
+        tag: `${appName(p.app)} notification`,
+        sub: p.text,
+      });
+    }
+  }
+
+  for (const c of calls) {
+    if (!inDay(c.capturedAt)) continue;
+    const p = c.payload;
+    const word = CALL_WORDS[p.direction] ?? "Call";
+    const answered = p.durationSec > 0;
+    items.push({
+      id: c.id,
+      at: c.capturedAt,
+      hour: new Date(c.capturedAt).getHours(),
+      kind: "call",
+      title: p.name ?? p.number ?? "Unknown number",
+      tag: answered ? `${word}, ${formatCallDuration(p.durationSec)}` : word,
+      sub: p.name && p.number ? p.number : undefined,
+    });
+  }
+
+  // Locations: keep a point only when the phone has moved a meaningful distance, so the timeline
+  // shows "went somewhere", not a fix every minute.
+  const asc = locations.filter((l) => inDay(l.capturedAt)).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+  let last: { lat: number; lon: number } | null = null;
+  for (const l of asc) {
+    const here = { lat: l.payload.lat, lon: l.payload.lon };
+    if (last && metersBetween(last, here) < 75) continue;
+    items.push({
+      id: l.id,
+      at: l.capturedAt,
+      hour: new Date(l.capturedAt).getHours(),
+      kind: "place",
+      title: last ? "Moved to a new spot" : "First location of the day",
+      sub: `${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}`,
+    });
+    last = here;
+  }
+  return items;
 }
 
-/** A stable hue per conversation name, for the avatar chip. */
-function avatarHue(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
-  return h;
+/** Newest first; runs of messages in the same chat (within 30 minutes) fold into one row. */
+function groupForDisplay(items: TlItem[]): TlItem[] {
+  const sorted = [...items].sort((a, b) => b.at.localeCompare(a.at));
+  const out: TlItem[] = [];
+  for (const it of sorted) {
+    const prev = out[out.length - 1];
+    if (
+      it.kind === "chat" &&
+      prev &&
+      prev.kind === "chat" &&
+      prev.convKey === it.convKey &&
+      new Date(prev.at).getTime() - new Date(it.at).getTime() < 30 * 60_000
+    ) {
+      prev.count = (prev.count ?? 1) + 1;
+      continue;
+    }
+    out.push({ ...it, count: it.kind === "chat" ? 1 : undefined });
+  }
+  return out;
 }
 
-type TabId = "chats" | "notifications" | "calls" | "location" | "apps" | "live" | "device";
+function joinList(parts: string[]): string {
+  if (parts.length <= 1) return parts[0] ?? "";
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+function summarize(counts: Record<Kind, number>): string {
+  const parts: string[] = [];
+  if (counts.chat) parts.push(pluralize(counts.chat, "chat message"));
+  if (counts.alert) parts.push(pluralize(counts.alert, "notification"));
+  if (counts.call) parts.push(pluralize(counts.call, "call"));
+  if (counts.place) parts.push(pluralize(counts.place, "location update"));
+  return parts.length ? `${joinList(parts)}.` : "Nothing captured for this day.";
+}
+
+function hourLabel(h: number): string {
+  const d = new Date();
+  d.setHours(h, 0, 0, 0);
+  return d.toLocaleTimeString([], { hour: "numeric" });
+}
+
+/* ---------------------------------------------------------------- navigation */
+
+type TabId = "today" | "chats" | "notifications" | "calls" | "location" | "apps" | "live" | "device";
 
 const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
+  { id: "today", label: "Today", icon: Sun },
   { id: "chats", label: "Chats", icon: MessageSquare },
   { id: "notifications", label: "Alerts", icon: Bell },
   { id: "calls", label: "Calls", icon: Phone },
@@ -168,11 +298,9 @@ const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "device", label: "Device", icon: Settings },
 ];
 
-function callIcon(direction: string) {
-  if (direction === "incoming") return <PhoneIncoming size={15} />;
-  if (direction === "outgoing") return <PhoneOutgoing size={15} />;
-  return <PhoneMissed size={15} />;
-}
+const PAGE = 40;
+
+/* ---------------------------------------------------------------- page */
 
 export function DeviceDetail() {
   const { id = "" } = useParams();
@@ -188,48 +316,16 @@ export function DeviceDetail() {
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [notifSearch, setNotifSearch] = useState("");
   const [callSearch, setCallSearch] = useState("");
-  const [tab, setTab] = useState<TabId>("chats");
+  const [tab, setTab] = useState<TabId>("today");
   const [pairCode, setPairCode] = useState<string | null>(null);
   const [relinkBusy, setRelinkBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  async function relink() {
-    setRelinkBusy(true);
-    try {
-      const r = await api.relinkDevice(id);
-      setPairCode(r.pairCode);
-      await load();
-    } catch {
-      setError("Could not generate a pairing code.");
-    } finally {
-      setRelinkBusy(false);
-    }
-  }
-
-  async function removeDevice() {
-    const name = device?.name ?? "this device";
-    if (!window.confirm(`Delete ${name}? This removes the device and all of its captured data. This cannot be undone.`)) {
-      return;
-    }
-    setDeleteBusy(true);
-    try {
-      await api.deleteDevice(id);
-      navigate("/devices");
-    } catch {
-      setError("Could not delete the device.");
-      setDeleteBusy(false);
-    }
-  }
-
-  async function sendCmd(type: "lock" | "unlock") {
-    setCmdStatus("Sending…");
-    try {
-      await api.sendCommand(id, type);
-      setCmdStatus(`"${type}" sent — the phone applies it within about a minute.`);
-    } catch {
-      setCmdStatus("Could not send the command.");
-    }
-  }
+  // Today tab state
+  const [dayOffset, setDayOffset] = useState(0);
+  const [hour, setHour] = useState<number | null>(null);
+  const [kindFilter, setKindFilter] = useState<Kind | "all">("all");
+  const [visible, setVisible] = useState(PAGE);
 
   const load = useCallback(async () => {
     try {
@@ -237,7 +333,7 @@ export function DeviceDetail() {
         api.getDevice(id),
         api.getEvents(id, "location", 200),
         api.getEvents(id, "app_usage", 500),
-        api.getEvents(id, "message", 100),
+        api.getEvents(id, "message", 200),
         api.getEvents(id, "call", 100),
       ]);
       setDevice(d.device);
@@ -246,8 +342,9 @@ export function DeviceDetail() {
       setUsage(aggregateUsage(u.events as EventEnvelope<AppUsagePayload>[]));
       setMessages(m.events as EventEnvelope<MessagePayload>[]);
       setCalls(c.events as EventEnvelope<CallPayload>[]);
+      setError(null);
     } catch {
-      setError("Could not load this device.");
+      setError("Could not load this device. Check your connection and refresh.");
     }
   }, [id]);
 
@@ -257,37 +354,68 @@ export function DeviceDetail() {
     return () => clearInterval(t);
   }, [load]);
 
-  const points: Point[] = events.map((e) => ({
-    lat: e.payload.lat,
-    lon: e.payload.lon,
-    capturedAt: e.capturedAt,
-  }));
-  const latest = events[0];
-  const totalUsageMs = usage.reduce((sum, u) => sum + u.foregroundMs, 0);
+  async function sendCmd(type: "lock" | "unlock") {
+    setCmdStatus("Sending…");
+    try {
+      await api.sendCommand(id, type);
+      setCmdStatus(`"${type}" sent. The phone applies it within about a minute.`);
+    } catch {
+      setCmdStatus("Could not send the command. Try again.");
+    }
+  }
 
-  // Chat-bubble transcript comes ONLY from the on-screen (accessibility) reader — those are the
-  // real two-sided chats captured when WhatsApp/Snapchat/TikTok etc. are opened on the phone.
-  const chatMsgs = messages.filter((m) => m.payload.source === "chat");
-  const notifMsgs = messages.filter((m) => m.payload.source !== "chat");
-  const conversations = buildConversations(chatMsgs);
+  async function relink() {
+    setRelinkBusy(true);
+    try {
+      const r = await api.relinkDevice(id);
+      setPairCode(r.pairCode);
+      await load();
+    } catch {
+      setError("Could not generate a pairing code. Try again.");
+    } finally {
+      setRelinkBusy(false);
+    }
+  }
+
+  async function removeDevice() {
+    const name = device?.name ?? "this device";
+    if (!window.confirm(`Delete ${name}? This removes the device and everything it reported. This can't be undone.`)) {
+      return;
+    }
+    setDeleteBusy(true);
+    try {
+      await api.deleteDevice(id);
+      navigate("/devices");
+    } catch {
+      setError("Could not delete the device. Try again.");
+      setDeleteBusy(false);
+    }
+  }
+
+  const points: Point[] = useMemo(
+    () => events.map((e) => ({ lat: e.payload.lat, lon: e.payload.lon, capturedAt: e.capturedAt })),
+    [events],
+  );
+  const latest = events[0];
+
+  const chatMsgs = useMemo(() => messages.filter((m) => m.payload.source === "chat"), [messages]);
+  const notifMsgs = useMemo(() => messages.filter((m) => m.payload.source !== "chat"), [messages]);
+  const conversations = useMemo(() => buildConversations(chatMsgs), [chatMsgs]);
   const activeKey =
     selectedConv && conversations.some((c) => c.key === selectedConv)
       ? selectedConv
       : conversations[0]?.key ?? null;
   const active = conversations.find((c) => c.key === activeKey) ?? null;
 
-  // Notification messages are a separate searchable list (filter by sender name, app or text).
   const notifQuery = notifSearch.trim().toLowerCase();
   const notifFiltered = notifQuery
     ? notifMsgs.filter((m) => {
         const sender = (m.payload.sender ?? "").toLowerCase();
         const text = (m.payload.text ?? "").toLowerCase();
-        const app = appName(m.payload.app).toLowerCase();
-        return sender.includes(notifQuery) || text.includes(notifQuery) || app.includes(notifQuery);
+        return sender.includes(notifQuery) || text.includes(notifQuery) || appName(m.payload.app).toLowerCase().includes(notifQuery);
       })
     : notifMsgs;
 
-  // Calls are searchable by contact name or number.
   const callQuery = callSearch.trim().toLowerCase();
   const callsFiltered = callQuery
     ? calls.filter((c) => {
@@ -309,455 +437,583 @@ export function DeviceDetail() {
     }
   }
 
+  /* Today: raw events for the chosen day, the per-hour ribbon, then filtered + grouped rows. */
+  const bounds = useMemo(() => dayBounds(dayOffset), [dayOffset]);
+  const raw = useMemo(() => buildRaw(bounds, messages, calls, events), [bounds, messages, calls, events]);
+  const perHour = useMemo(() => {
+    const a = new Array<number>(24).fill(0);
+    for (const it of raw) a[it.hour]++;
+    return a;
+  }, [raw]);
+  const maxHour = Math.max(1, ...perHour);
+  const kindCounts = useMemo(() => {
+    const c: Record<Kind, number> = { chat: 0, call: 0, place: 0, alert: 0 };
+    for (const it of raw) c[it.kind]++;
+    return c;
+  }, [raw]);
+  const rows = useMemo(
+    () =>
+      groupForDisplay(
+        raw.filter((it) => (hour === null || it.hour === hour) && (kindFilter === "all" || it.kind === kindFilter)),
+      ),
+    [raw, hour, kindFilter],
+  );
+  const nowHour = dayOffset === 0 ? new Date().getHours() : -1;
+
+  function stepDay(delta: number) {
+    setDayOffset((o) => Math.min(0, o + delta));
+    setHour(null);
+    setVisible(PAGE);
+  }
+
+  const pres = presence(device?.lastSeenAt);
+  const tabCount: Partial<Record<TabId, number>> = {
+    chats: conversations.length,
+    notifications: notifMsgs.length,
+    calls: calls.length,
+  };
+
   return (
     <div>
       <Link to="/devices" className="back-link">
-        <ArrowLeft size={14} />
+        <ArrowLeft size={15} />
         All devices
       </Link>
 
-      <div className="page-header">
-        <div className="page-header-text">
-          <h1>{device?.name ?? "Device"}</h1>
-          <div className="status-row">
-            <span className={`badge ${device?.pairedAt ? "ok" : "pending"}`}>
-              {device?.pairedAt ? <CheckCircle2 /> : <Clock />}
-              {device?.pairedAt ? "Paired" : "Awaiting pairing"}
-            </span>
-            <span className={`badge ${device?.consentAcceptedAt ? "ok" : "pending"}`}>
-              <KeyRound />
-              {device?.consentAcceptedAt ? "Consent recorded" : "No consent"}
-            </span>
-            <span className="muted mono" style={{ fontSize: "0.82rem" }}>
-              {device?.lastSeenAt ? `Last seen ${new Date(device.lastSeenAt).toLocaleString()}` : "Never seen"}
-            </span>
-          </div>
+      <header className="masthead">
+        <h1>{device?.name ?? "Device"}</h1>
+        <div className={`presence ${pres.live ? "live" : ""}`}>
+          <span className="presence-dot" />
+          {pres.label}
         </div>
-      </div>
+        <div className="status-row">
+          <span className={`badge ${device?.pairedAt ? "ok" : "pending"}`}>
+            {device?.pairedAt ? <CheckCircle2 /> : <Clock />}
+            {device?.pairedAt ? "Paired" : "Waiting for the phone"}
+          </span>
+          <span className={`badge ${device?.consentAcceptedAt ? "ok" : "pending"}`}>
+            <KeyRound />
+            {device?.consentAcceptedAt ? "Consent recorded" : "No consent yet"}
+          </span>
+        </div>
+      </header>
 
       {error && <p className="error">{error}</p>}
 
-      <div className="stat-grid">
-        <div className="stat-card">
-          <span className="stat-icon violet">
-            <MessageSquare size={15} />
-          </span>
-          <span className="stat-value">{messages.length}</span>
-          <span className="stat-label">Messages captured</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-icon blue">
-            <Phone size={15} />
-          </span>
-          <span className="stat-value">{calls.length}</span>
-          <span className="stat-label">Calls logged</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-icon amber">
-            <AppWindow size={15} />
-          </span>
-          <span className="stat-value">{formatDuration(totalUsageMs)}</span>
-          <span className="stat-label">Screen time today</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-icon emerald">
-            <MapPin size={15} />
-          </span>
-          <span className="stat-value">{points.length}</span>
-          <span className="stat-label">Location fixes</span>
-        </div>
-      </div>
-
       <div className="device-layout">
-      <nav className="device-nav" data-testid="device-nav">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.id}
-              className={`device-nav-item ${tab === t.id ? "active" : ""}`}
-              onClick={() => setTab(t.id)}
-            >
-              <Icon size={18} />
-              <span>{t.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+        <nav className="device-nav" data-testid="device-nav" aria-label="Device sections">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            const count = tabCount[t.id];
+            return (
+              <button
+                key={t.id}
+                className={`device-nav-item ${tab === t.id ? "active" : ""}`}
+                onClick={() => setTab(t.id)}
+                aria-current={tab === t.id ? "page" : undefined}
+              >
+                <Icon size={18} />
+                <span>{t.label}</span>
+                {count ? <span className="nav-count">{count}</span> : null}
+              </button>
+            );
+          })}
+        </nav>
 
-      <div className="device-body">
-        {tab === "chats" && (
-      <section className="panel" data-testid="messages">
-        <div className="panel-head">
-          <MessageSquare size={16} />
-          <h2>Chats</h2>
-          {conversations.length > 0 && (
-            <span className="panel-head-meta">
-              from screen reader · {conversations.length} {conversations.length === 1 ? "chat" : "chats"}
-            </span>
-          )}
-        </div>
+        <div className="device-body">
+          {/* ------------------------------------------------------------- Today */}
+          {tab === "today" && (
+            <section className="panel" data-testid="today">
+              <div className="today-head">
+                <div>
+                  <h2>{dayLabel(bounds[2])}</h2>
+                  <p className="today-summary">{summarize(kindCounts)}</p>
+                </div>
+                <div className="day-step">
+                  <button className="secondary" aria-label="Previous day" onClick={() => stepDay(-1)}>
+                    <ChevronLeft size={17} />
+                  </button>
+                  <button className="secondary" aria-label="Next day" onClick={() => stepDay(1)} disabled={dayOffset === 0}>
+                    <ChevronRight size={17} />
+                  </button>
+                </div>
+              </div>
 
-        {conversations.length === 0 && (
-          <p className="panel-empty">
-            No on-screen chats yet. These are read when WhatsApp, Snapchat, TikTok, Telegram, etc. are
-            opened on the phone — turn on <strong>Accessibility</strong> for Monitor on the phone to capture them.
-          </p>
-        )}
+              <div className="ribbon" data-testid="ribbon">
+                <div className="ribbon-bars" role="group" aria-label="Activity by hour. Choose an hour to filter the timeline.">
+                  {perHour.map((count, h) => {
+                    const pct = count === 0 ? 0 : Math.max(14, Math.round((count / maxHour) * 100));
+                    const text = `${hourLabel(h)}: ${pluralize(count, "event")}`;
+                    return (
+                      <button
+                        key={h}
+                        className={`ribbon-col ${count ? "busy" : ""} ${hour === h ? "selected" : ""} ${h === nowHour ? "now" : ""}`}
+                        disabled={count === 0}
+                        aria-pressed={hour === h}
+                        aria-label={text}
+                        title={text}
+                        onClick={() => {
+                          setHour(hour === h ? null : h);
+                          setVisible(PAGE);
+                        }}
+                      >
+                        <span className="ribbon-fill" style={{ height: `${pct}%` }} />
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="ribbon-axis" aria-hidden="true">
+                  <span>12 am</span>
+                  <span>6 am</span>
+                  <span>12 pm</span>
+                  <span>6 pm</span>
+                </div>
+              </div>
 
-        {conversations.length > 0 && (
-          <div className="chat" data-testid="chat">
-            <aside className="chat-list">
-              {conversations.map((c) => (
-                <button
-                  key={c.key}
-                  className={`conv ${c.key === activeKey ? "active" : ""}`}
-                  onClick={() => setSelectedConv(c.key)}
-                >
-                  <span className="conv-avatar" style={{ background: `hsl(${avatarHue(c.name)} 55% 42%)` }}>
-                    {initial(c.name)}
-                  </span>
-                  <span className="conv-main">
-                    <span className="conv-top">
-                      <span className="conv-name">{c.name}</span>
-                      <span className="conv-time">{shortTime(c.last.at)}</span>
-                    </span>
-                    <span className="conv-preview">
-                      {c.last.direction === "out" && <span className="conv-you">You: </span>}
-                      {c.last.text}
-                    </span>
-                  </span>
+              <div className="chips" role="group" aria-label="Filter by kind">
+                <button className={`chip ${kindFilter === "all" ? "active" : ""}`} onClick={() => setKindFilter("all")}>
+                  Everything
                 </button>
-              ))}
-            </aside>
+                {KINDS.map((k) => (
+                  <button
+                    key={k}
+                    className={`chip ${kindFilter === k ? "active" : ""}`}
+                    onClick={() => setKindFilter(kindFilter === k ? "all" : k)}
+                  >
+                    {KIND_META[k].label} {kindCounts[k]}
+                  </button>
+                ))}
+                {hour !== null && (
+                  <button className="chip chip-clear" onClick={() => setHour(null)}>
+                    Showing {hourLabel(hour)} only. Show the whole day
+                  </button>
+                )}
+              </div>
 
-            <div className="chat-thread" data-testid="chat-thread">
-              {active && (
+              {rows.length === 0 ? (
+                <p className="panel-empty">
+                  {raw.length === 0
+                    ? "Nothing was captured on this day."
+                    : "Nothing matches these filters."}
+                </p>
+              ) : (
                 <>
-                  <div className="thread-head">
-                    <span
-                      className="conv-avatar sm"
-                      style={{ background: `hsl(${avatarHue(active.name)} 55% 42%)` }}
-                    >
-                      {initial(active.name)}
-                    </span>
-                    <div className="thread-id">
-                      <div className="thread-name">{active.name}</div>
-                      <div className="thread-app">{appName(active.app)}</div>
-                    </div>
-                  </div>
-                  <div className="thread-body">
-                    {active.messages.map((m, i) => {
-                      const prev = active.messages[i - 1];
-                      const showDay = !prev || new Date(prev.at).toDateString() !== new Date(m.at).toDateString();
+                  <ol className="timeline" data-testid="timeline">
+                    {rows.slice(0, visible).map((it) => {
+                      const meta = KIND_META[it.kind];
+                      const Icon = meta.icon;
+                      const open = it.kind === "chat" && it.convKey;
                       return (
-                        <Fragment key={m.id}>
-                          {showDay && <div className="day-chip">{dayLabel(m.at)}</div>}
-                          <div className={`bubble-row ${m.direction}`}>
-                            <div className={`bubble ${m.direction}`}>
-                              <span className="bubble-text">{m.text}</span>
-                              <span className="bubble-time">{shortTime(m.at)}</span>
+                        <li
+                          key={it.id}
+                          className={`tl-row ${open ? "clickable" : ""}`}
+                          onClick={
+                            open
+                              ? () => {
+                                  setSelectedConv(it.convKey!);
+                                  setTab("chats");
+                                }
+                              : undefined
+                          }
+                        >
+                          <span className="tl-time">{shortTime(it.at)}</span>
+                          <span className="tl-node">
+                            <span className="tl-dot" style={{ ["--k" as string]: meta.color }}>
+                              <Icon />
+                            </span>
+                          </span>
+                          <div className="tl-main">
+                            <div className="tl-head">
+                              <span className="tl-title">{it.title}</span>
+                              {it.tag && <span className="tl-tag">{it.tag}</span>}
+                              {it.count && it.count > 1 ? <span className="tl-tag">{it.count} messages</span> : null}
                             </div>
+                            {it.sub && <div className="tl-sub">{it.sub}</div>}
                           </div>
-                        </Fragment>
+                        </li>
                       );
                     })}
-                  </div>
+                  </ol>
+                  {rows.length > visible && (
+                    <div className="tl-more">
+                      <button className="secondary" onClick={() => setVisible((v) => v + PAGE)}>
+                        Show {Math.min(PAGE, rows.length - visible)} more
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
-            </div>
-          </div>
-        )}
-      </section>
-        )}
-
-        {tab === "notifications" && (
-      <section className="panel" data-testid="notifications">
-        <div className="panel-head">
-          <Bell size={16} />
-          <h2>Message notifications</h2>
-          {notifMsgs.length > 0 && (
-            <span className="panel-head-meta">
-              {notifMsgs.length} {notifMsgs.length === 1 ? "notification" : "notifications"}
-            </span>
+            </section>
           )}
-        </div>
-        {notifMsgs.length === 0 ? (
-          <p className="panel-empty">No message notifications captured yet.</p>
-        ) : (
-          <>
-            <div className="search-box">
-              <Search size={15} />
-              <input
-                type="text"
-                placeholder="Search by name, app or text…"
-                value={notifSearch}
-                onChange={(e) => setNotifSearch(e.target.value)}
-              />
-              {notifSearch && (
-                <button className="search-clear" onClick={() => setNotifSearch("")} aria-label="Clear">
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            {notifFiltered.length === 0 ? (
-              <p className="panel-empty">No notifications match "{notifSearch}".</p>
-            ) : (
-              <ul className="messages-list" data-testid="notif-list">
-                {notifFiltered.map((m) => (
-                  <li key={m.id} className="message-item">
-                    <div className="msg-head">
-                      <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
-                      <span className="msg-app">{appName(m.payload.app)}</span>
-                      <span className="msg-time">{new Date(m.capturedAt).toLocaleString()}</span>
-                    </div>
-                    <div className="msg-text">{m.payload.text}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </section>
-        )}
 
-        {tab === "live" && (
-          <>
-      <section className="panel">
-        <div className="panel-head">
-          <Lock size={16} />
-          <h2>Remote lock</h2>
-        </div>
-        <p className="muted">
-          Lock works on a normal phone (needs device-admin enabled on it). Unlocking the PIN needs
-          the phone set up as a managed device.
-        </p>
-        <div className="live-controls">
-          <button className="secondary" onClick={() => sendCmd("lock")}>
-            <Lock size={15} />
-            Lock phone
-          </button>
-          <button className="secondary" onClick={() => sendCmd("unlock")}>
-            <Unlock size={15} />
-            Unlock phone
-          </button>
-          {cmdStatus && <span className="muted">{cmdStatus}</span>}
-        </div>
-      </section>
+          {/* ------------------------------------------------------------- Chats */}
+          {tab === "chats" && (
+            <section className="panel" data-testid="messages">
+              <div className="panel-head">
+                <MessageSquare size={18} />
+                <h2>Chats</h2>
+                {conversations.length > 0 && (
+                  <span className="panel-head-meta">{pluralize(conversations.length, "conversation")}</span>
+                )}
+              </div>
 
-      <section className="panel">
-        <div className="panel-head">
-          <ScreenShare size={16} />
-          <h2>Live screen</h2>
-        </div>
-        <p className="muted">
-          The phone shows an indicator while you watch. The person approves screen sharing once on
-          the phone. Tick "Control" to tap on the phone by clicking the image.
-        </p>
-        <LiveScreen deviceId={id} />
-      </section>
-          </>
-        )}
+              {conversations.length === 0 ? (
+                <p className="panel-empty">
+                  Chats appear here when the phone's screen reader sees a conversation open in WhatsApp,
+                  Snapchat, TikTok, Telegram and similar apps. On the phone, turn on{" "}
+                  <strong>Accessibility</strong> for Monitor.
+                </p>
+              ) : (
+                <div className="chat" data-testid="chat">
+                  <aside className="chat-list">
+                    {conversations.map((c) => (
+                      <button
+                        key={c.key}
+                        className={`conv ${c.key === activeKey ? "active" : ""}`}
+                        onClick={() => setSelectedConv(c.key)}
+                      >
+                        <span className="conv-avatar" style={{ background: `hsl(${avatarHue(c.name)} 48% 40%)` }}>
+                          {initial(c.name)}
+                        </span>
+                        <span className="conv-main">
+                          <span className="conv-top">
+                            <span className="conv-name">{c.name}</span>
+                            <span className="conv-time">{shortTime(c.last.at)}</span>
+                          </span>
+                          <span className="conv-preview">
+                            {c.last.direction === "out" && <span className="conv-you">You: </span>}
+                            {c.last.text}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </aside>
 
-        {tab === "location" && (
-      <section className="panel">
-        <div className="panel-head">
-          <MapPin size={16} />
-          <h2>Location</h2>
-        </div>
-        {latest ? (
-          <p className="muted mono" data-testid="latest-loc" style={{ fontSize: "0.85rem" }}>
-            Latest: {latest.payload.lat.toFixed(5)}, {latest.payload.lon.toFixed(5)}
-            {latest.payload.accuracyM ? ` (±${Math.round(latest.payload.accuracyM)} m)` : ""} ·{" "}
-            {new Date(latest.capturedAt).toLocaleString()}
-          </p>
-        ) : (
-          <p className="panel-empty">No location reported yet.</p>
-        )}
-        <LocationMap points={points} />
-      </section>
-        )}
-
-        {tab === "apps" && (
-          <>
-      <section className="panel">
-        <div className="panel-head">
-          <AppWindow size={16} />
-          <h2>App usage (today)</h2>
-        </div>
-        {usage.length === 0 ? (
-          <p className="panel-empty">No app usage reported yet.</p>
-        ) : (
-          <ul className="row-list" data-testid="usage">
-            {usage.map((u) => (
-              <li key={u.packageName} className="row-item">
-                <span className="row-icon">
-                  <AppWindow size={14} />
-                </span>
-                <div className="row-main">
-                  <span className="row-title">{appName(u.packageName)}</span>
-                  <span className="row-sub">{u.packageName}</span>
-                </div>
-                <span className="row-value">{formatDuration(u.foregroundMs)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="panel">
-        <div className="panel-head">
-          <ShieldBan size={16} />
-          <h2>App limits</h2>
-        </div>
-        <p className="muted">A blocked app is sent back to the home screen when it's opened.</p>
-        {knownApps.length === 0 ? (
-          <p className="panel-empty">No apps seen yet — they appear here once the phone reports usage.</p>
-        ) : (
-          <ul className="row-list" data-testid="limits">
-            {knownApps.map((pkg) => {
-              const isBlocked = blocked.includes(pkg);
-              return (
-                <li key={pkg} className="limit-row">
-                  <span className="row-icon">
-                    <AppWindow size={14} />
-                  </span>
-                  <div className="row-main">
-                    <span className="row-title">{appName(pkg)}</span>
-                    <span className="row-sub">{pkg}</span>
+                  <div className="chat-thread" data-testid="chat-thread">
+                    {active && (
+                      <>
+                        <div className="thread-head">
+                          <span className="conv-avatar sm" style={{ background: `hsl(${avatarHue(active.name)} 48% 40%)` }}>
+                            {initial(active.name)}
+                          </span>
+                          <div>
+                            <div className="thread-name">{active.name}</div>
+                            <div className="thread-app">{appName(active.app)}</div>
+                          </div>
+                        </div>
+                        <div className="thread-body">
+                          {active.messages.map((m, i) => {
+                            const prev = active.messages[i - 1];
+                            const showDay = !prev || new Date(prev.at).toDateString() !== new Date(m.at).toDateString();
+                            return (
+                              <Fragment key={m.id}>
+                                {showDay && <div className="day-chip">{dayLabel(m.at)}</div>}
+                                <div className={`bubble-row ${m.direction}`}>
+                                  <div className={`bubble ${m.direction}`}>
+                                    <span className="bubble-text">{m.text}</span>
+                                    <span className="bubble-time">{shortTime(m.at)}</span>
+                                  </div>
+                                </div>
+                              </Fragment>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <label className={`switch danger ${isBlocked ? "active" : ""}`}>
-                    {isBlocked ? "Blocked" : "Allowed"}
-                    <input type="checkbox" checked={isBlocked} onChange={() => toggleBlock(pkg)} />
-                    <span className="switch-track" />
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-          </>
-        )}
+                </div>
+              )}
+            </section>
+          )}
 
-        {tab === "calls" && (
-      <section className="panel">
-        <div className="panel-head">
-          <Phone size={16} />
-          <h2>Calls</h2>
-          {calls.length > 0 && (
-            <span className="panel-head-meta">
-              {calls.length} {calls.length === 1 ? "call" : "calls"}
-            </span>
+          {/* ------------------------------------------------------------- Alerts */}
+          {tab === "notifications" && (
+            <section className="panel" data-testid="notifications">
+              <div className="panel-head">
+                <Bell size={18} />
+                <h2>Message notifications</h2>
+                {notifMsgs.length > 0 && (
+                  <span className="panel-head-meta">{pluralize(notifMsgs.length, "notification")}</span>
+                )}
+              </div>
+              {notifMsgs.length === 0 ? (
+                <p className="panel-empty">No message notifications captured yet.</p>
+              ) : (
+                <>
+                  <div className="search-box">
+                    <Search size={16} />
+                    <input
+                      type="text"
+                      aria-label="Search notifications"
+                      placeholder="Search by name, app or text"
+                      value={notifSearch}
+                      onChange={(e) => setNotifSearch(e.target.value)}
+                    />
+                    {notifSearch && (
+                      <button className="search-clear" onClick={() => setNotifSearch("")} aria-label="Clear search">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {notifFiltered.length === 0 ? (
+                    <p className="panel-empty">No notifications match "{notifSearch}".</p>
+                  ) : (
+                    <ul className="messages-list" data-testid="notif-list">
+                      {notifFiltered.map((m) => (
+                        <li key={m.id} className="message-item">
+                          <div className="msg-head">
+                            <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
+                            <span className="msg-app">{appName(m.payload.app)}</span>
+                            <span className="msg-time">{new Date(m.capturedAt).toLocaleString()}</span>
+                          </div>
+                          <div className="msg-text">{m.payload.text}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+
+          {/* ------------------------------------------------------------- Calls */}
+          {tab === "calls" && (
+            <section className="panel">
+              <div className="panel-head">
+                <Phone size={18} />
+                <h2>Calls</h2>
+                {calls.length > 0 && <span className="panel-head-meta">{pluralize(calls.length, "call")}</span>}
+              </div>
+              {calls.length === 0 ? (
+                <p className="panel-empty">No calls captured yet.</p>
+              ) : (
+                <>
+                  <div className="search-box">
+                    <Search size={16} />
+                    <input
+                      type="text"
+                      aria-label="Search calls"
+                      placeholder="Search by name or number…"
+                      value={callSearch}
+                      onChange={(e) => setCallSearch(e.target.value)}
+                    />
+                    {callSearch && (
+                      <button className="search-clear" onClick={() => setCallSearch("")} aria-label="Clear search">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {callsFiltered.length === 0 ? (
+                    <p className="panel-empty">No calls match "{callSearch}".</p>
+                  ) : (
+                    <ul className="row-list" data-testid="calls">
+                      {callsFiltered.map((c) => (
+                        <li key={c.id} className="row-item">
+                          <span className="row-icon">{callIcon(c.payload.direction)}</span>
+                          <div className="row-main">
+                            <span className="row-title">{c.payload.name ?? c.payload.number ?? "Unknown"}</span>
+                            <span className="row-sub">
+                              {c.payload.name && c.payload.number ? `${c.payload.number}, ` : ""}
+                              {formatCallDuration(c.payload.durationSec)}
+                            </span>
+                          </div>
+                          <span className={`call-dir call-${c.payload.direction}`}>{c.payload.direction}</span>
+                          <span className="row-time">{new Date(c.capturedAt).toLocaleString()}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+
+          {/* ------------------------------------------------------------- Location */}
+          {tab === "location" && (
+            <>
+              <section className="panel">
+                <div className="panel-head">
+                  <MapPin size={18} />
+                  <h2>Location</h2>
+                </div>
+                {latest ? (
+                  <p className="muted" data-testid="latest-loc">
+                    Latest: {latest.payload.lat.toFixed(5)}, {latest.payload.lon.toFixed(5)}
+                    {latest.payload.accuracyM ? ` (within ${Math.round(latest.payload.accuracyM)} m)` : ""}, at{" "}
+                    {new Date(latest.capturedAt).toLocaleString()}
+                  </p>
+                ) : (
+                  <p className="panel-empty">No location reported yet.</p>
+                )}
+                <LocationMap points={points} />
+              </section>
+              <section className="panel">
+                <div className="panel-head">
+                  <HistoryIcon size={18} />
+                  <h2>Location history</h2>
+                </div>
+                {events.length === 0 ? (
+                  <p className="panel-empty">Nothing yet.</p>
+                ) : (
+                  <ul className="history-list">
+                    {events.map((e) => (
+                      <li key={e.id}>
+                        {new Date(e.capturedAt).toLocaleString()}: {e.payload.lat.toFixed(5)}, {e.payload.lon.toFixed(5)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </>
+          )}
+
+          {/* ------------------------------------------------------------- Apps */}
+          {tab === "apps" && (
+            <>
+              <section className="panel">
+                <div className="panel-head">
+                  <AppWindow size={18} />
+                  <h2>App usage today</h2>
+                </div>
+                {usage.length === 0 ? (
+                  <p className="panel-empty">No app usage reported yet.</p>
+                ) : (
+                  <ul className="row-list" data-testid="usage">
+                    {usage.map((u) => (
+                      <li key={u.packageName} className="row-item">
+                        <span className="row-icon">
+                          <AppWindow size={16} />
+                        </span>
+                        <div className="row-main">
+                          <span className="row-title">{appName(u.packageName)}</span>
+                          <span className="row-sub">{u.packageName}</span>
+                        </div>
+                        <span className="row-value">{formatDuration(u.foregroundMs)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section className="panel">
+                <div className="panel-head">
+                  <ShieldBan size={18} />
+                  <h2>App limits</h2>
+                </div>
+                <p className="muted">A blocked app is sent back to the home screen whenever it's opened.</p>
+                {knownApps.length === 0 ? (
+                  <p className="panel-empty">No apps seen yet. They appear here once the phone reports usage.</p>
+                ) : (
+                  <ul className="row-list" data-testid="limits">
+                    {knownApps.map((pkg) => {
+                      const isBlocked = blocked.includes(pkg);
+                      return (
+                        <li key={pkg} className="limit-row">
+                          <span className="row-icon">
+                            <AppWindow size={16} />
+                          </span>
+                          <div className="row-main">
+                            <span className="row-title">{appName(pkg)}</span>
+                            <span className="row-sub">{pkg}</span>
+                          </div>
+                          <label className={`switch danger ${isBlocked ? "active" : ""}`}>
+                            {isBlocked ? "Blocked" : "Allowed"}
+                            <input type="checkbox" checked={isBlocked} onChange={() => toggleBlock(pkg)} />
+                            <span className="switch-track" />
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            </>
+          )}
+
+          {/* ------------------------------------------------------------- Live */}
+          {tab === "live" && (
+            <>
+              <section className="panel">
+                <div className="panel-head">
+                  <ScreenShare size={18} />
+                  <h2>Live screen</h2>
+                </div>
+                <p className="muted">
+                  The phone shows a notice while you watch, and the person approves screen sharing once on
+                  the phone. Turn on Control to tap the phone by clicking the picture.
+                </p>
+                <LiveScreen deviceId={id} />
+              </section>
+              <section className="panel">
+                <div className="panel-head">
+                  <Lock size={18} />
+                  <h2>Remote lock</h2>
+                </div>
+                <p className="muted">
+                  Locking works once device admin is turned on in the Monitor app. Unlocking a PIN needs the
+                  phone to be set up as a managed device.
+                </p>
+                <div className="live-controls">
+                  <button className="secondary" onClick={() => sendCmd("lock")}>
+                    <Lock size={15} />
+                    Lock phone
+                  </button>
+                  <button className="secondary" onClick={() => sendCmd("unlock")}>
+                    <Unlock size={15} />
+                    Unlock phone
+                  </button>
+                  {cmdStatus && <span className="muted">{cmdStatus}</span>}
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* ------------------------------------------------------------- Device */}
+          {tab === "device" && (
+            <section className="panel" data-testid="device-manage">
+              <div className="panel-head">
+                <Settings size={18} />
+                <h2>Device</h2>
+              </div>
+              <dl className="facts">
+                <dt>Paired</dt>
+                <dd>{device?.pairedAt ? new Date(device.pairedAt).toLocaleString() : "Not yet"}</dd>
+                <dt>Consent recorded</dt>
+                <dd>{device?.consentAcceptedAt ? new Date(device.consentAcceptedAt).toLocaleString() : "Not yet"}</dd>
+                <dt>Last seen</dt>
+                <dd>{device?.lastSeenAt ? new Date(device.lastSeenAt).toLocaleString() : "Never"}</dd>
+              </dl>
+              <p className="muted">
+                Re-link to pair the app again, for example after reinstalling it on the phone. Delete removes
+                the device and everything it reported.
+              </p>
+              <div className="live-controls">
+                <button className="secondary" onClick={relink} disabled={relinkBusy}>
+                  <RefreshCw size={15} />
+                  {relinkBusy ? "Generating…" : "Re-link (new pairing code)"}
+                </button>
+                <button className="danger-btn" onClick={removeDevice} disabled={deleteBusy}>
+                  <Trash2 size={15} />
+                  {deleteBusy ? "Deleting…" : "Delete device"}
+                </button>
+              </div>
+              {pairCode && (
+                <div className="card paircode" data-testid="relink-code" style={{ marginTop: "1.1rem", marginBottom: 0 }}>
+                  <p>
+                    On the phone, open the Monitor app and enter this code. The person using the phone confirms
+                    they agree. The code expires in 15 minutes.
+                  </p>
+                  <div className="code-row">
+                    <span className="code">{pairCode}</span>
+                    <button className="secondary" onClick={() => navigator.clipboard?.writeText(pairCode)}>
+                      <Copy size={14} />
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
           )}
         </div>
-        {calls.length === 0 ? (
-          <p className="panel-empty">No calls captured yet.</p>
-        ) : (
-          <>
-            <div className="search-box">
-              <Search size={15} />
-              <input
-                type="text"
-                placeholder="Search by name or number…"
-                value={callSearch}
-                onChange={(e) => setCallSearch(e.target.value)}
-              />
-              {callSearch && (
-                <button className="search-clear" onClick={() => setCallSearch("")} aria-label="Clear">
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            {callsFiltered.length === 0 ? (
-              <p className="panel-empty">No calls match "{callSearch}".</p>
-            ) : (
-              <ul className="row-list" data-testid="calls">
-                {callsFiltered.map((c) => (
-                  <li key={c.id} className="row-item">
-                    <span className="row-icon">{callIcon(c.payload.direction)}</span>
-                    <div className="row-main">
-                      <span className="row-title">{c.payload.name ?? c.payload.number ?? "Unknown"}</span>
-                      <span className="row-sub mono">
-                        {c.payload.name ? `${c.payload.number ?? ""} · ` : ""}
-                        {formatCallDuration(c.payload.durationSec)}
-                      </span>
-                    </div>
-                    <span className={`call-dir call-${c.payload.direction}`}>{c.payload.direction}</span>
-                    <span className="row-time">{new Date(c.capturedAt).toLocaleString()}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </section>
-        )}
-
-        {tab === "location" && (
-      <section className="panel">
-        <div className="panel-head">
-          <HistoryIcon size={16} />
-          <h2>Location history</h2>
-        </div>
-        {events.length === 0 ? (
-          <p className="panel-empty">Nothing yet.</p>
-        ) : (
-          <ul className="history-list">
-            {events.map((e) => (
-              <li key={e.id}>
-                {new Date(e.capturedAt).toLocaleString()} — {e.payload.lat.toFixed(5)},{" "}
-                {e.payload.lon.toFixed(5)}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-        )}
-
-        {tab === "device" && (
-      <section className="panel" data-testid="device-manage">
-        <div className="panel-head">
-          <Settings size={16} />
-          <h2>Device</h2>
-        </div>
-        <p className="muted">
-          Re-link this device to pair the app again (for example after reinstalling it on the phone),
-          or remove the device and all of its data.
-        </p>
-        <div className="live-controls">
-          <button className="secondary" onClick={relink} disabled={relinkBusy}>
-            <RefreshCw size={15} />
-            {relinkBusy ? "Generating…" : "Re-link (new pairing code)"}
-          </button>
-          <button className="danger-btn" onClick={removeDevice} disabled={deleteBusy}>
-            <Trash2 size={15} />
-            {deleteBusy ? "Deleting…" : "Delete device"}
-          </button>
-        </div>
-        {pairCode && (
-          <div className="card paircode" data-testid="relink-code" style={{ marginTop: "0.9rem" }}>
-            <p>
-              On the monitored phone, open the Monitor app and enter this pairing code. The person
-              using that phone confirms consent. The code expires in 15 minutes.
-            </p>
-            <div className="code-row">
-              <span className="code">{pairCode}</span>
-              <button
-                className="secondary"
-                onClick={() => {
-                  navigator.clipboard?.writeText(pairCode);
-                }}
-              >
-                <Copy size={14} />
-                Copy
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
-        )}
-      </div>
       </div>
     </div>
   );

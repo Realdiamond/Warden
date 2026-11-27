@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { Navigate, Route, Routes, Link, useNavigate, useLocation } from "react-router-dom";
-import { ShieldCheck, Smartphone, LogOut } from "lucide-react";
+import { Smartphone, LogOut, Moon, Sun } from "lucide-react";
 import { useAuth } from "./auth.tsx";
 import { Login } from "./pages/Login.tsx";
 import { Devices } from "./pages/Devices.tsx";
 import { DeviceDetail } from "./pages/DeviceDetail.tsx";
+import { Logo } from "./components/Logo.tsx";
+import { currentTheme, toggleTheme, type Theme } from "./theme.ts";
 
 export function App() {
   const { authed, signOut } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
+  const [theme, setThemeState] = useState<Theme>(currentTheme);
 
   if (!authed) {
     return (
@@ -26,28 +30,35 @@ export function App() {
       <aside className="sidebar">
         <div className="sidebar-brand">
           <Link to="/devices" className="brand">
-            <span className="brand-mark">
-              <ShieldCheck size={16} strokeWidth={2.4} />
-            </span>
+            <Logo size={30} />
             Monitor
           </Link>
         </div>
         <nav className="sidebar-nav">
           <Link to="/devices" className={`nav-item ${onDevices ? "active" : ""}`}>
-            <Smartphone size={16} />
+            <Smartphone size={17} />
             Devices
           </Link>
         </nav>
         <div className="sidebar-footer">
           <button
             className="secondary"
+            onClick={() => setThemeState(toggleTheme())}
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+            <span className="btn-label">{theme === "dark" ? "Light theme" : "Dark theme"}</span>
+          </button>
+          <button
+            className="secondary"
             onClick={() => {
               signOut();
               nav("/login");
             }}
+            aria-label="Sign out"
           >
             <LogOut size={15} />
-            Sign out
+            <span className="btn-label">Sign out</span>
           </button>
         </div>
       </aside>

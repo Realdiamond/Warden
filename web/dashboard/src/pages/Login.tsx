@@ -1,15 +1,16 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useAuth } from "../auth.tsx";
 import { ApiError } from "../api.ts";
+import { Logo } from "../components/Logo.tsx";
 
 function friendly(code: string): string {
   switch (code) {
     case "invalid_credentials":
       return "Wrong email or password.";
     case "email_taken":
-      return "That email already has an account — try signing in.";
+      return "That email already has an account. Try signing in.";
     case "invalid_body":
       return "Enter a valid email and a password of at least 8 characters.";
     default:
@@ -34,46 +35,56 @@ export function Login() {
       await signIn(email, password, mode === "signup");
       nav("/devices");
     } catch (err) {
-      setError(err instanceof ApiError ? friendly(err.code) : "Something went wrong.");
+      setError(err instanceof ApiError ? friendly(err.code) : "Something went wrong. Please try again.");
     } finally {
       setBusy(false);
     }
   }
 
+  const signup = mode === "signup";
+
   return (
     <div className="auth">
-      <div className="auth-card">
-        <div className="brand">
-          <span className="brand-mark">
-            <ShieldCheck size={18} strokeWidth={2.4} />
-          </span>
+      <div className="auth-aside">
+        <span className="brand">
+          <Logo size={32} />
           Monitor
+        </span>
+        <div>
+          <h1>See how the family's phones are doing.</h1>
+          <p>
+            Everyone who is monitored agrees first, and the phone shows a notice the whole time.
+          </p>
         </div>
-        <p className="muted">Consent-based family device monitoring.</p>
-        <form onSubmit={submit}>
-          <label>
-            Email
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-          </label>
-          {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={busy}>
-            {busy ? "" : mode === "signup" ? "Create account" : "Sign in"}
-            {!busy && <ArrowRight size={15} />}
+      </div>
+      <div className="auth-main">
+        <div className="auth-card">
+          <h2>{signup ? "Create your account" : "Welcome back"}</h2>
+          <form onSubmit={submit}>
+            <label>
+              Email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </label>
+            <label>
+              Password
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </label>
+            {error && <p className="error">{error}</p>}
+            <button type="submit" disabled={busy}>
+              {busy ? "Please wait…" : signup ? "Create account" : "Sign in"}
+              {!busy && <ArrowRight size={16} />}
+            </button>
+          </form>
+          <button className="link" onClick={() => setMode(signup ? "login" : "signup")}>
+            {signup ? "Already have an account? Sign in" : "New here? Create an account"}
           </button>
-        </form>
-        <button className="link" onClick={() => setMode(mode === "signup" ? "login" : "signup")}>
-          {mode === "signup" ? "Have an account? Sign in" : "New here? Create an account"}
-        </button>
+        </div>
       </div>
     </div>
   );

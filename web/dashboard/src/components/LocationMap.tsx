@@ -55,7 +55,8 @@ export function LocationMap({ points }: { points: Point[] }) {
     if (points.length === 0) return;
 
     const latlngs = points.map((p) => [p.lat, p.lon] as [number, number]);
-    L.polyline(latlngs, { color: "#7c6cf6", weight: 3, opacity: 0.6 }).addTo(layer);
+    const route = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || "#0b6b57";
+    L.polyline(latlngs, { color: route, weight: 4, opacity: 0.75 }).addTo(layer);
 
     const latest = points[0];
     L.marker([latest.lat, latest.lon], { icon })

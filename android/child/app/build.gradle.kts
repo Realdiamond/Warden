@@ -11,8 +11,8 @@ android {
         applicationId = "com.monitor.child"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "0.2.4"
+        versionCode = 7
+        versionName = "0.3.0"
     }
 
     // A single stable signing key (committed under android/signing) so every build — local and CI —

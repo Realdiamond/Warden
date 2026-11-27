@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Smartphone, CheckCircle2, Clock, KeyRound } from "lucide-react";
 import { api, type DeviceSummary } from "../api.ts";
+import { initial, presence } from "../lib/format.ts";
 
 export function Devices() {
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
@@ -14,7 +15,7 @@ export function Devices() {
     try {
       setDevices((await api.listDevices()).devices);
     } catch {
-      setError("Could not load devices.");
+      setError("Could not load devices. Check your connection and refresh.");
     } finally {
       setLoading(false);
     }
@@ -22,6 +23,8 @@ export function Devices() {
 
   useEffect(() => {
     refresh();
+    const t = setInterval(refresh, 30_000);
+    return () => clearInterval(t);
   }, []);
 
   async function addDevice(e: FormEvent) {
@@ -45,20 +48,19 @@ export function Devices() {
   return (
     <div>
       <div className="page-header">
-        <div className="page-header-text">
-          <h1>Devices</h1>
-          <p>Everything your family's monitored phones are reporting, in one place.</p>
-        </div>
+        <h1>Devices</h1>
+        <p>The phones you look after. Open one to see its chats, calls, location and more.</p>
       </div>
 
       <form className="add-device" onSubmit={addDevice}>
         <input
-          placeholder="Device name (e.g. Ada's phone)"
+          placeholder="Name the phone, e.g. Ada's phone"
+          aria-label="Device name"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
         />
         <button type="submit">
-          <Plus size={15} />
+          <Plus size={16} />
           Add device
         </button>
       </form>
@@ -66,8 +68,8 @@ export function Devices() {
       {pairCode && (
         <div className="card paircode" data-testid="paircode">
           <p>
-            On the monitored phone, open the Monitor app and enter this pairing code. The person
-            using that phone confirms they agree to be monitored. The code expires in 15 minutes.
+            On the phone, open the Monitor app and enter this code. The person using the phone
+            confirms they agree to be monitored. The code expires in 15 minutes.
           </p>
           <div className="code">{pairCode}</div>
         </div>
@@ -77,38 +79,40 @@ export function Devices() {
 
       {devices.length === 0 ? (
         <div className="empty-state">
-          <Smartphone size={22} style={{ marginBottom: 8, opacity: 0.6 }} />
-          <div>No devices yet. Add one above to get a pairing code.</div>
+          <Smartphone size={24} style={{ marginBottom: 8, opacity: 0.6 }} />
+          <div>No devices yet. Name a phone above to get its pairing code.</div>
         </div>
       ) : (
         <div className="device-grid">
-          {devices.map((d) => (
-            <Link to={`/devices/${d.id}`} key={d.id} className="device-card">
-              <div className="device-card-top">
-                <span className="device-icon">
-                  <Smartphone size={17} />
-                </span>
-                <div>
-                  <div className="device-card-name">{d.name ?? "Unnamed device"}</div>
-                  <div className="device-card-meta">
-                    {d.lastSeenAt ? `Last seen ${new Date(d.lastSeenAt).toLocaleString()}` : "Never seen"}
+          {devices.map((d) => {
+            const p = presence(d.lastSeenAt);
+            return (
+              <Link to={`/devices/${d.id}`} key={d.id} className="device-card">
+                <div className="device-card-top">
+                  <span className="device-icon">{initial(d.name ?? "?")}</span>
+                  <div>
+                    <div className="device-card-name">{d.name ?? "Unnamed device"}</div>
+                    <div className={`presence ${p.live ? "live" : ""}`} style={{ margin: 0, fontSize: "0.86rem" }}>
+                      <span className="presence-dot" />
+                      {p.label}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="status-row">
-                <span className={`badge ${d.pairedAt ? "ok" : "pending"}`}>
-                  {d.pairedAt ? <CheckCircle2 /> : <Clock />}
-                  {d.pairedAt ? "Paired" : "Awaiting pairing"}
-                </span>
-                {d.consentAcceptedAt && (
-                  <span className="badge neutral">
-                    <KeyRound />
-                    Consented
+                <div className="status-row" style={{ marginTop: 0 }}>
+                  <span className={`badge ${d.pairedAt ? "ok" : "pending"}`}>
+                    {d.pairedAt ? <CheckCircle2 /> : <Clock />}
+                    {d.pairedAt ? "Paired" : "Waiting for the phone"}
                   </span>
-                )}
-              </div>
-            </Link>
-          ))}
+                  {d.consentAcceptedAt && (
+                    <span className="badge">
+                      <KeyRound />
+                      Agreed
+                    </span>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
