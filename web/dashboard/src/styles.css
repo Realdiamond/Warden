@@ -521,7 +521,8 @@ input:focus {
   background: var(--primary-wash);
   color: var(--primary);
 }
-.badge.pending {
+.badge.pending,
+.badge.setup-chip {
   background: var(--warn-wash);
   color: var(--warn);
 }
@@ -822,6 +823,29 @@ input:focus {
   margin-top: 1rem;
   color: var(--faint);
   font-size: 0.82rem;
+}
+
+/* ---------- Help page ---------- */
+.help .panel {
+  margin-bottom: 1.1rem;
+}
+.help-steps,
+.help-list {
+  margin: 0;
+  padding-left: 1.3rem;
+  color: var(--ink-2);
+  display: grid;
+  gap: 0.5rem;
+  max-width: 68ch;
+}
+.help-steps {
+  list-style: decimal;
+}
+.help-list {
+  list-style: disc;
+}
+.help a {
+  color: var(--primary);
 }
 .device-body {
   flex: 1;
@@ -1585,7 +1609,13 @@ input:focus {
     margin-right: auto;
   }
   .sidebar-nav {
-    display: none;
+    display: flex;
+    flex-direction: row;
+    gap: 0.2rem;
+    margin-top: 0;
+  }
+  .sidebar-nav .nav-item {
+    padding: 0.5rem 0.6rem;
   }
   .sidebar-footer {
     margin-top: 0;
@@ -1597,7 +1627,7 @@ input:focus {
   .sidebar-footer button {
     width: auto;
   }
-  .sidebar-footer .btn-label {
+  .sidebar .btn-label {
     display: none;
   }
   .content {

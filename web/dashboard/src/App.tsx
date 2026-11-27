@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Navigate, Route, Routes, Link, useNavigate, useLocation } from "react-router-dom";
-import { Smartphone, LogOut, Moon, Sun } from "lucide-react";
+import { Smartphone, LogOut, Moon, Sun, CircleHelp } from "lucide-react";
 import { useAuth } from "./auth.tsx";
 import { Login } from "./pages/Login.tsx";
 import { Devices } from "./pages/Devices.tsx";
 import { DeviceDetail } from "./pages/DeviceDetail.tsx";
+import { Help } from "./pages/Help.tsx";
 import { Logo } from "./components/Logo.tsx";
 import { currentTheme, toggleTheme, type Theme } from "./theme.ts";
 
@@ -35,9 +36,13 @@ export function App() {
           </Link>
         </div>
         <nav className="sidebar-nav">
-          <Link to="/devices" className={`nav-item ${onDevices ? "active" : ""}`}>
+          <Link to="/devices" className={`nav-item ${onDevices ? "active" : ""}`} aria-label="Devices">
             <Smartphone size={17} />
-            Devices
+            <span className="btn-label">Devices</span>
+          </Link>
+          <Link to="/help" className={`nav-item ${loc.pathname === "/help" ? "active" : ""}`} aria-label="Help">
+            <CircleHelp size={17} />
+            <span className="btn-label">Help</span>
           </Link>
         </nav>
         <div className="sidebar-footer">
@@ -66,6 +71,7 @@ export function App() {
         <Routes>
           <Route path="/devices" element={<Devices />} />
           <Route path="/devices/:id" element={<DeviceDetail />} />
+          <Route path="/help" element={<Help />} />
           <Route path="*" element={<Navigate to="/devices" replace />} />
         </Routes>
       </main>

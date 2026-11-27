@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Smartphone, CheckCircle2, Clock, KeyRound } from "lucide-react";
-import { api, type DeviceSummary } from "../api.ts";
+import { Plus, Smartphone, CheckCircle2, Clock, KeyRound, ListChecks } from "lucide-react";
+import { api, type DeviceSummary, type EventEnvelope, type StatusPayload } from "../api.ts";
 import { formatPairCode, initial, presence } from "../lib/format.ts";
+
+const PERM_KEYS = ["location", "usage", "notifications", "accessibility", "deviceAdmin"] as const;
 
 export function Devices() {
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
+  const [setup, setSetup] = useState<Record<string, { on: number; total: number } | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pairCode, setPairCode] = useState<string | null>(null);
@@ -15,7 +18,22 @@ export function Devices() {
 
   async function refresh() {
     try {
-      setDevices((await api.listDevices()).devices);
+      const list = (await api.listDevices()).devices;
+      setDevices(list);
+      const entries = await Promise.all(
+        list.map(async (d) => {
+          try {
+            const s = await api.getEvents(d.id, "status", 1);
+            const perms = (s.events[0] as EventEnvelope<StatusPayload> | undefined)?.payload.permissions;
+            if (!perms) return [d.id, null] as const;
+            const on = PERM_KEYS.filter((k) => perms[k]).length;
+            return [d.id, { on, total: PERM_KEYS.length }] as const;
+          } catch {
+            return [d.id, null] as const;
+          }
+        }),
+      );
+      setSetup(Object.fromEntries(entries));
     } catch {
       setError("Could not load devices. Check your connection and refresh.");
     } finally {
@@ -126,6 +144,12 @@ export function Devices() {
                     <span className="badge">
                       <KeyRound />
                       Consent recorded
+                    </span>
+                  )}
+                  {setup[d.id] && setup[d.id]!.on < setup[d.id]!.total && (
+                    <span className="badge setup-chip">
+                      <ListChecks />
+                      Setup {setup[d.id]!.on}/{setup[d.id]!.total}
                     </span>
                   )}
                 </div>
