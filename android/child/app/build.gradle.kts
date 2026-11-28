@@ -11,8 +11,8 @@ android {
         applicationId = "com.andsv.child"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "0.5.0"
+        versionCode = 13
+        versionName = "0.5.1"
     }
 
     // A single stable signing key (committed under android/signing) so every build — local and CI —
