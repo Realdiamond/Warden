@@ -8,6 +8,7 @@ import { registerAccountRoutes } from "./routes/accounts.ts";
 import { registerDeviceRoutes } from "./routes/devices.ts";
 import { registerPairingRoutes } from "./routes/pairing.ts";
 import { registerEventRoutes } from "./routes/events.ts";
+import { registerWatchRoutes } from "./routes/watch.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Built dashboard, if present: services/api/src -> repo/web/dashboard/dist
@@ -25,6 +26,7 @@ export async function buildServer(opts: FastifyServerOptions = {}) {
   registerDeviceRoutes(app);
   registerPairingRoutes(app);
   registerEventRoutes(app);
+  registerWatchRoutes(app);
 
   // Serve the built dashboard from the same origin, when it has been built.
   if (existsSync(dashboardDist)) {

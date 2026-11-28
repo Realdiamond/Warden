@@ -304,38 +304,102 @@ app.post("/v1/pairing", async (c) => {
 
 // --- Events -----------------------------------------------------------------
 
-app.post("/v1/events", async (c) => {
+async function authDevice(
+  c: { req: { header: (n: string) => string | undefined }; env: Env },
+): Promise<{ id: string; consent: string | null } | null> {
   const token = bearer(c.req.header("authorization"));
-  if (!token) return c.json({ error: "invalid_device_token" }, 401);
+  if (!token) return null;
   const device = await c.env.DB.prepare(
     "SELECT id, consent_accepted_at FROM devices WHERE device_token_hash = ?",
   )
     .bind(await hashToken(token))
     .first<{ id: string; consent_accepted_at: string | null }>();
+  return device ? { id: device.id, consent: device.consent_accepted_at } : null;
+}
+
+interface InEvent {
+  kind: string;
+  capturedAt: string;
+  payload?: unknown;
+  clientId?: string;
+}
+
+/** Insert one event, de-duplicating on clientId. Returns null for an unknown kind. */
+async function insertEvent(
+  env: Env,
+  deviceId: string,
+  e: InEvent,
+  now: string,
+): Promise<{ id: string; deduped: boolean } | null> {
+  if (!EVENT_KINDS.includes(e.kind) || !e.capturedAt) return null;
+  if (e.clientId) {
+    const ex = await env.DB.prepare("SELECT id FROM events WHERE device_id = ? AND client_id = ?")
+      .bind(deviceId, e.clientId)
+      .first<{ id: string }>();
+    if (ex) return { id: ex.id, deduped: true };
+  }
+  const sensitive = SENSITIVE_KINDS.has(e.kind);
+  const stored = sensitive
+    ? await encryptJson(e.payload, env.ANDSV_ENCRYPTION_KEY)
+    : JSON.stringify(e.payload ?? null);
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO events (id, device_id, kind, captured_at, received_at, payload, encrypted, client_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(id, deviceId, e.kind, e.capturedAt, now, stored, sensitive ? 1 : 0, e.clientId ?? null)
+    .run();
+  return { id, deduped: false };
+}
+
+app.post("/v1/events", async (c) => {
+  const device = await authDevice(c);
   if (!device) return c.json({ error: "invalid_device_token" }, 401);
-  if (!device.consent_accepted_at) return c.json({ error: "consent_not_recorded" }, 403);
+  if (!device.consent) return c.json({ error: "consent_not_recorded" }, 403);
 
   const body = await c.req.json().catch(() => null);
-  const kind = String(body?.kind ?? "");
-  const capturedAt = String(body?.capturedAt ?? "");
-  if (!EVENT_KINDS.includes(kind) || !capturedAt) return c.json({ error: "invalid_body" }, 400);
-
-  const sensitive = SENSITIVE_KINDS.has(kind);
-  const stored = sensitive
-    ? await encryptJson(body.payload, c.env.ANDSV_ENCRYPTION_KEY)
-    : JSON.stringify(body.payload ?? null);
+  const e: InEvent = {
+    kind: String(body?.kind ?? ""),
+    capturedAt: String(body?.capturedAt ?? ""),
+    payload: body?.payload,
+    clientId: typeof body?.clientId === "string" ? body.clientId : undefined,
+  };
   const now = new Date().toISOString();
-  const id = crypto.randomUUID();
+  const r = await insertEvent(c.env, device.id, e, now);
+  if (!r) return c.json({ error: "invalid_body" }, 400);
+  await c.env.DB.prepare("UPDATE devices SET last_seen_at = ? WHERE id = ?").bind(now, device.id).run();
+  return c.json({ id: r.id, deduped: r.deduped }, 201);
+});
 
-  await c.env.DB.batch([
-    c.env.DB.prepare(
-      `INSERT INTO events (id, device_id, kind, captured_at, received_at, payload, encrypted)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(id, device.id, kind, capturedAt, now, stored, sensitive ? 1 : 0),
-    c.env.DB.prepare("UPDATE devices SET last_seen_at = ? WHERE id = ?").bind(now, device.id),
-  ]);
+// Offline sync: the monitored device flushes a batch of buffered events. Each is de-duplicated
+// on its clientId, so re-sending after a dropped connection never stores anything twice.
+app.post("/v1/events/batch", async (c) => {
+  const device = await authDevice(c);
+  if (!device) return c.json({ error: "invalid_device_token" }, 401);
+  if (!device.consent) return c.json({ error: "consent_not_recorded" }, 403);
 
-  return c.json({ id }, 201);
+  const body = await c.req.json().catch(() => null);
+  const list: unknown = body?.events;
+  if (!Array.isArray(list) || list.length === 0 || list.length > 200) {
+    return c.json({ error: "invalid_body" }, 400);
+  }
+  const now = new Date().toISOString();
+  const ids: string[] = [];
+  let stored = 0;
+  for (const raw of list as Record<string, unknown>[]) {
+    const e: InEvent = {
+      kind: String(raw?.kind ?? ""),
+      capturedAt: String(raw?.capturedAt ?? ""),
+      payload: raw?.payload,
+      clientId: typeof raw?.clientId === "string" ? raw.clientId : undefined,
+    };
+    const r = await insertEvent(c.env, device.id, e, now);
+    if (!r) continue;
+    ids.push(r.id);
+    if (!r.deduped) stored += 1;
+  }
+  await c.env.DB.prepare("UPDATE devices SET last_seen_at = ? WHERE id = ?").bind(now, device.id).run();
+  return c.json({ accepted: ids.length, stored, ids }, 201);
 });
 
 interface EventRow {
@@ -383,6 +447,152 @@ app.get("/v1/devices/:id/events", async (c) => {
     })),
   );
   return c.json({ events });
+});
+
+// --- Watchlist --------------------------------------------------------------
+// A term matches as a case-insensitive substring (so it hits even inside a word); numbers match
+// on digits only. Matching runs over decrypted message/call payloads, grouped per chat/contact.
+
+function digitsOf(s: string): string {
+  return s.replace(/\D/g, "");
+}
+
+function eventMatchesTerm(kind: string, payload: unknown, term: string): boolean {
+  const lower = term.trim().toLowerCase();
+  if (!lower) return false;
+  const digits = digitsOf(term);
+  const p = (payload ?? {}) as Record<string, unknown>;
+  const texts: unknown[] = [];
+  const numbers: unknown[] = [];
+  if (kind === "message") texts.push(p.text, p.sender, p.conversation, p.app);
+  else if (kind === "call") {
+    texts.push(p.name);
+    numbers.push(p.number);
+  }
+  const textHit = texts.some((t) => typeof t === "string" && t.toLowerCase().includes(lower));
+  const numHit =
+    digits.length >= 3 && numbers.some((n) => typeof n === "string" && digitsOf(n).includes(digits));
+  return textHit || numHit;
+}
+
+function watchGroupKey(kind: string, p: Record<string, unknown>): { key: string; title: string; app: string } {
+  if (kind === "call") {
+    const name = typeof p.name === "string" && p.name ? p.name : null;
+    const number = typeof p.number === "string" && p.number ? p.number : null;
+    return { key: `call:${name ?? number ?? "unknown"}`, title: name ?? number ?? "Unknown", app: "Calls" };
+  }
+  const app = typeof p.app === "string" ? p.app : "App";
+  const conv =
+    (typeof p.conversation === "string" && p.conversation) ||
+    (typeof p.sender === "string" && p.sender) ||
+    app;
+  return { key: `msg:${app}:${conv}`, title: conv, app };
+}
+
+async function ownDeviceId(c: { req: { param: (n: string) => string; header: (n: string) => string | undefined }; env: Env }): Promise<string | null> {
+  const accountId = await requireAccount(c);
+  if (!accountId) return null;
+  const id = c.req.param("id");
+  const owned = await c.env.DB.prepare("SELECT id FROM devices WHERE id = ? AND account_id = ?")
+    .bind(id, accountId)
+    .first();
+  return owned ? id : null;
+}
+
+app.get("/v1/devices/:id/watch-terms", async (c) => {
+  const deviceId = await ownDeviceId(c);
+  if (!deviceId) return c.json({ error: "not_found" }, 404);
+  const { results } = await c.env.DB.prepare(
+    "SELECT id, term, created_at FROM watch_terms WHERE device_id = ? ORDER BY created_at DESC",
+  )
+    .bind(deviceId)
+    .all<{ id: string; term: string; created_at: string }>();
+  return c.json({ terms: results.map((r) => ({ id: r.id, term: r.term, createdAt: r.created_at })) });
+});
+
+app.post("/v1/devices/:id/watch-terms", async (c) => {
+  const deviceId = await ownDeviceId(c);
+  if (!deviceId) return c.json({ error: "not_found" }, 404);
+  const body = await c.req.json().catch(() => null);
+  const term = String(body?.term ?? "").trim().slice(0, 100);
+  if (!term) return c.json({ error: "invalid_body" }, 400);
+
+  const existing = await c.env.DB.prepare(
+    "SELECT id, term, created_at FROM watch_terms WHERE device_id = ? AND term = ? COLLATE NOCASE",
+  )
+    .bind(deviceId, term)
+    .first<{ id: string; term: string; created_at: string }>();
+  if (existing) {
+    return c.json({ term: { id: existing.id, term: existing.term, createdAt: existing.created_at } });
+  }
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await c.env.DB.prepare("INSERT INTO watch_terms (id, device_id, term, created_at) VALUES (?, ?, ?, ?)")
+    .bind(id, deviceId, term, now)
+    .run();
+  return c.json({ term: { id, term, createdAt: now } }, 201);
+});
+
+app.delete("/v1/devices/:id/watch-terms/:termId", async (c) => {
+  const deviceId = await ownDeviceId(c);
+  if (!deviceId) return c.json({ error: "not_found" }, 404);
+  await c.env.DB.prepare("DELETE FROM watch_terms WHERE id = ? AND device_id = ?")
+    .bind(c.req.param("termId"), deviceId)
+    .run();
+  return c.json({ deleted: true });
+});
+
+app.get("/v1/devices/:id/watch-matches", async (c) => {
+  const deviceId = await ownDeviceId(c);
+  if (!deviceId) return c.json({ error: "not_found" }, 404);
+  const term = String(c.req.query("term") ?? "").trim().slice(0, 100);
+  if (!term) return c.json({ error: "invalid_query" }, 400);
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, kind, captured_at, payload, encrypted FROM events
+       WHERE device_id = ? AND kind IN ('message','call')
+       ORDER BY captured_at DESC LIMIT 5000`,
+  )
+    .bind(deviceId)
+    .all<EventRow>();
+
+  const key = c.env.ANDSV_ENCRYPTION_KEY;
+  const groups = new Map<string, { key: string; title: string; app: string; kind: string; matches: unknown[] }>();
+  let total = 0;
+  for (const r of results) {
+    let payload: Record<string, unknown>;
+    try {
+      payload = (r.encrypted ? await decryptJson(r.payload, key) : JSON.parse(r.payload)) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    if (!eventMatchesTerm(r.kind, payload, term)) continue;
+    total += 1;
+    const g0 = watchGroupKey(r.kind, payload);
+    let g = groups.get(g0.key);
+    if (!g) {
+      g = { key: g0.key, title: g0.title, app: g0.app, kind: r.kind, matches: [] };
+      groups.set(g0.key, g);
+    }
+    g.matches.push({
+      id: r.id,
+      capturedAt: r.captured_at,
+      kind: r.kind,
+      direction: typeof payload.direction === "string" ? payload.direction : undefined,
+      text: typeof payload.text === "string" ? payload.text : undefined,
+      number: typeof payload.number === "string" ? payload.number : undefined,
+      name: typeof payload.name === "string" ? payload.name : undefined,
+      app: typeof payload.app === "string" ? payload.app : undefined,
+    });
+  }
+  const out = [...groups.values()]
+    .map((g) => ({ ...g, count: g.matches.length }))
+    .sort((a, b) => {
+      const am = a.matches[0] as { capturedAt: string };
+      const bm = b.matches[0] as { capturedAt: string };
+      return am.capturedAt < bm.capturedAt ? 1 : -1;
+    });
+  return c.json({ term, totalMatches: total, groups: out });
 });
 
 // --- App limits (rules) -----------------------------------------------------

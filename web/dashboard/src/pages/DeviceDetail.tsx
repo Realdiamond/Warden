@@ -29,6 +29,7 @@ import {
   ChevronRight,
   ListChecks,
   Check,
+  Eye,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -43,6 +44,7 @@ import {
 } from "../api.ts";
 import { LocationMap, type Point } from "../components/LocationMap.tsx";
 import { LiveScreen } from "../components/LiveScreen.tsx";
+import { Watchlist } from "../components/Watchlist.tsx";
 import {
   appName,
   avatarHue,
@@ -294,6 +296,7 @@ type TabId =
   | "chats"
   | "notifications"
   | "calls"
+  | "watchlist"
   | "location"
   | "apps"
   | "live"
@@ -305,6 +308,7 @@ const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: "chats", label: "Chats", icon: MessageSquare },
   { id: "notifications", label: "Alerts", icon: Bell },
   { id: "calls", label: "Calls", icon: Phone },
+  { id: "watchlist", label: "Watchlist", icon: Eye },
   { id: "location", label: "Location", icon: MapPin },
   { id: "apps", label: "Apps", icon: AppWindow },
   { id: "live", label: "Live", icon: ScreenShare },
@@ -373,6 +377,24 @@ const PAGE = 40;
 
 /* ---------------------------------------------------------------- page */
 
+/** Day filter shared by Chats / Alerts / Calls. */
+function DaySelect({ value, onChange, days }: { value: string; onChange: (v: string) => void; days: string[] }) {
+  if (days.length === 0) return null;
+  return (
+    <label className="day-select">
+      <span className="day-select-label">Day</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="Filter by day">
+        <option value="all">All days</option>
+        {days.map((d) => (
+          <option key={d} value={d}>
+            {dayLabel(d)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function DeviceDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
@@ -388,6 +410,8 @@ export function DeviceDetail() {
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [notifSearch, setNotifSearch] = useState("");
   const [callSearch, setCallSearch] = useState("");
+  // Day filter shared by Chats / Alerts / Calls: "all" or a toDateString() value.
+  const [dayFilter, setDayFilter] = useState<string>("all");
   const [tab, setTab] = useState<TabId>("today");
   const [pairCode, setPairCode] = useState<string | null>(null);
   const [relinkBusy, setRelinkBusy] = useState(false);
@@ -481,23 +505,37 @@ export function DeviceDetail() {
       : conversations[0]?.key ?? null;
   const active = conversations.find((c) => c.key === activeKey) ?? null;
 
+  // The distinct days present across chats, alerts and calls — fed into the day filter.
+  const dayOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of messages) set.add(new Date(m.capturedAt).toDateString());
+    for (const c of calls) set.add(new Date(c.capturedAt).toDateString());
+    return [...set].sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  }, [messages, calls]);
+  const onDay = useCallback(
+    (iso: string) => dayFilter === "all" || new Date(iso).toDateString() === dayFilter,
+    [dayFilter],
+  );
+
   const notifQuery = notifSearch.trim().toLowerCase();
-  const notifFiltered = notifQuery
-    ? notifMsgs.filter((m) => {
-        const sender = (m.payload.sender ?? "").toLowerCase();
-        const text = (m.payload.text ?? "").toLowerCase();
-        return sender.includes(notifQuery) || text.includes(notifQuery) || appName(m.payload.app).toLowerCase().includes(notifQuery);
-      })
-    : notifMsgs;
+  const notifFiltered = notifMsgs.filter((m) => {
+    if (!onDay(m.capturedAt)) return false;
+    if (!notifQuery) return true;
+    const sender = (m.payload.sender ?? "").toLowerCase();
+    const text = (m.payload.text ?? "").toLowerCase();
+    return sender.includes(notifQuery) || text.includes(notifQuery) || appName(m.payload.app).toLowerCase().includes(notifQuery);
+  });
 
   const callQuery = callSearch.trim().toLowerCase();
-  const callsFiltered = callQuery
-    ? calls.filter((c) => {
-        const name = (c.payload.name ?? "").toLowerCase();
-        const number = (c.payload.number ?? "").toLowerCase();
-        return name.includes(callQuery) || number.includes(callQuery);
-      })
-    : calls;
+  const callsFiltered = calls.filter((c) => {
+    if (!onDay(c.capturedAt)) return false;
+    if (!callQuery) return true;
+    const name = (c.payload.name ?? "").toLowerCase();
+    const number = (c.payload.number ?? "").toLowerCase();
+    return name.includes(callQuery) || number.includes(callQuery);
+  });
+
+  const activeMessages = active ? active.messages.filter((m) => onDay(m.at)) : [];
 
   const knownApps = Array.from(new Set([...usage.map((u) => u.packageName), ...blocked])).sort();
   async function toggleBlock(pkg: string) {
@@ -769,6 +807,11 @@ export function DeviceDetail() {
                 {conversations.length > 0 && (
                   <span className="panel-head-meta">{pluralize(conversations.length, "conversation")}</span>
                 )}
+                {conversations.length > 0 && (
+                  <div className="panel-head-right">
+                    <DaySelect value={dayFilter} onChange={setDayFilter} days={dayOptions} />
+                  </div>
+                )}
               </div>
 
               {conversations.length === 0 ? (
@@ -816,8 +859,11 @@ export function DeviceDetail() {
                           </div>
                         </div>
                         <div className="thread-body">
-                          {active.messages.map((m, i) => {
-                            const prev = active.messages[i - 1];
+                          {activeMessages.length === 0 && (
+                            <p className="panel-empty">No messages in this chat on the chosen day.</p>
+                          )}
+                          {activeMessages.map((m, i) => {
+                            const prev = activeMessages[i - 1];
                             const showDay = !prev || new Date(prev.at).toDateString() !== new Date(m.at).toDateString();
                             return (
                               <Fragment key={m.id}>
@@ -870,21 +916,36 @@ export function DeviceDetail() {
                         <X size={14} />
                       </button>
                     )}
+                    <DaySelect value={dayFilter} onChange={setDayFilter} days={dayOptions} />
                   </div>
                   {notifFiltered.length === 0 ? (
-                    <p className="panel-empty">No alerts match "{notifSearch}".</p>
+                    <p className="panel-empty">
+                      {notifSearch ? `No alerts match "${notifSearch}".` : "No alerts on the chosen day."}
+                    </p>
                   ) : (
                     <ul className="messages-list" data-testid="notif-list">
-                      {notifFiltered.map((m) => (
-                        <li key={m.id} className="message-item">
-                          <div className="msg-head">
-                            <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
-                            <span className="msg-app">{appName(m.payload.app)}</span>
-                            <span className="msg-time">{new Date(m.capturedAt).toLocaleString()}</span>
-                          </div>
-                          <div className="msg-text">{m.payload.text}</div>
-                        </li>
-                      ))}
+                      {notifFiltered.map((m, i) => {
+                        const prev = notifFiltered[i - 1];
+                        const showDay =
+                          !prev || new Date(prev.capturedAt).toDateString() !== new Date(m.capturedAt).toDateString();
+                        return (
+                          <Fragment key={m.id}>
+                            {showDay && (
+                              <li className="day-row" aria-hidden="true">
+                                <span>{dayLabel(m.capturedAt)}</span>
+                              </li>
+                            )}
+                            <li className="message-item">
+                              <div className="msg-head">
+                                <span className="msg-sender">{m.payload.sender ?? "Unknown"}</span>
+                                <span className="msg-app">{appName(m.payload.app)}</span>
+                                <span className="msg-time">{shortTime(m.capturedAt)}</span>
+                              </div>
+                              <div className="msg-text">{m.payload.text}</div>
+                            </li>
+                          </Fragment>
+                        );
+                      })}
                     </ul>
                   )}
                 </>
@@ -918,31 +979,49 @@ export function DeviceDetail() {
                         <X size={14} />
                       </button>
                     )}
+                    <DaySelect value={dayFilter} onChange={setDayFilter} days={dayOptions} />
                   </div>
                   {callsFiltered.length === 0 ? (
-                    <p className="panel-empty">No calls match "{callSearch}".</p>
+                    <p className="panel-empty">
+                      {callSearch ? `No calls match "${callSearch}".` : "No calls on the chosen day."}
+                    </p>
                   ) : (
                     <ul className="row-list" data-testid="calls">
-                      {callsFiltered.map((c) => (
-                        <li key={c.id} className="row-item">
-                          <span className="row-icon">{callIcon(c.payload.direction)}</span>
-                          <div className="row-main">
-                            <span className="row-title">{c.payload.name ?? c.payload.number ?? "Unknown"}</span>
-                            <span className="row-sub">
-                              {c.payload.name && c.payload.number ? `${c.payload.number}, ` : ""}
-                              {formatCallDuration(c.payload.durationSec)}
-                            </span>
-                          </div>
-                          <span className={`call-dir call-${c.payload.direction}`}>{c.payload.direction}</span>
-                          <span className="row-time">{new Date(c.capturedAt).toLocaleString()}</span>
-                        </li>
-                      ))}
+                      {callsFiltered.map((c, i) => {
+                        const prev = callsFiltered[i - 1];
+                        const showDay =
+                          !prev || new Date(prev.capturedAt).toDateString() !== new Date(c.capturedAt).toDateString();
+                        return (
+                          <Fragment key={c.id}>
+                            {showDay && (
+                              <li className="day-row" aria-hidden="true">
+                                <span>{dayLabel(c.capturedAt)}</span>
+                              </li>
+                            )}
+                            <li className="row-item">
+                              <span className="row-icon">{callIcon(c.payload.direction)}</span>
+                              <div className="row-main">
+                                <span className="row-title">{c.payload.name ?? c.payload.number ?? "Unknown"}</span>
+                                <span className="row-sub">
+                                  {c.payload.name && c.payload.number ? `${c.payload.number}, ` : ""}
+                                  {formatCallDuration(c.payload.durationSec)}
+                                </span>
+                              </div>
+                              <span className={`call-dir call-${c.payload.direction}`}>{c.payload.direction}</span>
+                              <span className="row-time">{shortTime(c.capturedAt)}</span>
+                            </li>
+                          </Fragment>
+                        );
+                      })}
                     </ul>
                   )}
                 </>
               )}
             </section>
           )}
+
+          {/* ------------------------------------------------------------- Watchlist */}
+          {tab === "watchlist" && <Watchlist deviceId={id} />}
 
           {/* ------------------------------------------------------------- Location */}
           {tab === "location" && (

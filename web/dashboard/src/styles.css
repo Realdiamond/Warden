@@ -1730,3 +1730,80 @@ input:focus {
     flex-wrap: wrap;
   }
 }
+
+/* ------------------------------------------------------------------ Day filter + date rows */
+.panel-head-right { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+.day-select { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; color: var(--faint); }
+.day-select-label { font-weight: 600; }
+.day-select select {
+  font: inherit; font-size: 0.85rem; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0.38rem 0.6rem; cursor: pointer;
+}
+.day-row { list-style: none; display: flex; justify-content: center; margin: 0.5rem 0; padding: 0; }
+.day-row span {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--faint); background: var(--surface-2); border: 1px solid var(--line);
+  padding: 0.2rem 0.7rem; border-radius: var(--r-full);
+}
+
+/* ------------------------------------------------------------------ Watchlist */
+.wl-add { display: flex; gap: 0.6rem; align-items: stretch; margin-bottom: 0.8rem; }
+.wl-input { flex: 1; margin: 0; }
+.wl-add .primary { white-space: nowrap; }
+.wl-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+.wl-chip {
+  display: inline-flex; align-items: center; gap: 0.3rem; border: 1px solid var(--line);
+  background: var(--surface); border-radius: var(--r-full); padding: 0.1rem 0.3rem 0.1rem 0.1rem;
+}
+.wl-chip-label {
+  border: 0; background: transparent; font: inherit; font-size: 0.82rem; font-weight: 600;
+  color: var(--ink-2); cursor: pointer; padding: 0.3rem 0.5rem; border-radius: var(--r-full);
+}
+.wl-chip.number .wl-chip-label { font-variant-numeric: tabular-nums; }
+.wl-chip.active { background: var(--primary); border-color: var(--primary); }
+.wl-chip.active .wl-chip-label { color: var(--primary-ink); }
+.wl-chip-x {
+  display: grid; place-items: center; width: 22px; height: 22px; border: 0; background: transparent;
+  color: var(--faint); cursor: pointer; border-radius: var(--r-full);
+}
+.wl-chip.active .wl-chip-x { color: var(--primary-wash); }
+.wl-chip-x:hover { background: var(--sunk); }
+.wl-summary { font-size: 0.9rem; color: var(--muted); margin-bottom: 0.9rem; }
+.wl-group {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+  margin-bottom: 0.9rem; overflow: hidden;
+}
+.wl-ghead { display: flex; align-items: center; gap: 0.7rem; padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--line); }
+.wl-badge {
+  width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+  color: #fff; font-weight: 800; font-size: 0.78rem; flex: none;
+}
+.wl-badge.call { background: var(--t-call); }
+.wl-gmeta { min-width: 0; }
+.wl-gname { font-weight: 700; font-size: 0.95rem; color: var(--ink); }
+.wl-gapp { font-size: 0.75rem; color: var(--faint); }
+.wl-gcount {
+  margin-left: auto; font-size: 0.72rem; font-weight: 700; color: var(--primary);
+  background: var(--primary-wash); border-radius: var(--r-full); padding: 0.22rem 0.6rem;
+}
+.wl-items { padding: 0.55rem 0.7rem 0.75rem; }
+.wl-day { display: flex; justify-content: center; margin: 0.5rem 0; }
+.wl-day { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--faint); }
+.wl-msg-row { display: flex; padding: 0.15rem 0; }
+.wl-msg-row.out { justify-content: flex-end; }
+.wl-bubble {
+  max-width: 78%; padding: 0.5rem 0.65rem; border-radius: 14px; font-size: 0.9rem; line-height: 1.4;
+}
+.wl-bubble.in { background: var(--surface-2); border: 1px solid var(--line); border-bottom-left-radius: 5px; }
+.wl-bubble.out { background: var(--primary); color: var(--primary-ink); border-bottom-right-radius: 5px; }
+.wl-text { display: block; }
+.wl-time { display: block; font-size: 0.66rem; opacity: 0.6; margin-top: 0.2rem; }
+.wl-call { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.1rem; border-bottom: 1px solid var(--line); }
+.wl-call:last-child { border-bottom: 0; }
+.wl-call-main { flex: 1; font-size: 0.9rem; color: var(--ink); min-width: 0; }
+.wl-call-num { color: var(--faint); font-variant-numeric: tabular-nums; }
+.wl-call .wl-time { margin-top: 0; }
+.wl-results mark { background: #ffe08a; color: #3a2d00; border-radius: 4px; padding: 0 2px; font-weight: 700; }
+.wl-bubble.out mark { background: #ffe9a6; }
+:root[data-theme="dark"] .wl-results mark,
+:root:not([data-theme="light"]) .wl-results mark { background: #bb9330; color: #140f00; }

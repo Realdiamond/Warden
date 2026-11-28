@@ -27,7 +27,39 @@ const eventSchema = z.object({
   kind: z.string(),
   capturedAt: z.string(),
   payload: z.unknown(),
+  // Offline sync: a stable id the device assigns so a re-sent event is de-duplicated, not stored twice.
+  clientId: z.string().min(1).max(80).optional(),
 });
+
+const batchSchema = z.object({
+  events: z.array(eventSchema).min(1).max(200),
+});
+
+/**
+ * Insert one event for a device, de-duplicating on clientId. Returns the stored id (existing one
+ * if this clientId was already seen). Returns null for an unknown kind so the caller can decide.
+ */
+function insertEvent(
+  deviceId: string,
+  e: { kind: string; capturedAt: string; payload?: unknown; clientId?: string },
+  now: string,
+): { id: string; deduped: boolean } | null {
+  if (!isEventKind(e.kind)) return null;
+  if (e.clientId) {
+    const existing = db
+      .prepare("SELECT id FROM events WHERE device_id = ? AND client_id = ?")
+      .get(deviceId, e.clientId) as { id: string } | undefined;
+    if (existing) return { id: existing.id, deduped: true };
+  }
+  const sensitive = isSensitiveKind(e.kind as EventKind);
+  const stored = sensitive ? encryptJson(e.payload) : JSON.stringify(e.payload ?? null);
+  const id = randomUUID();
+  db.prepare(
+    `INSERT INTO events (id, device_id, kind, captured_at, received_at, payload, encrypted, client_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, deviceId, e.kind, e.capturedAt, now, stored, sensitive ? 1 : 0, e.clientId ?? null);
+  return { id, deduped: false };
+}
 
 interface EventRow {
   id: string;
@@ -48,21 +80,45 @@ export function registerEventRoutes(app: FastifyInstance): void {
 
     const parsed = eventSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body" });
-    const { kind, capturedAt, payload } = parsed.data;
-    if (!isEventKind(kind)) return reply.code(400).send({ error: "unknown_kind" });
+    if (!isEventKind(parsed.data.kind)) return reply.code(400).send({ error: "unknown_kind" });
 
-    const sensitive = isSensitiveKind(kind as EventKind);
-    const stored = sensitive ? encryptJson(payload) : JSON.stringify(payload ?? null);
     const now = new Date().toISOString();
-    const id = randomUUID();
-
-    db.prepare(
-      `INSERT INTO events (id, device_id, kind, captured_at, received_at, payload, encrypted)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(id, device.id, kind, capturedAt, now, stored, sensitive ? 1 : 0);
+    const result = insertEvent(device.id, parsed.data, now);
+    if (!result) return reply.code(400).send({ error: "unknown_kind" });
     db.prepare("UPDATE devices SET last_seen_at = ? WHERE id = ?").run(now, device.id);
 
-    return reply.code(201).send({ id });
+    return reply.code(201).send({ id: result.id, deduped: result.deduped });
+  });
+
+  // Offline sync: the monitored device flushes a batch of buffered events at once. Each is
+  // de-duplicated on its clientId, so re-sending after a dropped connection never doubles data.
+  app.post("/v1/events/batch", async (req, reply) => {
+    const device = authenticateDevice(req);
+    if (!device) return reply.code(401).send({ error: "invalid_device_token" });
+    if (!device.consent) return reply.code(403).send({ error: "consent_not_recorded" });
+
+    const parsed = batchSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_body" });
+
+    const now = new Date().toISOString();
+    const ids: string[] = [];
+    let stored = 0;
+    db.exec("BEGIN");
+    try {
+      for (const e of parsed.data.events) {
+        const r = insertEvent(device.id, e, now);
+        if (!r) continue; // skip unknown kinds rather than failing the whole batch
+        ids.push(r.id);
+        if (!r.deduped) stored += 1;
+      }
+      db.exec("COMMIT");
+    } catch (err) {
+      db.exec("ROLLBACK");
+      throw err;
+    }
+    db.prepare("UPDATE devices SET last_seen_at = ? WHERE id = ?").run(now, device.id);
+
+    return reply.code(201).send({ accepted: ids.length, stored, ids });
   });
 
   // The parent reads a device's events.

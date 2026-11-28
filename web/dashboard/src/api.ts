@@ -65,6 +65,32 @@ export interface EventEnvelope<P = unknown> {
   payload: P;
 }
 
+export interface WatchTerm {
+  id: string;
+  term: string;
+  createdAt: string;
+}
+
+export interface WatchMatch {
+  id: string;
+  capturedAt: string;
+  kind: "message" | "call";
+  direction?: string;
+  text?: string;
+  number?: string;
+  name?: string;
+  app?: string;
+}
+
+export interface WatchGroup {
+  key: string;
+  title: string;
+  app: string;
+  kind: string;
+  count: number;
+  matches: WatchMatch[];
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -138,5 +164,17 @@ export const api = {
   getEvents: (id: string, kind?: string, limit = 100) =>
     req<{ events: EventEnvelope[] }>(
       `/v1/devices/${id}/events?${new URLSearchParams({ ...(kind ? { kind } : {}), limit: String(limit) })}`,
+    ),
+  listWatchTerms: (id: string) => req<{ terms: WatchTerm[] }>(`/v1/devices/${id}/watch-terms`),
+  addWatchTerm: (id: string, term: string) =>
+    req<{ term: WatchTerm }>(`/v1/devices/${id}/watch-terms`, {
+      method: "POST",
+      body: JSON.stringify({ term }),
+    }),
+  deleteWatchTerm: (id: string, termId: string) =>
+    req<{ deleted: boolean }>(`/v1/devices/${id}/watch-terms/${termId}`, { method: "DELETE" }),
+  getWatchMatches: (id: string, term: string) =>
+    req<{ term: string; totalMatches: number; groups: WatchGroup[] }>(
+      `/v1/devices/${id}/watch-matches?${new URLSearchParams({ term })}`,
     ),
 };

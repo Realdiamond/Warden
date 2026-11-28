@@ -37,10 +37,24 @@ CREATE TABLE IF NOT EXISTS events (
   captured_at TEXT NOT NULL,
   received_at TEXT NOT NULL,
   payload     TEXT NOT NULL,
-  encrypted   INTEGER NOT NULL
+  encrypted   INTEGER NOT NULL,
+  client_id   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_events_device_kind_time
   ON events(device_id, kind, captured_at DESC);
+-- Offline sync de-duplication: a re-sent event (same device + client_id) is ignored.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_events_client
+  ON events(device_id, client_id) WHERE client_id IS NOT NULL;
+
+-- Watchlist: per-device names / numbers / keywords the parent collects.
+CREATE TABLE IF NOT EXISTS watch_terms (
+  id         TEXT PRIMARY KEY,
+  device_id  TEXT NOT NULL REFERENCES devices(id),
+  term       TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_watch_device ON watch_terms(device_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_watch_unique ON watch_terms(device_id, term);
 
 CREATE TABLE IF NOT EXISTS commands (
   id         TEXT PRIMARY KEY,
