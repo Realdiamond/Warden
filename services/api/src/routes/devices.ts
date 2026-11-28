@@ -117,6 +117,7 @@ export function registerDeviceRoutes(app: FastifyInstance): void {
     if (!owned) return reply.code(404).send({ error: "not_found" });
     db.prepare("DELETE FROM events WHERE device_id = ?").run(id);
     db.prepare("DELETE FROM commands WHERE device_id = ?").run(id);
+    db.prepare("DELETE FROM watch_terms WHERE device_id = ?").run(id);
     db.prepare("DELETE FROM devices WHERE id = ?").run(id);
     return reply.send({ deleted: true });
   });

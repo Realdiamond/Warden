@@ -136,6 +136,17 @@ test("an event without a clientId is still stored (clientId is optional)", async
   assert.equal((await readEvents(accountToken, deviceId, "message")).length, 1);
 });
 
+test("deleting a device with watch terms succeeds (watch_terms are cleaned up)", async () => {
+  const { accountToken, deviceId, deviceToken } = await setup();
+  await app.inject({ method: "POST", url: `/v1/devices/${deviceId}/watch-terms`, headers: { authorization: `Bearer ${accountToken}` }, payload: { term: "money" } });
+  await ev(deviceToken, { kind: "message", capturedAt: new Date().toISOString(), payload: { app: "WhatsApp", text: "money", conversation: "X" }, clientId: "d1" });
+  const del = await app.inject({ method: "DELETE", url: `/v1/devices/${deviceId}`, headers: { authorization: `Bearer ${accountToken}` } });
+  assert.equal(del.statusCode, 200);
+  assert.equal(del.json().deleted, true);
+  const after = await app.inject({ method: "GET", url: `/v1/devices/${deviceId}`, headers: { authorization: `Bearer ${accountToken}` } });
+  assert.equal(after.statusCode, 404);
+});
+
 test("batch is rejected for a bad device token", async () => {
   const res = await app.inject({ method: "POST", url: "/v1/events/batch", headers: { authorization: "Bearer nope" }, payload: { events: [{ kind: "status", capturedAt: new Date().toISOString(), payload: {} }] } });
   assert.equal(res.statusCode, 401);

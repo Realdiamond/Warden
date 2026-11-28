@@ -253,6 +253,7 @@ app.delete("/v1/devices/:id", async (c) => {
   await c.env.DB.batch([
     c.env.DB.prepare("DELETE FROM events WHERE device_id = ?").bind(id),
     c.env.DB.prepare("DELETE FROM commands WHERE device_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM watch_terms WHERE device_id = ?").bind(id),
     c.env.DB.prepare("DELETE FROM devices WHERE id = ?").bind(id),
   ]);
   return c.json({ deleted: true });
