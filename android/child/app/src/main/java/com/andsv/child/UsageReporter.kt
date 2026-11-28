@@ -33,13 +33,12 @@ class UsageReporter(private val context: Context, private val store: Store) {
             }
         }
 
-        val api = Api(store.baseUrl)
         val capturedAt = Instant.now().toString()
         totals.entries
             .filter { it.value >= MIN_MS }
             .sortedByDescending { it.value }
             .take(MAX_APPS)
-            .forEach { api.postAppUsage(token, it.key, it.value, capturedAt) }
+            .forEach { EventSink.appUsage(context, it.key, it.value, capturedAt) }
     }
 
     companion object {

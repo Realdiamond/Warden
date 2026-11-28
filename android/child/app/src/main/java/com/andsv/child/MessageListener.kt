@@ -74,7 +74,7 @@ class MessageListener : NotificationListenerService() {
         val capturedAt = Instant.now().toString()
         lastCaptureAtMs = System.currentTimeMillis()
         scope.launch {
-            Api(store.baseUrl).postMessage(token, pkg, sender, text, capturedAt, source = "notification")
+            EventSink.message(applicationContext, pkg, sender, text, capturedAt, source = "notification")
         }
     }
 

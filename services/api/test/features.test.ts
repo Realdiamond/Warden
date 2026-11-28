@@ -87,6 +87,55 @@ test("batch flush stores all events, and re-flushing the same batch stores nothi
   assert.equal(all.length, 4); // not 8
 });
 
+test("partial re-delivery: a batch mixing already-sent and new events stores only the new ones", async () => {
+  const { accountToken, deviceId, deviceToken } = await setup();
+  const t = (n: number) => new Date(Date.now() + n).toISOString();
+  const first = {
+    events: [
+      { kind: "message", capturedAt: t(1), payload: { app: "WhatsApp", text: "a", conversation: "X" }, clientId: "p1" },
+      { kind: "message", capturedAt: t(2), payload: { app: "WhatsApp", text: "b", conversation: "X" }, clientId: "p2" },
+    ],
+  };
+  await app.inject({ method: "POST", url: "/v1/events/batch", headers: { authorization: `Bearer ${deviceToken}` }, payload: first });
+  // second flush re-includes p2 (server didn't confirm before a retry) plus a new p3
+  const second = {
+    events: [
+      { kind: "message", capturedAt: t(2), payload: { app: "WhatsApp", text: "b", conversation: "X" }, clientId: "p2" },
+      { kind: "message", capturedAt: t(3), payload: { app: "WhatsApp", text: "c", conversation: "X" }, clientId: "p3" },
+    ],
+  };
+  const res = await app.inject({ method: "POST", url: "/v1/events/batch", headers: { authorization: `Bearer ${deviceToken}` }, payload: second });
+  assert.equal(res.json().accepted, 2);
+  assert.equal(res.json().stored, 1); // only p3 is new
+  const all = await readEvents(accountToken, deviceId, "message");
+  assert.equal(all.length, 3); // a, b, c — no duplicate b
+});
+
+test("batch skips an unknown kind but stores the valid events", async () => {
+  const { accountToken, deviceId, deviceToken } = await setup();
+  const res = await app.inject({
+    method: "POST",
+    url: "/v1/events/batch",
+    headers: { authorization: `Bearer ${deviceToken}` },
+    payload: {
+      events: [
+        { kind: "message", capturedAt: new Date().toISOString(), payload: { app: "WhatsApp", text: "ok", conversation: "X" }, clientId: "k1" },
+        { kind: "bogus", capturedAt: new Date().toISOString(), payload: {}, clientId: "k2" },
+      ],
+    },
+  });
+  assert.equal(res.json().stored, 1);
+  const all = await readEvents(accountToken, deviceId);
+  assert.equal(all.length, 1);
+});
+
+test("an event without a clientId is still stored (clientId is optional)", async () => {
+  const { accountToken, deviceId, deviceToken } = await setup();
+  const res = await ev(deviceToken, { kind: "message", capturedAt: new Date().toISOString(), payload: { app: "WhatsApp", text: "no id", conversation: "X" } });
+  assert.equal(res.statusCode, 201);
+  assert.equal((await readEvents(accountToken, deviceId, "message")).length, 1);
+});
+
 test("batch is rejected for a bad device token", async () => {
   const res = await app.inject({ method: "POST", url: "/v1/events/batch", headers: { authorization: "Bearer nope" }, payload: { events: [{ kind: "status", capturedAt: new Date().toISOString(), payload: {} }] } });
   assert.equal(res.statusCode, 401);

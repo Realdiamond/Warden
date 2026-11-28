@@ -122,6 +122,13 @@ class Api(private val baseUrl: String) {
         code in 200..299
     }
 
+    /** Uploads a batch of buffered events. Returns the HTTP status (2xx = accepted). */
+    suspend fun postBatch(token: String, events: org.json.JSONArray): Int = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("events", events)
+        val (code, _) = post("/v1/events/batch", body.toString(), token)
+        code
+    }
+
     /** Fetches the block list the parent set for this device, or null on failure. */
     suspend fun getRules(token: String): Set<String>? = withContext(Dispatchers.IO) {
         val (code, text) = get("/v1/rules", token)

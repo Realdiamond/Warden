@@ -38,7 +38,6 @@ class CallLogReporter(private val context: Context, private val store: Store) {
             return@withContext // READ_CALL_LOG not granted yet
         } ?: return@withContext
 
-        val api = Api(store.baseUrl)
         var maxDate = since
 
         cursor.use { c ->
@@ -63,7 +62,7 @@ class CallLogReporter(private val context: Context, private val store: Store) {
                     CallLog.Calls.REJECTED_TYPE -> "rejected"
                     else -> "other"
                 }
-                api.postCall(token, number, name, direction, duration, Instant.ofEpochMilli(date).toString())
+                EventSink.call(context, number, name, direction, duration, Instant.ofEpochMilli(date).toString())
             }
         }
 

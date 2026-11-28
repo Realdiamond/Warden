@@ -59,6 +59,10 @@ class AndsvService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // Keep the offline buffer draining whenever a connection is available, even with no new
+        // captures (e.g. data that piled up while offline, or after a reboot).
+        SyncWorker.schedulePeriodic(this)
+        SyncWorker.scheduleNow(this)
         if (callback == null) {
             val request = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, INTERVAL_MS)
                 .setMinUpdateIntervalMillis(INTERVAL_MS)
@@ -69,7 +73,7 @@ class AndsvService : Service() {
                     val capturedAt = Instant.now().toString()
                     val accuracy = if (loc.hasAccuracy()) loc.accuracy else null
                     scope.launch {
-                        Api(store.baseUrl).postLocation(token, loc.latitude, loc.longitude, accuracy, capturedAt)
+                        EventSink.location(applicationContext, loc.latitude, loc.longitude, accuracy, capturedAt)
                     }
                 }
             }

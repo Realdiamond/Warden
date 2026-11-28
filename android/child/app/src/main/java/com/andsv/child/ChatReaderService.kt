@@ -105,13 +105,11 @@ class ChatReaderService : AccessibilityService() {
             if (fresh.isEmpty()) return
 
             lastCaptureAtMs = System.currentTimeMillis()
-            val baseUrl = store.baseUrl
             scope.launch {
-                val api = Api(baseUrl)
                 for (l in fresh) {
                     val sender = if (l.direction == "out") "You" else chatName
-                    api.postMessage(
-                        token, pkg, sender, l.text, Instant.now().toString(),
+                    EventSink.message(
+                        applicationContext, pkg, sender, l.text, Instant.now().toString(),
                         source = "chat", direction = l.direction, conversation = chatName,
                     )
                 }
